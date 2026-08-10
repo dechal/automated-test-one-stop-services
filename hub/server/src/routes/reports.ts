@@ -11,6 +11,7 @@ import {
   lockReport,
   unlockReport,
 } from '../services/reports.js';
+import { type ArtifactTestInfo, artifactTestIndex } from '../services/run-compare.js';
 import {
   getTraceProcess,
   killTraceProcess,
@@ -19,10 +20,16 @@ import {
 } from '../services/trace-processes.js';
 
 export interface ArtifactGroup {
-  /** Test folder name (e.g. "ta-negative-E2E-...") */
+  /** Test folder name on disk (e.g. "ta-negative-E2E-...") — never renamed. */
   name: string;
   traces: { name: string; path: string }[];
   videos: { name: string; path: string }[];
+  /**
+   * Readable identity of the test that produced this folder, joined from the
+   * run's `results.json`. Absent when the run kept no parseable report, in which
+   * case the UI falls back to `name`.
+   */
+  test?: ArtifactTestInfo;
 }
 
 export interface ReportArtifacts {
@@ -109,6 +116,17 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
         ) {
           scanArtifactsGrouped(path.join(runDir, sibling.name), artifacts);
         }
+      }
+    }
+
+    // Label each folder with its case. Display-time only: the directory keeps
+    // the name Playwright gave it, so traces, videos and any path the user
+    // copies still resolve.
+    const testIndex = artifactTestIndex(reportPath);
+    if (testIndex) {
+      for (const group of artifacts.groups) {
+        const info = testIndex[group.name];
+        if (info) group.test = info;
       }
     }
 

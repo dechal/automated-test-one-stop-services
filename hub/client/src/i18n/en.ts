@@ -914,6 +914,9 @@ export const en = {
   'artifactMenu.traceFailed': "Couldn't open the trace viewer",
   'artifactMenu.pathCopied': 'Folder path copied',
   'artifactMenu.videoTitle': 'Test video',
+  'artifactMenu.searchPlaceholder': 'Search by case id, title, tag or folder',
+  'artifactMenu.filteredFrom': 'filtered from',
+  'artifactMenu.noMatch': 'No test matches this search.',
 
   // Schedule notifications
   'schedule.completed': 'Schedule completed',

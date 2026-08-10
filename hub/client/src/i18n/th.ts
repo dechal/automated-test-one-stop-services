@@ -903,6 +903,9 @@ export const th: Record<TranslationKey, string> = {
   'artifactMenu.traceFailed': 'เปิด trace viewer ไม่ได้',
   'artifactMenu.pathCopied': 'คัดลอกที่อยู่โฟลเดอร์แล้ว',
   'artifactMenu.videoTitle': 'วิดีโอการเทส',
+  'artifactMenu.searchPlaceholder': 'ค้นหาด้วยรหัสเคส ชื่อเคส แท็ก หรือชื่อโฟลเดอร์',
+  'artifactMenu.filteredFrom': 'กรองจากทั้งหมด',
+  'artifactMenu.noMatch': 'ไม่พบเคสที่ตรงกับคำค้นนี้',
 
   // Schedule notifications
   'schedule.completed': 'ตารางเวลารันเสร็จแล้ว',

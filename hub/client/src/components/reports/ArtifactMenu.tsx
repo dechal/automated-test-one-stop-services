@@ -8,12 +8,13 @@ import {
   ScrollArea,
   Stack,
   Text,
+  TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { TbCopy, TbDots, TbFolder, TbPlayerPlay, TbRoute } from 'react-icons/tb';
+import { TbCopy, TbDots, TbFolder, TbPlayerPlay, TbRoute, TbSearch } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
@@ -22,6 +23,19 @@ export interface ArtifactGroup {
   name: string;
   traces: { name: string; path: string }[];
   videos: { name: string; path: string }[];
+  /**
+   * Readable identity of the test behind the folder, joined server-side from the
+   * run's `results.json`. Absent for older runs that kept no parseable report —
+   * the UI then falls back to `name`.
+   */
+  test?: {
+    title: string;
+    caseId?: string;
+    status: 'passed' | 'failed';
+    tags: string[];
+    file?: string;
+    line?: number;
+  };
 }
 
 export interface ArtifactData {
@@ -45,6 +59,8 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [runningTraces, setRunningTraces] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 300);
 
   // Track every trace-status poll interval so they are all cleared on unmount.
   // Without this, closing the modal / navigating away while a trace is opening
@@ -181,6 +197,27 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
     0,
   );
 
+  // Search across everything that identifies a test — case id, title, tags and
+  // the raw folder name — so whichever of those the user remembers will find it.
+  const needle = debouncedSearch.trim().toLowerCase();
+  const visibleGroups = (artifacts.data?.groups ?? []).filter((group) => {
+    if (!needle) return true;
+    const haystack = [
+      group.name,
+      group.test?.caseId ?? '',
+      group.test?.title ?? '',
+      group.test?.file ?? '',
+      ...(group.test?.tags ?? []),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(needle);
+  });
+  const visibleArtifacts = visibleGroups.reduce(
+    (sum, g) => sum + g.traces.length + g.videos.length,
+    0,
+  );
+
   return (
     <>
       <Tooltip label={t('artifactMenu.view')}>
@@ -234,12 +271,29 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
         )}
         {artifacts.data && totalArtifacts > 0 && (
           <Stack gap="xs">
+            <TextInput
+              size="xs"
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+              placeholder={t('artifactMenu.searchPlaceholder')}
+              leftSection={<TbSearch size={14} />}
+              autoFocus
+            />
             <Text size="xs" c="dimmed">
-              {totalArtifacts} artifact(s) in {artifacts.data.groups.length} test(s)
+              {visibleArtifacts} artifact(s) in {visibleGroups.length} test(s)
+              {needle ? ` — ${t('artifactMenu.filteredFrom')} ${artifacts.data.groups.length}` : ''}
             </Text>
-            {artifacts.data.groups.map((group) => {
+            {visibleGroups.length === 0 && (
+              <Text size="sm" c="dimmed">
+                {t('artifactMenu.noMatch')}
+              </Text>
+            )}
+            {visibleGroups.map((group) => {
               const isExpanded = expandedGroups.has(group.name);
-              const displayName = group.name === '_root' ? 'Root' : group.name;
+              // The case is the heading; the folder stays visible underneath it so
+              // the row still maps to what is on disk (and to Playwright's own
+              // report), which a rename-style relabel would have broken.
+              const heading = group.test?.title ?? (group.name === '_root' ? 'Root' : group.name);
               return (
                 <Paper key={group.name} withBorder style={{ overflow: 'hidden' }}>
                   <Button
@@ -248,16 +302,38 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
                     justify="space-between"
                     aria-expanded={isExpanded}
                     onClick={() => toggleGroup(group.name)}
+                    h="auto"
+                    py={6}
                     rightSection={
                       <Badge size="xs" color="gray" variant="light">
                         {group.traces.length + group.videos.length}
                       </Badge>
                     }
-                    styles={{ inner: { justifyContent: 'space-between' } }}
+                    styles={{
+                      inner: { justifyContent: 'space-between' },
+                      label: { whiteSpace: 'normal' },
+                    }}
                   >
-                    <Text size="xs" fw={500} truncate style={{ textAlign: 'left' }}>
-                      {displayName}
-                    </Text>
+                    <Stack gap={2} style={{ minWidth: 0, textAlign: 'left' }}>
+                      <Group gap={6} wrap="nowrap">
+                        {group.test?.caseId && (
+                          <Text size="xs" fw={700} ff="monospace" style={{ flexShrink: 0 }}>
+                            {group.test.caseId}
+                          </Text>
+                        )}
+                        <Text size="xs" fw={500} truncate>
+                          {heading}
+                        </Text>
+                        {group.test?.status === 'failed' && (
+                          <Badge size="xs" color="red" style={{ flexShrink: 0 }}>
+                            {t('run.failed')}
+                          </Badge>
+                        )}
+                      </Group>
+                      <Text size="10px" c="dimmed" ff="monospace" truncate>
+                        {group.name}
+                      </Text>
+                    </Stack>
                   </Button>
                   {isExpanded && (
                     <Stack gap={4} px="sm" pb="sm">
