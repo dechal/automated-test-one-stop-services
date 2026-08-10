@@ -79,10 +79,39 @@ export function useRunTerminal({ visible, refitKey, fontSize }: UseRunTerminalOp
     fitAddonRef.current = fitAddon;
     searchAddonRef.current = searchAddon;
     term.writeln('\x1b[90m[Hub] Ready. Configure and click Run.\x1b[0m');
-    const h = () => fitAddon.fit();
-    window.addEventListener('resize', h);
+
+    /**
+     * Refit on the NEXT frame, coalescing a burst of size changes into one fit.
+     * A zero-sized box (hidden tab, unmounting) is skipped: fitting against it
+     * would store a 0-column grid that survives until the next trigger.
+     */
+    let pending = 0;
+    const host = termRef.current;
+    const scheduleFit = () => {
+      if (pending) return;
+      pending = requestAnimationFrame(() => {
+        pending = 0;
+        if (!host?.clientWidth || !host.clientHeight) return;
+        fitAddon.fit();
+      });
+    };
+
+    /**
+     * Observe the CONTAINER, not the window. xterm paints a fixed character
+     * grid, so any box change it does not know about leaves rows wider than the
+     * clipped box — the terminal then visibly runs outside its frame. The
+     * container covers every cause at once: divider drags, the form collapsing,
+     * the sidebar rail, and window resizes.
+     */
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(scheduleFit);
+    if (observer && host) observer.observe(host);
+    // Fallback for environments without ResizeObserver (jsdom in unit tests).
+    if (!observer) window.addEventListener('resize', scheduleFit);
+
     return () => {
-      window.removeEventListener('resize', h);
+      if (pending) cancelAnimationFrame(pending);
+      observer?.disconnect();
+      if (!observer) window.removeEventListener('resize', scheduleFit);
       // Free xterm resources to avoid leaking DOM nodes when sessions close.
       term.dispose();
       terminalRef.current = null;

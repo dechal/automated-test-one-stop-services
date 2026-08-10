@@ -1197,7 +1197,10 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
               </Text>
             </Group>
           )}
-          <div ref={termRef} style={{ flex: 1, minHeight: 0 }} />
+          {/* `minWidth: 0` lets the box shrink below the grid xterm last fitted;
+              without it a flex child floors at its content width and the rows
+              push past the card instead of triggering a refit. */}
+          <div ref={termRef} style={{ flex: 1, minWidth: 0, minHeight: 0 }} />
         </Paper>
 
         {/* One row of `size="sm"` controls — the same Mantine size scale as the
