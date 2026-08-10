@@ -57,7 +57,10 @@ export function shouldShowGroup(checks: DoctorCheck[]): boolean {
 export function shouldAutoExpand(report: DoctorReport): boolean {
   return report.checks.some(
     (check) =>
-      !check.ok && (check.category === 'required-install' || check.category === 'optional-install'),
+      !check.ok &&
+      // Do not tear the panel open over a probe that merely ran out of time.
+      !check.unverified &&
+      (check.category === 'required-install' || check.category === 'optional-install'),
   );
 }
 
@@ -80,10 +83,15 @@ export interface SummaryBadge {
  */
 export function summaryBadge(checks: DoctorCheck[]): SummaryBadge {
   const required = checks.filter((check) => check.category === 'required-install');
-  const okCount = required.filter((check) => check.ok).length;
-  const allOk = okCount === required.length;
+  // An unverified probe (timed out under load) is not a failure — counting it as
+  // one made the badge shout "Action required" over an installed tool. It is
+  // excluded from the denominator too, so the ratio stays honest about what was
+  // actually measured.
+  const measured = required.filter((check) => !check.unverified);
+  const okCount = measured.filter((check) => check.ok).length;
+  const allOk = okCount === measured.length;
   return allOk
-    ? { text: `${okCount}/${required.length} OK`, ok: true }
+    ? { text: `${okCount}/${measured.length} OK`, ok: true }
     : { text: 'Action required', ok: false };
 }
 

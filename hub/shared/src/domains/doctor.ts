@@ -19,6 +19,16 @@ export interface DoctorCheck {
    * checks that have no Hub-driven install path.
    */
   install?: DoctorInstallKind;
+  /**
+   * The probe did not finish in time, so presence is UNKNOWN — not absent.
+   *
+   * A doctor probe shells out, and the sweep launches ~14 of them at once, so
+   * under load (a concurrent build, a test run, antivirus) a probe for an
+   * installed tool can exceed its timeout. Reporting that as a failure told
+   * users to install software they already had, so it is its own state:
+   * `ok` stays false, but nothing treats it as a verdict.
+   */
+  unverified?: boolean;
 }
 
 export interface DoctorReport {

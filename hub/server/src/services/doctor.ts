@@ -104,11 +104,23 @@ async function runCheck(def: CheckDef): Promise<DoctorCheck> {
   // spawn with `shell: false` fails to find them. Run with `shell: true` for
   // these probes (we control the argv, so there is no injection vector).
   const res = await runChild(def.cmd, def.args, {
-    timeoutMs: 10_000,
+    timeoutMs: PROBE_TIMEOUT_MS,
     shell: process.platform === 'win32',
   });
   if (res.ok) {
     return { name: def.name, ok: true, version: res.stdout.trim(), category: def.category };
+  }
+  // A timeout says nothing about whether the tool is installed — only that the
+  // machine was too busy to answer. Telling the user to install pnpm because
+  // `pnpm -v` was slow is worse than saying nothing, so keep the two apart.
+  if (res.timedOut) {
+    return {
+      name: def.name,
+      ok: false,
+      unverified: true,
+      hint: `Could not verify in ${PROBE_TIMEOUT_MS / 1000}s — the machine was busy. Retry when the run finishes.`,
+      category: def.category,
+    };
   }
   return { name: def.name, ok: false, hint: def.hint, category: def.category };
 }
@@ -186,7 +198,9 @@ export function toolCheckCategory(present: boolean): DoctorCategory {
  * `optional-install` self-check drops out naturally.
  */
 export function computeOverallOk(checks: readonly DoctorCheck[]): boolean {
-  return checks.filter((c) => c.category === 'required-install').every((c) => c.ok);
+  return checks
+    .filter((c) => c.category === 'required-install' && !c.unverified)
+    .every((c) => c.ok);
 }
 
 /** The benign, passing self-check emitted when a tool's folder is absent. */
@@ -318,7 +332,19 @@ function checkCredentials(): boolean {
 }
 
 let lastReport: { value: DoctorReport; at: number } | null = null;
-const DOCTOR_CACHE_TTL_MS = 10_000;
+/**
+ * Per-probe limit. Every probe spawns a child process (through `cmd.exe` on
+ * Windows), so this is a load ceiling, not a measure of how slow any tool is.
+ */
+const PROBE_TIMEOUT_MS = 10_000;
+
+/**
+ * Must stay comfortably LONGER than the client's `qDoctor().staleTime`. When the
+ * two were both 10s, every refetch-on-mount / refetch-on-focus landed just as
+ * this cache expired, so opening the Dashboard re-paid the full ~3s sweep almost
+ * every time — the cache existed but practically never hit.
+ */
+const DOCTOR_CACHE_TTL_MS = 60_000;
 
 /**
  * Run all environment health checks concurrently. Cached briefly because the

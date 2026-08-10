@@ -20,6 +20,7 @@ import {
   TbCircleCheck,
   TbCircleX,
   TbDownload,
+  TbHelpCircle,
   TbRefresh,
 } from 'react-icons/tb';
 import { useInstallPython, useProvisionTool } from '~/hooks/useTools.js';
@@ -301,21 +302,32 @@ function CheckCard({
   install: InstallState;
 }) {
   const [showFix, setShowFix] = useState(false);
-  const FailIcon = cat.failIcon === 'warn' ? TbAlertTriangle : TbCircleX;
-  const failColor =
-    cat.failIcon === 'warn' ? 'var(--mantine-color-yellow-6)' : 'var(--mantine-color-red-6)';
-  const hintColor = cat.failIcon === 'warn' ? 'yellow.8' : 'red';
+  // An unverified check reads as "unknown", never as broken: neutral icon and
+  // neutral text, so a busy machine cannot make an installed tool look missing.
+  const FailIcon = check.unverified
+    ? TbHelpCircle
+    : cat.failIcon === 'warn'
+      ? TbAlertTriangle
+      : TbCircleX;
+  const failColor = check.unverified
+    ? 'var(--mantine-color-dimmed)'
+    : cat.failIcon === 'warn'
+      ? 'var(--mantine-color-yellow-6)'
+      : 'var(--mantine-color-red-6)';
+  const hintColor = check.unverified ? 'dimmed' : cat.failIcon === 'warn' ? 'yellow.8' : 'red';
 
   // A failing tool check (e.g. playwright-browsers, k6) can be re-provisioned by
   // re-running the tool's `setup` task. Generic checks have no provision target.
   const t = useT();
-  const provisionTarget = check.ok ? undefined : provisionTargetFor(check.name);
+  // No install/provision action while presence is unknown — the tool is probably
+  // there, and re-provisioning it would be a slow no-op.
+  const provisionTarget = check.ok || check.unverified ? undefined : provisionTargetFor(check.name);
   const isProvisioning = provisionTarget !== undefined && provision.pendingId === provisionTarget;
   const provisionFailed = provisionTarget !== undefined && provision.failedId === provisionTarget;
 
   // A failing check that carries an `install` kind (currently only `python`)
   // offers a one-click Hub-driven install instead of a shell command.
-  const showInstall = !check.ok && check.install === 'python';
+  const showInstall = !check.ok && !check.unverified && check.install === 'python';
 
   // Ordered install gate: an installable/provisionable check can only proceed
   // once its prerequisite checks pass (python needs uv; browsers need node+pnpm).
@@ -328,7 +340,11 @@ function CheckCard({
     <Card
       p="xs"
       withBorder
-      style={check.ok ? undefined : { borderLeftWidth: 3, borderLeftColor: cat.failAccent }}
+      style={
+        check.ok || check.unverified
+          ? undefined
+          : { borderLeftWidth: 3, borderLeftColor: cat.failAccent }
+      }
     >
       <Group gap={6} wrap="nowrap">
         {check.ok ? (

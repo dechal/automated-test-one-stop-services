@@ -76,6 +76,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
       };
     }
     const result = await taskCmd(SERVICE_START_CMD[service]);
+    invalidateDockerStatusCache();
     return { success: result.ok, output: result.output };
   });
 
@@ -86,6 +87,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
       return { code: 'INVALID_SERVICE', message: `Invalid service: ${service}` };
     }
     const result = await compose(['stop', service]);
+    invalidateDockerStatusCache();
     return { success: result.ok, output: result.output };
   });
 
@@ -102,6 +104,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
         return { code: 'DOCKER_NOT_RUNNING', message: 'Docker is not running.' };
       }
       const result = await compose(['restart', service]);
+      invalidateDockerStatusCache();
       return { success: result.ok, output: result.output };
     },
   );
@@ -112,6 +115,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
       return { code: 'DOCKER_NOT_RUNNING', message: 'Docker is not running.' };
     }
     const results = await Promise.all([taskCmd(SERVICE_START_CMD.grafana)]);
+    invalidateDockerStatusCache();
     const allOk = results.every((r) => r.ok);
     const output = results.map((r) => r.output).join('\n');
     return { success: allOk, output };
@@ -119,6 +123,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/docker/stop-all', async () => {
     const result = await compose(['stop']);
+    invalidateDockerStatusCache();
     return { success: result.ok, output: result.output };
   });
 }

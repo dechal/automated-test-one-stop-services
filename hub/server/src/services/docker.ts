@@ -1,16 +1,28 @@
 import { WORKSPACE_ROOT } from '../config.js';
 import { runChild } from './exec.js';
 
-/** Cached "is docker daemon up?" — recomputed at most once every 3s. */
+/**
+ * Cached "is docker daemon up?".
+ *
+ * These two TTLs were 3s, well under the doctor's own cache, so `docker info`
+ * and `docker compose ps` re-ran on nearly every sweep — and they are the only
+ * probes that leave the machine (the CLI talks to Docker Desktop, which does its
+ * own registry / update work). Both are now longer-lived, which is only safe
+ * because every route that starts or stops something calls
+ * `invalidateDockerStatusCache()` — `routes/docker.ts` did that for
+ * `docker/start` alone, so service start/stop/restart and stop-all were added at
+ * the same time as this TTL. A cache this long without them would keep reporting
+ * a service the user just stopped as running.
+ */
 let dockerRunningCache: { value: boolean; checkedAt: number } | null = null;
-const DOCKER_CACHE_TTL_MS = 3_000;
+const DOCKER_CACHE_TTL_MS = 30_000;
 
 /**
  * Cache for `docker compose ps` results so back-to-back calls (the doctor
  * checks 3 services at once) reuse a single subprocess invocation.
  */
 let composeStatusCache: { value: Map<string, ServiceStatus>; checkedAt: number } | null = null;
-const COMPOSE_CACHE_TTL_MS = 3_000;
+const COMPOSE_CACHE_TTL_MS = 30_000;
 
 /**
  * Check whether the Docker daemon is responding to `docker info`.
