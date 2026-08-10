@@ -111,7 +111,6 @@ export const en = {
     'Use this after adding a project or tool outside the Hub — it finds them and rebuilds the files they need.',
   'settings.resyncAction': 'Re-scan now',
   'settings.resyncDone': 'Workspace re-scanned',
-  'settings.language': 'Language',
   'settings.about': 'About',
 
   // Reports
@@ -186,6 +185,7 @@ export const en = {
   'tagSelector.state.off': 'not selected',
   'tagSelector.state.include': 'included',
   'tagSelector.state.exclude': 'excluded',
+  'history.moreActions': 'More actions',
   'history.rerunFailed': 'Re-run only the failed cases',
   'history.rerunFailedNone': 'This run had no failed cases.',
   'history.rerunFailedUntagged': 'Some failures carry no case id and cannot be re-selected',
@@ -279,6 +279,7 @@ export const en = {
   'projects.selectType': 'Select a type',
   'projects.customTypePlaceholder': 'Enter a custom type',
   'projects.projectName': 'Project name',
+  'projects.projectNameHint': 'Lowercase English, digits and - only. Spaces become -',
 
   // Env editor modal
   'env.templateMerged': 'Merged missing keys from the template',
@@ -687,6 +688,7 @@ export const en = {
   'reports.cannotUndo': 'This cannot be undone.',
   'reports.selectAll': 'Select all',
   'reports.deleteAria': 'Delete report',
+  'reports.moreActions': 'More actions',
 
   // History toasts/dialogs/actions
   'history.cleared': 'Run history cleared',
@@ -701,6 +703,7 @@ export const en = {
 
   // Flaky tests
   'flaky.analysisStarted': 'Flaky analysis started',
+  'flaky.analysisDone': 'Analysis complete — flaky tests found',
   'flaky.dismissed': 'Test dismissed',
   'flaky.analysisFailed': 'Analysis failed',
   'flaky.dismissFailed': 'Dismiss failed',
@@ -880,6 +883,8 @@ export const en = {
   // Environment panel
   'doctor.provision': 'Set up',
   'doctor.toggleDetails': 'Show or hide environment details',
+  'doctor.showHealthy': 'Show passing checks',
+  'doctor.hideHealthy': 'Hide passing checks',
   'doctor.howToFix': 'How to fix',
   'doctor.installPython': 'Install Python',
   'doctor.retryDetail':

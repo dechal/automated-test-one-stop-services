@@ -177,14 +177,17 @@ describe('DoctorPanel rendering', () => {
     expect(screen.queryByText('Required')).not.toBeInTheDocument();
   });
 
-  it('renders a fail icon for ok=false checks and a check icon for ok=true checks', () => {
+  it('renders a fail icon for ok=false checks and a check icon for ok=true checks', async () => {
+    const user = userEvent.setup();
     renderPanel(<DoctorPanel doctor={reportWithIssues} isLoading={false} />);
 
     // required-install failure -> TbCircleX
     expect(iconForCheck('tools/playwright')).toHaveAttribute('data-testid', 'TbCircleX');
     // optional-install failure -> TbAlertTriangle
     expect(iconForCheck('playwright-browsers')).toHaveAttribute('data-testid', 'TbAlertTriangle');
-    // passing check -> TbCircleCheck (not a fail icon)
+    // Passing checks stay folded while problems are on screen, so reveal them
+    // before asserting the ok icon.
+    await user.click(screen.getByText(/Show passing checks/));
     expect(iconForCheck('hub/server')).toHaveAttribute('data-testid', 'TbCircleCheck');
   });
 
@@ -195,8 +198,10 @@ describe('DoctorPanel rendering', () => {
     expect(screen.getByText('Run: npx playwright install')).toBeInTheDocument();
   });
 
-  it('renders the version text for an ok check that has a version', () => {
+  it('renders the version text for an ok check that has a version', async () => {
+    const user = userEvent.setup();
     renderPanel(<DoctorPanel doctor={reportWithIssues} isLoading={false} />);
+    await user.click(screen.getByText(/Show passing checks/));
 
     expect(screen.getByText('v20.0.0-installed')).toBeInTheDocument();
     // The failing check has no version, so nothing version-like is shown for it.

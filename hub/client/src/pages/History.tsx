@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   Group,
+  Menu,
   Pagination,
   Paper,
   ScrollArea,
@@ -26,6 +27,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   TbCalendar,
   TbCopy,
+  TbDots,
   TbDownload,
   TbFilter,
   TbGitCompare,
@@ -58,12 +60,6 @@ import { toolLabel } from '~/utils/tool-label.js';
 const ALL_STATUSES: RunStatus[] = ['passed', 'failed'];
 
 type SortField = 'startedAt' | 'endedAt' | 'project' | 'tool' | 'status';
-
-function triggerColor(trigger?: string): string {
-  if (trigger === 'schedule') return 'blue';
-  if (trigger === 'webhook') return 'violet';
-  return 'gray';
-}
 
 export function HistoryPage() {
   const t = useT();
@@ -648,10 +644,14 @@ export function HistoryPage() {
                         {r.status}
                       </Badge>
                     </Table.Td>
+                    {/* Tool / mode / trigger are context, not signals. As pills
+                        they gave every row five coloured chips and nothing stood
+                        out; as dim text the status badge is the only colour in
+                        the row and the eye lands on it. */}
                     <Table.Td>
-                      <Badge size="xs" variant="light" color="gray">
+                      <Text size="xs" c="dimmed">
                         {toolLabel(r.request.tool, tools)}
-                      </Badge>
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <Tooltip label={`${r.request.tool}/${r.request.type}/${r.request.project}`}>
@@ -700,18 +700,16 @@ export function HistoryPage() {
                       )}
                     </Table.Td>
                     <Table.Td>
-                      <Badge
-                        size="xs"
-                        variant="light"
-                        color={r.request.mode === 'docker' ? 'violet' : 'gray'}
-                      >
+                      {/* Docker is the exception worth marking, local is the
+                          norm — so only the exception gets any colour. */}
+                      <Text size="xs" c={r.request.mode === 'docker' ? 'violet.4' : 'dimmed'}>
                         {r.request.mode}
-                      </Badge>
+                      </Text>
                     </Table.Td>
                     <Table.Td>
-                      <Badge size="xs" variant="outline" color={triggerColor(r.triggeredBy)}>
+                      <Text size="xs" c="dimmed">
                         {t(`trigger.${r.triggeredBy ?? 'manual'}`)}
-                      </Badge>
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <Text size="xs" ff="monospace">
@@ -745,33 +743,40 @@ export function HistoryPage() {
                             <TbPlayerPlay size={12} />
                           </ActionIcon>
                         </Tooltip>
-                        {/* Only offered where there is something to narrow to —
-                            a green run has no failures to re-select. */}
-                        {(r.status === 'failed' || r.status === 'error') && (
-                          <Tooltip label={t('history.rerunFailed')}>
+                        {/* Secondary actions live behind one trigger. Four
+                            buttons per row put ~125 targets on a 25-row page and
+                            ate the width the data columns needed; the two most
+                            used stay out, the rest are one click away. */}
+                        <Menu position="bottom-end" withArrow>
+                          <Menu.Target>
                             <ActionIcon
-                              variant="light"
-                              color="orange"
+                              variant="subtle"
+                              color="gray"
                               size="sm"
-                              loading={rerunFailed.isPending && rerunFailed.variables?.id === r.id}
-                              onClick={() => rerunFailed.mutate(r)}
-                              aria-label={t('history.rerunFailed')}
+                              aria-label={t('history.moreActions')}
                             >
-                              <TbRefreshAlert size={12} />
+                              <TbDots size={14} />
                             </ActionIcon>
-                          </Tooltip>
-                        )}
-                        <Tooltip label={t('history.copyCommand')}>
-                          <ActionIcon
-                            variant="light"
-                            color="gray"
-                            size="sm"
-                            onClick={() => handleCopyCommand(r.command)}
-                            aria-label={t('history.copyCommand')}
-                          >
-                            <TbCopy size={12} />
-                          </ActionIcon>
-                        </Tooltip>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            {/* Only offered where there is something to narrow
+                                to — a green run has no failures to re-select. */}
+                            {(r.status === 'failed' || r.status === 'error') && (
+                              <Menu.Item
+                                leftSection={<TbRefreshAlert size={14} />}
+                                onClick={() => rerunFailed.mutate(r)}
+                              >
+                                {t('history.rerunFailed')}
+                              </Menu.Item>
+                            )}
+                            <Menu.Item
+                              leftSection={<TbCopy size={14} />}
+                              onClick={() => handleCopyCommand(r.command)}
+                            >
+                              {t('history.copyCommand')}
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
                         <Button
                           size="compact-xs"
                           variant="light"

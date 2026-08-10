@@ -8,6 +8,7 @@ import { FormModal } from '~/components/FormModal.js';
 import { useProjectTypes } from '~/hooks/useProjectQueries.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { finalizeProjectSlug, toProjectSlug } from '~/utils/project-slug.js';
 import { enabledTools, toolSelectData } from '~/utils/tool-label.js';
 
 interface CloneModalProps {
@@ -55,7 +56,9 @@ export function CloneModal({ opened, onClose, onSuccess, initialTool }: CloneMod
         tool: toolId,
         type: effectiveType,
         url,
-        name: name || undefined,
+        // Blank means "keep the repo's own name", so an empty slug stays undefined
+        // rather than posting an empty folder name.
+        name: finalizeProjectSlug(name) || undefined,
       }),
     onSuccess,
   });
@@ -108,10 +111,13 @@ export function CloneModal({ opened, onClose, onSuccess, initialTool }: CloneMod
         onChange={(e) => setUrl(e.currentTarget.value)}
         placeholder="https://github.com/org/repo.git"
       />
+      {/* Same coercion as Create: this overrides the folder name on disk, so it
+          carries the same kebab-case constraint. */}
       <TextInput
         label={t('projects.folderName')}
+        description={t('projects.projectNameHint')}
         value={name}
-        onChange={(e) => setName(e.currentTarget.value)}
+        onChange={(e) => setName(toProjectSlug(e.currentTarget.value))}
         placeholder={t('projects.folderNamePlaceholder')}
       />
     </FormModal>

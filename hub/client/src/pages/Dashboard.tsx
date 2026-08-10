@@ -1,7 +1,6 @@
 import {
   Badge,
   Button,
-  Card,
   CloseButton,
   Group,
   Loader,
@@ -253,15 +252,19 @@ export function DashboardPage() {
                         >
                           <Group justify="space-between" px="sm" py={6} wrap="nowrap">
                             <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                              <Badge size="xs" color={getStatusColor(run.status)} variant="filled">
+                              {/* Tinted, not filled: eight solid red pills down a
+                                  short list read as one alarming block rather
+                                  than eight separate outcomes. */}
+                              <Badge size="xs" color={getStatusColor(run.status)}>
                                 {run.status}
                               </Badge>
                               <Text size="xs" ff="monospace" truncate>
                                 {run.request.project}
                               </Text>
-                              <Badge size="xs" variant="light" color="gray">
+                              {/* Tool is context; it does not need a chip of its own. */}
+                              <Text size="xs" c="dimmed">
                                 {toolLabel(run.request.tool, toolsQuery.data ?? [])}
-                              </Badge>
+                              </Text>
                             </Group>
                             <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
                               <Text size="xs" c="dimmed">
@@ -298,20 +301,32 @@ export function DashboardPage() {
                 </Group>
               )}
               {projects.data && (
+                // One number per tool used to get a tall centred card each, so
+                // three values filled the whole column and still read as three
+                // separate widgets. As rows they scan top-to-bottom in one pass
+                // and sit at the same density as the run list beside them.
                 <ScrollArea h="35vh">
-                  <Stack gap="xs">
-                    <SimpleGrid cols={1} spacing="md">
-                      {enabledTools.map((tool) => (
-                        <Card key={tool.id} p="md" withBorder ta="center">
-                          <Text size="xl" fw={700}>
-                            {projects.data?.filter((p) => p.tool === tool.id).length ?? 0}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            {tool.title}
-                          </Text>
-                        </Card>
-                      ))}
-                    </SimpleGrid>
+                  <Stack gap={2}>
+                    {enabledTools.map((tool) => (
+                      <Group
+                        key={tool.id}
+                        justify="space-between"
+                        wrap="nowrap"
+                        px="xs"
+                        py={6}
+                        style={{
+                          borderRadius: 6,
+                          background: 'var(--mantine-color-default-hover)',
+                        }}
+                      >
+                        <Text size="xs" truncate>
+                          {tool.title}
+                        </Text>
+                        <Text size="sm" fw={700} ff="monospace" style={{ flexShrink: 0 }}>
+                          {projects.data?.filter((p) => p.tool === tool.id).length ?? 0}
+                        </Text>
+                      </Group>
+                    ))}
                   </Stack>
                 </ScrollArea>
               )}

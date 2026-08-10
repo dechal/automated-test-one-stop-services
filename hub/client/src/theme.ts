@@ -15,33 +15,46 @@ import { createTheme, type MantineColorsTuple, rem } from '@mantine/core';
 
 // Accent — a modern indigo. Distinct from Mantine's default blue so the Hub
 // reads as its own product, not a stock dashboard. 10 shades, light → dark.
+// Chroma is deliberately lower than a stock indigo. A test runner is stared at
+// for long stretches, and a highly saturated accent repeated across buttons,
+// links, badges and charts is what makes a dense UI feel loud and tiring. Same
+// hue family (trust/calm), less vibration — so the few places that DO need
+// attention (a failure, a running state) can still out-shout it.
 const brand: MantineColorsTuple = [
-  '#eef1fd',
-  '#d9def7',
-  '#b0bbf0',
-  '#8595e9',
-  '#6175e3',
-  '#4b61e0',
-  '#3f56df',
-  '#3147c6',
-  '#293eb2',
-  '#1c339e',
+  '#eff1f8',
+  '#dcdff0',
+  '#b8bfdf',
+  '#939ccd',
+  '#7480bd',
+  '#5f6cb2',
+  '#5462ad',
+  '#445198',
+  '#3b4787',
+  '#2f3b75',
 ];
 
 // Dark surfaces — a neutral slate, softer than Mantine's default blue-black
 // navy (the other big "generic Mantine" tell). Warmer greys read as premium
 // and reduce eye strain during long test-watching sessions.
+// Three shades carry the whole dark UI, and Mantine decides which:
+//   dark[7] → `--mantine-color-body`, the page canvas
+//   dark[6] → `--mantine-color-default`, inputs (and Paper/Card via index.css)
+//   dark[4] → `--mantine-color-default-border`, EVERY outline in the app
+// They used to sit within ~8% of each other, so a card was invisible against the
+// page and only its 1px outline said "card" — which is what made the Hub read as
+// a grid of boxes. The canvas is now clearly darker than the surface, so cards
+// separate by FILL and the border is a refinement rather than the structure.
 const slate: MantineColorsTuple = [
   '#c9cbcf',
   '#adb0b6',
   '#8b8f99',
-  '#666b76',
-  '#4a4f5a',
-  '#3a3f49',
-  '#2d313a',
-  '#23262d',
-  '#1a1d22',
-  '#131519',
+  '#5d626c',
+  '#34383f',
+  '#22262c',
+  '#191c22',
+  '#0f1115',
+  '#0b0d10',
+  '#07080a',
 ];
 
 const fontStack = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -64,9 +77,9 @@ export const theme = createTheme({
   radius: {
     xs: rem(4),
     sm: rem(6),
-    md: rem(10),
-    lg: rem(14),
-    xl: rem(20),
+    md: rem(12),
+    lg: rem(16),
+    xl: rem(24),
   },
 
   // Interactive controls (Select, Checkbox, Radio…) show a pointer — a small
@@ -99,5 +112,12 @@ export const theme = createTheme({
     // Cards get a soft elevation so surfaces feel gently lifted rather than
     // boxed in by a hard 1px outline — the main "warmth" lever for content.
     Card: { defaultProps: { shadow: 'sm' } },
+    // Badges default to the tinted variant. A row of solid pills competes for
+    // attention and reads as decoration; `light` keeps the label readable while
+    // leaving `filled` as an explicit choice for the one status that matters.
+    Badge: { defaultProps: { variant: 'light' } },
+    // One density rhythm for every table in the app, instead of each page
+    // picking its own vertical spacing.
+    Table: { defaultProps: { verticalSpacing: 6, horizontalSpacing: 'sm' } },
   },
 });

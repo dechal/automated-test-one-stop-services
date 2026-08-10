@@ -92,8 +92,10 @@ const GROUP_COLORS: Record<string, string> = {
 function GroupList({ fill, children }: { fill: boolean; children: ReactNode }) {
   if (fill) {
     return (
+      // No border in `fill` mode: this list already sits inside the Run form's
+      // card, so its own outline was a second box drawn 8px inside the first.
+      // Grouping comes from the surrounding spacing instead.
       <Paper
-        withBorder
         style={{
           overflow: 'hidden',
           flex: 1,

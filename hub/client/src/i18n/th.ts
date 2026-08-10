@@ -110,7 +110,6 @@ export const th: Record<TranslationKey, string> = {
   'settings.resyncDesc': 'ใช้เมื่อเพิ่มโปรเจกต์หรือเครื่องมือจากนอก Hub — ระบบจะหาให้เจอและสร้างไฟล์ที่ต้องใช้ให้ใหม่',
   'settings.resyncAction': 'สแกนใหม่',
   'settings.resyncDone': 'สแกนเวิร์กสเปซใหม่แล้ว',
-  'settings.language': 'ภาษา',
   'settings.about': 'เกี่ยวกับ',
 
   // Reports
@@ -184,6 +183,7 @@ export const th: Record<TranslationKey, string> = {
   'tagSelector.state.off': 'ยังไม่เลือก',
   'tagSelector.state.include': 'เลือกรัน',
   'tagSelector.state.exclude': 'กันออก',
+  'history.moreActions': 'ตัวเลือกเพิ่มเติม',
   'history.rerunFailed': 'รันซ้ำเฉพาะเคสที่ fail',
   'history.rerunFailedNone': 'รันนี้ไม่มีเคสที่ fail',
   'history.rerunFailedUntagged': 'มีเคสที่ fail แต่ไม่มีรหัสเคส จึงเลือกรันซ้ำไม่ได้',
@@ -276,6 +276,7 @@ export const th: Record<TranslationKey, string> = {
   'projects.selectType': 'เลือกประเภท',
   'projects.customTypePlaceholder': 'พิมพ์ประเภทที่ต้องการ',
   'projects.projectName': 'ชื่อโปรเจกต์',
+  'projects.projectNameHint': 'อังกฤษตัวเล็ก ตัวเลข และ - เท่านั้น เว้นวรรคจะกลายเป็น -',
 
   // Env editor modal
   'env.templateMerged': 'รวมคีย์ที่ขาดจากเทมเพลตแล้ว',
@@ -678,6 +679,7 @@ export const th: Record<TranslationKey, string> = {
   'reports.cannotUndo': 'การกระทำนี้ย้อนกลับไม่ได้',
   'reports.selectAll': 'เลือกทั้งหมด',
   'reports.deleteAria': 'ลบรายงาน',
+  'reports.moreActions': 'ตัวเลือกเพิ่มเติม',
 
   // History toasts/dialogs/actions
   'history.cleared': 'ล้างประวัติการรันแล้ว',
@@ -691,6 +693,7 @@ export const th: Record<TranslationKey, string> = {
 
   // Flaky tests
   'flaky.analysisStarted': 'เริ่มวิเคราะห์เทสไม่เสถียรแล้ว',
+  'flaky.analysisDone': 'วิเคราะห์เสร็จแล้ว — พบเทสไม่เสถียร',
   'flaky.dismissed': 'ซ่อนเทสแล้ว',
   'flaky.analysisFailed': 'วิเคราะห์ไม่สำเร็จ',
   'flaky.dismissFailed': 'ซ่อนไม่สำเร็จ',
@@ -870,6 +873,8 @@ export const th: Record<TranslationKey, string> = {
   // Environment panel
   'doctor.provision': 'ติดตั้งให้',
   'doctor.toggleDetails': 'ดูหรือซ่อนรายละเอียดสภาพแวดล้อม',
+  'doctor.showHealthy': 'ดูรายการที่ผ่าน',
+  'doctor.hideHealthy': 'ซ่อนรายการที่ผ่าน',
   'doctor.howToFix': 'วิธีแก้',
   'doctor.installPython': 'ติดตั้ง Python',
   'doctor.retryDetail': 'กด "ติดตั้งให้" อีกครั้ง — เน็ตหรือ CDN สะดุดชั่วคราวมักหายไปในรอบสอง',

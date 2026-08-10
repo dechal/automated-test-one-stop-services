@@ -303,8 +303,13 @@ export function SettingsPage() {
     <Stack gap="md">
       <PageHeader title={t('settings.title')} description={t('nav.settings.desc')} />
 
-      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-        {/* Appearance */}
+      {/* Two cards, not three. Theme and language are the same concern (how the
+          Hub presents itself) and each held a single row, so in a 3-up grid they
+          were stretched to the height of the 2-row Notifications card and carried
+          ~100px of empty space each. Merged, both columns hold two rows and the
+          row has no dead space. */}
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        {/* Display — theme + language */}
         <Paper p="md" withBorder>
           <Title order={5} mb="sm">
             {t('settings.appearance')}
@@ -333,15 +338,6 @@ export function SettingsPage() {
                 }
               />
             </Group>
-          </Stack>
-        </Paper>
-
-        {/* Language */}
-        <Paper p="md" withBorder>
-          <Title order={5} mb="sm">
-            {t('settings.language')}
-          </Title>
-          <Stack gap="sm">
             <Group justify="space-between">
               <Stack gap={2}>
                 <Text size="sm">{t('settings.interfaceLanguage')}</Text>

@@ -1,5 +1,5 @@
 import type { FlakyReport, ProjectSummary, RunRecord } from '@hub/shared';
-import { Alert, Button, Group, Paper, ScrollArea, Stack, Text, Title } from '@mantine/core';
+import { Button, Group, Paper, ScrollArea, Stack, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { TbAlertCircle, TbAlertTriangle, TbCircleCheck } from 'react-icons/tb';
 import { api } from '~/api/client';
@@ -94,20 +94,37 @@ export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string
       </Title>
       <ScrollArea h="35vh">
         <Stack gap="xs" h="100%">
+          {/* Neutral surface + a left accent, not a tinted Alert. Three filled
+              red/amber bars made every item shout equally, so severity stopped
+              ranking anything — the icon and the accent carry it now, and the
+              action button is the only thing competing for the click. */}
           {items.slice(0, 5).map((item) => (
-            <Alert key={item.message} color={item.severity} variant="light" icon={item.icon}>
-              <Group justify="space-between" wrap="nowrap">
-                <Text size="sm">{item.message}</Text>
+            <Paper
+              key={item.message}
+              p="xs"
+              withBorder
+              style={{
+                borderLeftWidth: 3,
+                borderLeftColor: `var(--mantine-color-${item.severity}-6)`,
+              }}
+            >
+              <Group justify="space-between" wrap="nowrap" gap="xs">
+                <Group gap={8} wrap="nowrap" c={`${item.severity}.4`}>
+                  {item.icon}
+                  <Text size="sm" c="var(--mantine-color-text)">
+                    {item.message}
+                  </Text>
+                </Group>
                 <Button
                   size="compact-xs"
-                  variant="light"
-                  color={item.severity}
+                  variant="subtle"
+                  color="gray"
                   onClick={() => onNavigate(item.page)}
                 >
                   {item.action}
                 </Button>
               </Group>
-            </Alert>
+            </Paper>
           ))}
         </Stack>
       </ScrollArea>

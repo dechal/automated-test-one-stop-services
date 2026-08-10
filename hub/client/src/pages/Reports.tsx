@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   Group,
+  Menu,
   Pagination,
   Paper,
   ScrollArea,
@@ -24,6 +25,7 @@ import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import {
   TbCalendar,
+  TbDots,
   TbExternalLink,
   TbFilter,
   TbLock,
@@ -702,12 +704,15 @@ export function ReportsPage() {
                       {r.runTag ? (
                         <Tooltip label={r.runTag} withArrow>
                           <Group gap={3} wrap="wrap" maw={140}>
+                            {/* Tags are a filter record, not a status. As outlined
+                                blue chips they out-shouted the pass rate — the
+                                one number this table exists to show. */}
                             {parseTagExpr(r.runTag)
                               .slice(0, 3)
                               .map((tag) => (
-                                <Badge key={tag} size="xs" variant="outline" color="blue">
+                                <Text key={tag} size="xs" c="dimmed" ff="monospace">
                                   {tag.replace(/^@/, '')}
-                                </Badge>
+                                </Text>
                               ))}
                             {parseTagExpr(r.runTag).length > 3 && (
                               <Text size="xs" c="dimmed">
@@ -765,32 +770,43 @@ export function ReportsPage() {
                           {t('reports.open')}
                         </Button>
                         {r.tool === 'playwright' && <ArtifactMenu reportPath={r.reportPath} />}
-                        <Tooltip label={r.locked ? t('reports.unlockHint') : t('reports.lockHint')}>
-                          <ActionIcon
-                            variant="subtle"
-                            color={r.locked ? 'yellow' : 'gray'}
-                            size="sm"
-                            onClick={() =>
-                              r.locked
-                                ? unlockMutation.mutate(r.reportPath)
-                                : lockMutation.mutate(r.reportPath)
-                            }
-                            aria-label={
-                              r.locked ? t('reports.unlockReport') : t('reports.lockReport')
-                            }
-                          >
-                            {r.locked ? <TbLock size={14} /> : <TbLockOpen size={14} />}
-                          </ActionIcon>
-                        </Tooltip>
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          size="sm"
-                          onClick={() => handleDelete(r.reportPath)}
-                          aria-label={t('reports.deleteAria')}
-                        >
-                          <TbTrash size={14} />
-                        </ActionIcon>
+                        {/* Lock and delete move behind one trigger: four controls
+                            on a 25-row page is a hundred targets, and a bare
+                            trash icon next to a row is far too easy to hit by
+                            accident for something irreversible. */}
+                        <Menu position="bottom-end" withArrow>
+                          <Menu.Target>
+                            <ActionIcon
+                              variant="subtle"
+                              color="gray"
+                              size="sm"
+                              aria-label={t('reports.moreActions')}
+                            >
+                              <TbDots size={14} />
+                            </ActionIcon>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            <Menu.Item
+                              leftSection={
+                                r.locked ? <TbLockOpen size={14} /> : <TbLock size={14} />
+                              }
+                              onClick={() =>
+                                r.locked
+                                  ? unlockMutation.mutate(r.reportPath)
+                                  : lockMutation.mutate(r.reportPath)
+                              }
+                            >
+                              {r.locked ? t('reports.unlockReport') : t('reports.lockReport')}
+                            </Menu.Item>
+                            <Menu.Item
+                              color="red"
+                              leftSection={<TbTrash size={14} />}
+                              onClick={() => handleDelete(r.reportPath)}
+                            >
+                              {t('reports.deleteAria')}
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
                       </Group>
                     </Table.Td>
                   </Table.Tr>

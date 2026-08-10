@@ -25,6 +25,7 @@ import {
 import { useInstallPython, useProvisionTool } from '~/hooks/useTools.js';
 import type { TranslationKey } from '~/i18n/en';
 import { useT } from '~/i18n/index.js';
+import { usePreferences } from '~/stores/hub.js';
 import {
   groupByCategory,
   provisionGuidance,
@@ -74,10 +75,13 @@ interface InstallState {
 interface CategoryConfig {
   key: DoctorCategory;
   titleKey: TranslationKey;
-  okBorder: string;
-  failBorder: string;
-  okBg: string;
-  failBg: string;
+  /**
+   * Left-edge accent for a FAILING check. There is deliberately no ok/fail
+   * background or outline colour: each card already carries a status icon, so a
+   * tinted fill behind it said the same thing a second time — and eleven filled
+   * cards made the healthy state shout as loudly as the broken one.
+   */
+  failAccent: string;
   failIcon: 'x' | 'warn';
 }
 
@@ -85,28 +89,20 @@ const CATEGORIES: CategoryConfig[] = [
   {
     key: 'required-install',
     titleKey: 'doctor.catRequired',
-    okBorder: 'var(--mantine-color-green-7)',
-    failBorder: 'var(--mantine-color-red-7)',
-    okBg: 'var(--mantine-color-green-light)',
-    failBg: 'var(--mantine-color-red-light)',
+    failAccent: 'var(--mantine-color-red-6)',
     failIcon: 'x',
   },
   {
     key: 'optional-install',
     titleKey: 'doctor.catOptionalInstall',
-    okBorder: 'var(--mantine-color-green-7)',
-    failBorder: 'var(--mantine-color-yellow-7)',
-    okBg: 'var(--mantine-color-green-light)',
-    failBg: 'var(--mantine-color-yellow-light)',
+    failAccent: 'var(--mantine-color-yellow-6)',
     failIcon: 'warn',
   },
   {
     key: 'optional-process',
     titleKey: 'doctor.catOptionalServices',
-    okBorder: 'var(--mantine-color-green-7)',
-    failBorder: 'var(--mantine-color-gray-5)',
-    okBg: 'var(--mantine-color-green-light)',
-    failBg: 'var(--mantine-color-dark-6)',
+    // A stopped optional service is a fact, not a fault — neutral accent.
+    failAccent: 'var(--mantine-color-dark-3)',
     failIcon: 'x',
   },
 ];
@@ -124,6 +120,18 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
   const hasIssues = !!doctor && shouldAutoExpand(doctor);
   const [expanded, setExpanded] = useState(false);
   const isExpanded = hasIssues || expanded;
+  // With issues present the panel opens itself; healthy checks stay folded so the
+  // problems are the content, not a needle in 11 green cards.
+  const [showHealthy, setShowHealthy] = useState(false);
+  const okCount = doctor?.checks.filter((c) => c.ok).length ?? 0;
+
+  // `optional-process` is Docker / InfluxDB / Grafana — infrastructure a basic
+  // user never starts and cannot act on, so a stopped one reads as a broken Hub
+  // rather than an unused extra. Advanced mode owns that surface.
+  const advancedMode = usePreferences((s) => s.advancedMode);
+  const visibleCategories = advancedMode
+    ? CATEGORIES
+    : CATEGORIES.filter((c) => c.key !== 'optional-process');
 
   const provision = useProvisionTool();
   // Derive per-tool provisioning UI state from the single in-flight mutation:
@@ -206,9 +214,16 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
 
       <Collapse expanded={isExpanded}>
         <Stack gap="md" mt="md">
-          {CATEGORIES.map((cat) => {
-            const checks = groups[cat.key];
-            if (!shouldShowGroup(checks)) return null;
+          {visibleCategories.map((cat) => {
+            // Opened because something is wrong? Then show what is wrong. The
+            // healthy checks were taking most of the first screen to say
+            // "fine" — the summary badge already says that in four characters.
+            const all = groups[cat.key];
+            // Filter only when the panel opened itself over a problem. When all
+            // is well the user expanded on purpose, and the passing checks are
+            // the only thing there is to show.
+            const checks = showHealthy || !hasIssues ? all : all.filter((c) => !c.ok);
+            if (checks.length === 0 || !shouldShowGroup(all)) return null;
             return (
               <CategorySection
                 key={cat.key}
@@ -220,6 +235,17 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
               />
             );
           })}
+          {hasIssues && (
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => setShowHealthy((v) => !v)}
+            >
+              {showHealthy ? t('doctor.hideHealthy') : `${t('doctor.showHealthy')} (${okCount})`}
+            </Button>
+          )}
         </Stack>
       </Collapse>
     </Paper>
@@ -302,10 +328,7 @@ function CheckCard({
     <Card
       p="xs"
       withBorder
-      style={{
-        borderColor: check.ok ? cat.okBorder : cat.failBorder,
-        background: check.ok ? cat.okBg : cat.failBg,
-      }}
+      style={check.ok ? undefined : { borderLeftWidth: 3, borderLeftColor: cat.failAccent }}
     >
       <Group gap={6} wrap="nowrap">
         {check.ok ? (

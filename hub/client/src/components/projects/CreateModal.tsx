@@ -7,6 +7,7 @@ import { FormModal } from '~/components/FormModal.js';
 import { useProjectTypes } from '~/hooks/useProjectQueries.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { finalizeProjectSlug, toProjectSlug } from '~/utils/project-slug.js';
 import { enabledTools, toolSelectData } from '~/utils/tool-label.js';
 
 interface CreateModalProps {
@@ -49,20 +50,24 @@ export function CreateModal({ opened, onClose, onSuccess }: CreateModalProps) {
     { value: '__custom__', label: t('projects.customTypeOption') },
   ];
 
-  const effectiveType = fixedType ?? (isCustom ? customType : type);
+  const effectiveType = fixedType ?? (isCustom ? finalizeProjectSlug(customType) : type);
+
+  // `name` may end in the separator while the user is mid-word; the folder never
+  // should, so the trailing one is dropped at the boundary.
+  const finalName = finalizeProjectSlug(name);
 
   const mutation = useMutation({
     mutationFn: () =>
       api.post('/api/projects/create', {
         tool: toolId,
         type: showTypePicker ? effectiveType : undefined,
-        name,
+        name: finalName,
       }),
     onSuccess,
   });
 
   const submitDisabled =
-    !name || !toolId || (showTypePicker && !effectiveType) || mutation.isPending;
+    !finalName || !toolId || (showTypePicker && !effectiveType) || mutation.isPending;
 
   return (
     <FormModal
@@ -107,9 +112,11 @@ export function CreateModal({ opened, onClose, onSuccess }: CreateModalProps) {
             allowDeselect={false}
           />
           {isCustom && (
+            // A type is a folder segment too (`tools/<tool>/<type>/<name>`), so it
+            // takes the same kebab-case coercion as the project name.
             <TextInput
               value={customType}
-              onChange={(e) => setCustomType(e.currentTarget.value)}
+              onChange={(e) => setCustomType(toProjectSlug(e.currentTarget.value))}
               placeholder={t('projects.customTypePlaceholder')}
               autoFocus
             />
@@ -119,8 +126,12 @@ export function CreateModal({ opened, onClose, onSuccess }: CreateModalProps) {
 
       <TextInput
         label={t('projects.projectName')}
+        description={t('projects.projectNameHint')}
         value={name}
-        onChange={(e) => setName(e.currentTarget.value)}
+        // Coerced on every keystroke rather than validated on submit: the field
+        // can then never hold a name the filesystem would reject, and typing a
+        // space simply produces the separator instead of an error to read.
+        onChange={(e) => setName(toProjectSlug(e.currentTarget.value))}
         placeholder="my-awesome-project"
       />
     </FormModal>

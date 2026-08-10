@@ -61,9 +61,13 @@ export function FlakyTestsPage() {
   }, [flaky.data, projectFilter]);
 
   const analyzeMutation = useMutation({
-    mutationFn: () => api.post('/api/flaky/analyze'),
-    onSuccess: () => {
-      toast.success(t('flaky.analysisStarted'));
+    // `POST /api/flaky/analyze` runs the detection inline and returns the finished
+    // report, so this resolves only once the work is done. The old toast said
+    // "started", which left no way to tell whether anything had happened —
+    // report the outcome and how many entries it found instead.
+    mutationFn: () => api.post<{ flakyTests: FlakyTestEntry[] }>('/api/flaky/analyze'),
+    onSuccess: (data) => {
+      toast.success(`${t('flaky.analysisDone')} (${data?.flakyTests?.length ?? 0})`);
       queryClient.invalidateQueries({ queryKey: ['flaky'] });
     },
     onError: () => toast.error(t('flaky.analysisFailed')),

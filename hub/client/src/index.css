@@ -10,3 +10,15 @@
 .tc-editable:focus-visible {
   background-color: var(--mantine-color-default-hover);
 }
+
+/* Surfaces separate by FILL, not by outline (dark mode only).
+   Mantine defaults a Paper's background to `--mantine-color-body`, i.e. the same
+   colour as the page — so every card needed a 1px border just to be visible, and
+   the result was a page made of boxes. Lifting the surface one shade above the
+   canvas lets cards read as cards on their own; the border then only refines the
+   edge. `--paper-bg` is Mantine's own hook for this, so Card/Paper/Modal all
+   follow and light mode is untouched. */
+[data-mantine-color-scheme='dark'] .mantine-Paper-root,
+[data-mantine-color-scheme='dark'] .mantine-Card-root {
+  --paper-bg: var(--mantine-color-dark-6);
+}
