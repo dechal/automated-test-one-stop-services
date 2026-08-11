@@ -255,7 +255,13 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
             </Tooltip>
           </Group>
         }
-        size="lg"
+        // Case id + Thai title + the on-disk folder name on one row need real
+        // width; at `lg` (620px) the list scrolled sideways, hiding exactly the
+        // text that makes a row identifiable. `maxWidth` keeps it inside a small
+        // viewport — kept as a style rather than folded into `size`, because a
+        // calc/min() expression there is not a size Mantine reliably resolves.
+        size={1100}
+        styles={{ content: { maxWidth: '92vw' } }}
         centered
         scrollAreaComponent={ScrollArea.Autosize}
       >
@@ -293,7 +299,18 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
               // The case is the heading; the folder stays visible underneath it so
               // the row still maps to what is on disk (and to Playwright's own
               // report), which a rename-style relabel would have broken.
-              const heading = group.test?.title ?? (group.name === '_root' ? 'Root' : group.name);
+              // The spec title already opens with `<CASE_ID>: `, so rendering the
+              // id badge AND the raw title printed it twice and pushed every row
+              // past the modal width. Show the id once, then the prose only.
+              const caseId = group.test?.caseId;
+              const rawTitle = group.test?.title;
+              const heading = rawTitle
+                ? caseId && rawTitle.startsWith(caseId)
+                  ? rawTitle.slice(caseId.length).replace(/^\s*:\s*/, '')
+                  : rawTitle
+                : group.name === '_root'
+                  ? 'Root'
+                  : group.name;
               return (
                 <Paper key={group.name} withBorder style={{ overflow: 'hidden' }}>
                   <Button
@@ -311,17 +328,23 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
                     }
                     styles={{
                       inner: { justifyContent: 'space-between' },
-                      label: { whiteSpace: 'normal' },
+                      // `minWidth: 0` lets the label shrink inside the flex row;
+                      // without it the nowrap contents set a min-content width and
+                      // the whole list overflows instead of wrapping.
+                      label: { whiteSpace: 'normal', minWidth: 0, flex: 1 },
                     }}
                   >
                     <Stack gap={2} style={{ minWidth: 0, textAlign: 'left' }}>
-                      <Group gap={6} wrap="nowrap">
-                        {group.test?.caseId && (
+                      <Group gap={6} wrap="wrap" style={{ minWidth: 0 }}>
+                        {caseId && (
                           <Text size="xs" fw={700} ff="monospace" style={{ flexShrink: 0 }}>
-                            {group.test.caseId}
+                            {caseId}
                           </Text>
                         )}
-                        <Text size="xs" fw={500} truncate>
+                        {/* Wraps rather than truncates: a cut-off Thai title is
+                            unidentifiable, and there is no hover text in a list
+                            this long. */}
+                        <Text size="xs" fw={500} style={{ minWidth: 0 }}>
                           {heading}
                         </Text>
                         {group.test?.status === 'failed' && (
