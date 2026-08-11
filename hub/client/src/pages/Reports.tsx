@@ -6,7 +6,6 @@ import {
   Button,
   Checkbox,
   Group,
-  Menu,
   Pagination,
   Paper,
   ScrollArea,
@@ -25,13 +24,14 @@ import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import {
   TbCalendar,
-  TbDots,
   TbExternalLink,
   TbFilter,
   TbLock,
   TbLockOpen,
   TbPlayerPlay,
   TbReportAnalytics,
+  TbStar,
+  TbStarFilled,
   TbTrash,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
@@ -162,6 +162,16 @@ export function ReportsPage() {
     onError: () => toast.error(t('reports.unlockFailed')),
   });
 
+  const favoriteMutation = useMutation({
+    mutationFn: ({ path, on }: { path: string; on: boolean }) =>
+      api.post(`/api/reports/${on ? 'favorite' : 'unfavorite'}`, { path }),
+    onSuccess: (_res, { on }) => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      toast.success(on ? t('reports.favorited') : t('reports.unfavorited'));
+    },
+    onError: () => toast.error(t('reports.lockFailed')),
+  });
+
   async function handleDelete(reportPath: string) {
     const ok = await confirmDialog({
       title: t('reports.deleteTitle'),
@@ -175,7 +185,12 @@ export function ReportsPage() {
   }
 
   async function handleBulkDelete() {
-    const paths = [...selectedRows];
+    // Favourites are filtered again here, not just in the checkbox: a selection
+    // made before a row was favourited is still in state.
+    const favorites = new Set(
+      (reports.data ?? []).filter((r) => r.favorite).map((r) => r.reportPath),
+    );
+    const paths = [...selectedRows].filter((p) => !favorites.has(p));
     if (paths.length === 0) return;
     const ok = await confirmDialog({
       title: `${t('common.delete')} ${paths.length} ${t('reports.reportsWord')}?`,
@@ -261,6 +276,8 @@ export function ReportsPage() {
   const totalPages = Math.ceil(sorted.length / pageSize);
   const safePage = Math.min(currentPage, totalPages || 1);
   const paginatedData = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
+  /** Rows on this page that bulk delete is allowed to touch (favourites are not). */
+  const selectablePaths = paginatedData.filter((r) => !r.favorite).map((r) => r.reportPath);
 
   const activeFilterCount =
     (selectedTools.size > 0 ? 1 : 0) +
@@ -562,22 +579,28 @@ export function ReportsPage() {
               highlightOnHover
               verticalSpacing="xs"
               stickyHeader
-              miw={advancedMode ? 1100 : 820}
+              // +60px over the previous 1100/820: lock and delete are their own
+              // icons again, so the Actions column needs the room rather than
+              // squeezing the Tag and Timestamp columns.
+              miw={advancedMode ? 1200 : 920}
             >
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th w={40}>
+                    {/* Select-all skips favourites — they are undeletable, so
+                        including them would leave the box permanently
+                        indeterminate and offer a doomed bulk delete. */}
                     <Checkbox
                       size="xs"
                       checked={
-                        paginatedData.length > 0 &&
-                        paginatedData.every((r) => selectedRows.has(r.reportPath))
+                        selectablePaths.length > 0 &&
+                        selectablePaths.every((p) => selectedRows.has(p))
                       }
                       indeterminate={
-                        paginatedData.some((r) => selectedRows.has(r.reportPath)) &&
-                        !paginatedData.every((r) => selectedRows.has(r.reportPath))
+                        selectablePaths.some((p) => selectedRows.has(p)) &&
+                        !selectablePaths.every((p) => selectedRows.has(p))
                       }
-                      onChange={() => toggleAllRows(paginatedData.map((r) => r.reportPath))}
+                      onChange={() => toggleAllRows(selectablePaths)}
                       aria-label={t('reports.selectAll')}
                     />
                   </Table.Th>
@@ -647,9 +670,13 @@ export function ReportsPage() {
                     }
                   >
                     <Table.Td>
+                      {/* A favourite cannot be selected at all: the only thing the
+                          selection drives is bulk delete, so allowing the tick
+                          would offer an action that is guaranteed to be refused. */}
                       <Checkbox
                         size="xs"
                         checked={selectedRows.has(r.reportPath)}
+                        disabled={r.favorite}
                         onChange={() => toggleRow(r.reportPath)}
                         aria-label={`${t('reports.selectRow')} ${r.project}`}
                       />
@@ -770,43 +797,74 @@ export function ReportsPage() {
                           {t('reports.open')}
                         </Button>
                         {r.tool === 'playwright' && <ArtifactMenu reportPath={r.reportPath} />}
-                        {/* Lock and delete move behind one trigger: four controls
-                            on a 25-row page is a hundred targets, and a bare
-                            trash icon next to a row is far too easy to hit by
-                            accident for something irreversible. */}
-                        <Menu position="bottom-end" withArrow>
-                          <Menu.Target>
-                            <ActionIcon
-                              variant="subtle"
-                              color="gray"
-                              size="sm"
-                              aria-label={t('reports.moreActions')}
-                            >
-                              <TbDots size={14} />
-                            </ActionIcon>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            <Menu.Item
-                              leftSection={
-                                r.locked ? <TbLockOpen size={14} /> : <TbLock size={14} />
-                              }
-                              onClick={() =>
-                                r.locked
-                                  ? unlockMutation.mutate(r.reportPath)
-                                  : lockMutation.mutate(r.reportPath)
-                              }
-                            >
-                              {r.locked ? t('reports.unlockReport') : t('reports.lockReport')}
-                            </Menu.Item>
-                            <Menu.Item
-                              color="red"
-                              leftSection={<TbTrash size={14} />}
-                              onClick={() => handleDelete(r.reportPath)}
-                            >
-                              {t('reports.deleteAria')}
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
+                        {/* Lock and delete stay as their own icons rather than
+                            collapsing into a `⋯` menu: ArtifactMenu already owns a
+                            `⋯` on this row, so a second identical trigger beside it
+                            was ambiguous, and the table scrolls horizontally, so
+                            the column has room. Delete still confirms first. */}
+                        <Tooltip
+                          label={r.favorite ? t('reports.unfavorite') : t('reports.favorite')}
+                        >
+                          <ActionIcon
+                            variant="subtle"
+                            color={r.favorite ? 'yellow' : 'gray'}
+                            size="sm"
+                            onClick={() =>
+                              favoriteMutation.mutate({ path: r.reportPath, on: !r.favorite })
+                            }
+                            aria-label={
+                              r.favorite ? t('reports.unfavorite') : t('reports.favorite')
+                            }
+                          >
+                            {r.favorite ? <TbStarFilled size={14} /> : <TbStar size={14} />}
+                          </ActionIcon>
+                        </Tooltip>
+                        {/* Disabled while favourited: the favourite owns the lock,
+                            so offering an unlock that the server would refuse is
+                            worse than showing the reason. Rendered always (never
+                            hidden) so the row's icons never shift position. */}
+                        <Tooltip
+                          label={
+                            r.favorite
+                              ? t('reports.lockedByFavorite')
+                              : r.locked
+                                ? t('reports.unlockHint')
+                                : t('reports.lockHint')
+                          }
+                        >
+                          <ActionIcon
+                            variant="subtle"
+                            color={r.locked ? 'yellow' : 'gray'}
+                            size="sm"
+                            disabled={r.favorite}
+                            onClick={() =>
+                              r.locked
+                                ? unlockMutation.mutate(r.reportPath)
+                                : lockMutation.mutate(r.reportPath)
+                            }
+                            aria-label={
+                              r.locked ? t('reports.unlockReport') : t('reports.lockReport')
+                            }
+                          >
+                            {r.locked ? <TbLock size={14} /> : <TbLockOpen size={14} />}
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip
+                          label={
+                            r.favorite ? t('reports.favoriteNoDelete') : t('reports.deleteAria')
+                          }
+                        >
+                          <ActionIcon
+                            variant="subtle"
+                            color="red"
+                            size="sm"
+                            disabled={r.favorite}
+                            onClick={() => handleDelete(r.reportPath)}
+                            aria-label={t('reports.deleteAria')}
+                          >
+                            <TbTrash size={14} />
+                          </ActionIcon>
+                        </Tooltip>
                       </Group>
                     </Table.Td>
                   </Table.Tr>

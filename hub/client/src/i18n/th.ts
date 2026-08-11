@@ -679,7 +679,12 @@ export const th: Record<TranslationKey, string> = {
   'reports.cannotUndo': 'การกระทำนี้ย้อนกลับไม่ได้',
   'reports.selectAll': 'เลือกทั้งหมด',
   'reports.deleteAria': 'ลบรายงาน',
-  'reports.moreActions': 'ตัวเลือกเพิ่มเติม',
+  'reports.favorite': 'ทำเครื่องหมายรายการโปรด (ล็อกให้ด้วย)',
+  'reports.unfavorite': 'เอาออกจากรายการโปรด',
+  'reports.lockedByFavorite': 'ล็อกอยู่เพราะเป็นรายการโปรด',
+  'reports.favoriteNoDelete': 'เอาออกจากรายการโปรดก่อนจึงจะลบได้',
+  'reports.favorited': 'เพิ่มในรายการโปรดแล้ว — ล็อกให้ด้วย',
+  'reports.unfavorited': 'เอาออกจากรายการโปรดแล้ว',
 
   // History toasts/dialogs/actions
   'history.cleared': 'ล้างประวัติการรันแล้ว',

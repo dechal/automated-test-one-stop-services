@@ -346,7 +346,10 @@ function findHtmlReports(
       status: status as 'success' | 'error' | 'unknown',
       reportPath: filePath,
       timestamp,
-      locked: isLocked(filePath),
+      // A favourite is locked by definition, so the flag is derived here rather
+      // than trusted from the marker files being in sync.
+      locked: isLocked(filePath) || isFavorite(filePath),
+      favorite: isFavorite(filePath),
     });
   }
 }
@@ -477,27 +480,64 @@ function safeDirs(dir: string): string[] {
     .map((d) => d.name);
 }
 
-/** Check if a report is locked (has .lock file in its time directory). */
-function isLocked(reportPath: string): boolean {
-  // reportPath is e.g. .../html-results/index.html
-  const htmlResultsDir = path.dirname(reportPath);
-  const timeDir = path.dirname(htmlResultsDir);
-  return fs.existsSync(path.join(timeDir, '.lock'));
+/**
+ * The run's time directory — the folder cleanup deletes, and where both the
+ * `.lock` and `.favorite` markers live. `reportPath` is
+ * `.../<time>/html-results/index.html`.
+ */
+function timeDirOf(reportPath: string): string {
+  return path.dirname(path.dirname(reportPath));
 }
 
-/** Lock a report by creating a .lock file in its time directory. */
-export function lockReport(reportPath: string): void {
-  const htmlResultsDir = path.dirname(reportPath);
-  const timeDir = path.dirname(htmlResultsDir);
+/** Check if a report is locked (has .lock file in its time directory). */
+function isLocked(reportPath: string): boolean {
+  return fs.existsSync(path.join(timeDirOf(reportPath), '.lock'));
+}
+
+/** Check if a report is marked favourite (has .favorite file). */
+export function isFavorite(reportPath: string): boolean {
+  return fs.existsSync(path.join(timeDirOf(reportPath), '.favorite'));
+}
+
+/**
+ * Mark a report as favourite. Writes the `.lock` marker too, so the protection
+ * holds even if the favourite marker is later removed by hand — a favourite is
+ * never an unprotected report.
+ */
+export function favoriteReport(reportPath: string): void {
+  const timeDir = timeDirOf(reportPath);
+  fs.writeFileSync(path.join(timeDir, '.favorite'), '', 'utf8');
   fs.writeFileSync(path.join(timeDir, '.lock'), '', 'utf8');
   invalidateReportsCache();
 }
 
-/** Unlock a report by removing the .lock file from its time directory. */
-export function unlockReport(reportPath: string): void {
-  const htmlResultsDir = path.dirname(reportPath);
-  const timeDir = path.dirname(htmlResultsDir);
-  const lockFile = path.join(timeDir, '.lock');
+/**
+ * Remove the favourite mark. The `.lock` stays: un-favouriting says "this is not
+ * a keeper", not "delete it whenever" — the user can now unlock it explicitly.
+ */
+export function unfavoriteReport(reportPath: string): void {
+  const favFile = path.join(timeDirOf(reportPath), '.favorite');
+  if (fs.existsSync(favFile)) fs.unlinkSync(favFile);
+  invalidateReportsCache();
+}
+
+/** Lock a report by creating a .lock file in its time directory. */
+export function lockReport(reportPath: string): void {
+  fs.writeFileSync(path.join(timeDirOf(reportPath), '.lock'), '', 'utf8');
+  invalidateReportsCache();
+}
+
+/**
+ * Unlock a report by removing the .lock file from its time directory.
+ *
+ * Refuses while the report is a favourite and reports it, rather than silently
+ * doing nothing: the UI disables the control, but the route is reachable
+ * directly and a favourite must never become deletable.
+ */
+export function unlockReport(reportPath: string): boolean {
+  if (isFavorite(reportPath)) return false;
+  const lockFile = path.join(timeDirOf(reportPath), '.lock');
   if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
   invalidateReportsCache();
+  return true;
 }

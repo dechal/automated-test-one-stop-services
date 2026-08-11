@@ -6,9 +6,12 @@ import type { FastifyInstance } from 'fastify';
 import { SERVER_PKG_DIR } from '../config.js';
 import { isUnderOutputs } from '../services/path-guard.js';
 import {
+  favoriteReport,
   invalidateReportsCache,
+  isFavorite,
   listReports,
   lockReport,
+  unfavoriteReport,
   unlockReport,
 } from '../services/reports.js';
 import { type ArtifactTestInfo, artifactTestIndex } from '../services/run-compare.js';
@@ -172,6 +175,14 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       return { code: 'NOT_FOUND', message: 'Report not found' };
     }
 
+    // A favourite is undeletable until the mark is removed. This is the real
+    // guard — the UI disables the button, but this route is reachable directly and
+    // the operation is irreversible.
+    if (isFavorite(reportPath)) {
+      reply.status(409);
+      return { code: 'FAVORITE_LOCKED', message: 'Remove the favorite mark first' };
+    }
+
     // Report is at: .../html-results/index.html
     // We delete the TIME folder (parent of html-results), not the day folder.
     const htmlResultsDir = path.dirname(reportPath);
@@ -200,8 +211,35 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       reply.status(404);
       return { code: 'NOT_FOUND', message: 'Report not found' };
     }
-    unlockReport(reportPath);
+    // A favourite outranks an unlock request. Refusing loudly beats returning
+    // `{ locked: false }` the UI would believe while the lock is still there.
+    if (!unlockReport(reportPath)) {
+      reply.status(409);
+      return { code: 'FAVORITE_LOCKED', message: 'Remove the favorite mark first' };
+    }
     return { locked: false };
+  });
+
+  /** POST /api/reports/favorite — mark a report a keeper (implies lock) */
+  app.post<{ Body: { path: string } }>('/api/reports/favorite', async (req, reply) => {
+    const reportPath = req.body?.path;
+    if (!reportPath || !isUnderOutputs(reportPath) || !fs.existsSync(reportPath)) {
+      reply.status(404);
+      return { code: 'NOT_FOUND', message: 'Report not found' };
+    }
+    favoriteReport(reportPath);
+    return { favorite: true, locked: true };
+  });
+
+  /** POST /api/reports/unfavorite — drop the keeper mark, keep the lock */
+  app.post<{ Body: { path: string } }>('/api/reports/unfavorite', async (req, reply) => {
+    const reportPath = req.body?.path;
+    if (!reportPath || !isUnderOutputs(reportPath) || !fs.existsSync(reportPath)) {
+      reply.status(404);
+      return { code: 'NOT_FOUND', message: 'Report not found' };
+    }
+    unfavoriteReport(reportPath);
+    return { favorite: false, locked: true };
   });
 
   // =========================================================================

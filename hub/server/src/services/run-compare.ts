@@ -268,7 +268,12 @@ export function failedSelectionFromReport(reportPath: string | undefined): Faile
     failed++;
     const ids = (outcome.tags ?? []).filter((tag) => classifyTag(tag) === 'case-id');
     if (ids.length === 0) unidentified.push(outcome.title);
-    else for (const id of ids) caseIds.add(id);
+    // Playwright's JSON reporter strips the leading `@` from `spec.tags`, but the
+    // tag picker's vocabulary (`/api/tags`) keeps it, and `matchTests` compares
+    // exact strings. Forwarding the bare id selected nothing and rendered "No
+    // tests match this selection". Normalise here, at the one boundary that
+    // reads results.json, so `FailedSelection.caseIds` really is a list of TAGS.
+    else for (const id of ids) caseIds.add(id.startsWith('@') ? id : `@${id}`);
   }
   return { caseIds: [...caseIds].sort(), unidentified, total: outcomes.length, failed };
 }

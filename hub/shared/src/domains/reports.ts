@@ -13,7 +13,18 @@ export interface ReportEntry {
   status: 'success' | 'error' | 'unknown';
   reportPath: string;
   timestamp: string;
+  /**
+   * Protected from auto-cleanup. Always true while {@link favorite} is set —
+   * favouriting is a stronger statement than locking, so it implies the lock and
+   * the lock cannot be released underneath it.
+   */
   locked: boolean;
+  /**
+   * Marked as a keeper by the user. Forces {@link locked} and disables the
+   * lock/unlock control until the favourite is removed, so there is no way to
+   * end up with a favourite that cleanup is allowed to delete.
+   */
+  favorite: boolean;
   /**
    * Test-case counts for the run that produced this report, joined from run
    * history. Absent when no matching run is in history (e.g. an old report

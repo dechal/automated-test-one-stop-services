@@ -105,6 +105,11 @@ async function runCleanup(
   const targets: string[] = [];
 
   for (const report of reports) {
+    // The lock exists precisely to survive this sweep — `/api/reports/lock` is
+    // documented as "prevent auto-cleanup" — but the check was missing, so a
+    // locked (and therefore any favourited) report was deleted on age like any
+    // other. `locked` is already true for every favourite.
+    if (report.locked) continue;
     const ts = parseTimestamp(report.timestamp);
     if (Number.isNaN(ts) || ts >= cutoff) continue;
     const htmlResultsDir = path.dirname(report.reportPath);

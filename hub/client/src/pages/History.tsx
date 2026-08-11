@@ -54,7 +54,7 @@ import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
 import { formatAbsolute, formatDurationBetween, formatRelative } from '~/utils/datetime.js';
 import { getStatusColor, getStatusIcon } from '~/utils/run-status.js';
-import { buildTagExpr } from '~/utils/tag-selection.js';
+import { buildTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
 const ALL_STATUSES: RunStatus[] = ['passed', 'failed'];
@@ -157,7 +157,9 @@ export function HistoryPage() {
         // Partial selection is still useful — say what could not be included.
         toast.error(`${t('history.rerunFailedUntagged')} (${res.unidentified.length})`);
       }
-      onRerun({ ...run.request, tag: buildTagExpr(res.caseIds) });
+      // Per-tool syntax: Robot rejects a Playwright regex outright, so a Robot
+      // rerun built with `buildTagExpr` could never match.
+      onRerun({ ...run.request, tag: buildTagQuery(run.request.tool, res.caseIds) });
     },
   });
 

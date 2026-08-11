@@ -688,7 +688,12 @@ export const en = {
   'reports.cannotUndo': 'This cannot be undone.',
   'reports.selectAll': 'Select all',
   'reports.deleteAria': 'Delete report',
-  'reports.moreActions': 'More actions',
+  'reports.favorite': 'Mark as favorite (keeps it locked)',
+  'reports.unfavorite': 'Remove from favorites',
+  'reports.lockedByFavorite': 'Locked because it is a favorite',
+  'reports.favoriteNoDelete': 'Remove from favorites before deleting',
+  'reports.favorited': 'Added to favorites — locked',
+  'reports.unfavorited': 'Removed from favorites',
 
   // History toasts/dialogs/actions
   'history.cleared': 'Run history cleared',

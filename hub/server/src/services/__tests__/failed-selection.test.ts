@@ -40,6 +40,38 @@ describe('failedSelectionFromReport', () => {
     }
   });
 
+  it('normalises the BARE tags a real Playwright report contains to @-tags', () => {
+    // Playwright's JSON reporter strips the leading `@`, so this — not the
+    // @-prefixed fixture above — is the shape production actually sees. Returning
+    // it verbatim selected nothing in the picker, whose vocabulary keeps the `@`.
+    const { reportPath, root } = writeReport([
+      {
+        title: 'SEVEN_FLOOR_BUILDING-C001: ก่อสร้างไม่เกิน 7 ชั้น',
+        ok: false,
+        tags: ['building', 'positive', 'SEVEN_FLOOR_BUILDING-C001'],
+      },
+      { title: 'INTERIOR-C001: ตกแต่งภายใน', ok: false, tags: ['interior', 'INTERIOR-C001'] },
+    ]);
+    try {
+      const sel = failedSelectionFromReport(reportPath);
+      expect(sel?.caseIds).toEqual(['@INTERIOR-C001', '@SEVEN_FLOOR_BUILDING-C001']);
+      expect(sel?.unidentified).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not double-prefix a tag that already carries @', () => {
+    const { reportPath, root } = writeReport([
+      { title: 'CART-C003: bad', ok: false, tags: ['@CART-C003'] },
+    ]);
+    try {
+      expect(failedSelectionFromReport(reportPath)?.caseIds).toEqual(['@CART-C003']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('reports a failed test with no case-id tag instead of dropping it', () => {
     const { reportPath, root } = writeReport([
       { title: 'untagged failure', ok: false, tags: ['@critical'] },
