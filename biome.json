@@ -103,9 +103,7 @@
       "!!**/*lock.json",
       "!**/package*.json",
       "!**/tsconfig.json",
-      "!config/pipeline.json",
-      "!tools/*",
-      "tools/tool-template-example/**"
+      "!config/pipeline.json"
     ]
   },
   "overrides": [
