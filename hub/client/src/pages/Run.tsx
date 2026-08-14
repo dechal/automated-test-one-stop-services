@@ -9,6 +9,7 @@ import {
   ScrollArea,
   Stack,
   Text,
+  Title,
   Tooltip,
 } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
@@ -312,6 +313,17 @@ export function RunPage() {
           horizontally inside it; the loader is a dropdown pinned beside them, so
           neither adds height to the page. */}
       <Group gap="xs" wrap="nowrap" align="center" style={{ flexShrink: 0 }}>
+        {/* The page headline. Every other page gets one from `PageHeader`, but this
+            page is height-clipped and already stacks four pinned regions, so a
+            full header row would cost ~50px of the run form for no new
+            information. Riding in the tab row instead costs nothing and gives the
+            page the `h1` it had no other way to get — without it the document
+            outline started at h3 and assistive tech had no page heading to land
+            on. `order={1}` takes its 24px size from the theme, so it stays in step
+            with the other pages. */}
+        <Title order={1} fz="h4" style={{ flexShrink: 0 }}>
+          {t('nav.runTests')}
+        </Title>
         <ScrollArea scrollbarSize={6} type="auto" style={{ flex: 1, minWidth: 0 }}>
           <Group gap={4} wrap="nowrap" pb={6}>
             {sessions.map((s) => {

@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-sans-thai": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
     "@hub/shared": "workspace:*",
     "@mantine/charts": "9.4.1",
     "@mantine/core": "9.4.1",

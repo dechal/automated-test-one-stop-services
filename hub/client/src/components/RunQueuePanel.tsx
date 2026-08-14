@@ -87,7 +87,7 @@ export function RunQueuePanel() {
               <Badge size="xs" variant="filled" color="blue">
                 {t('common.running')}
               </Badge>
-              <Text size="xs" ff="monospace" truncate>
+              <Text size="xs" fw={500} truncate>
                 {run.request.project}
               </Text>
               <Badge size="xs" variant="light" color="gray">
@@ -108,7 +108,7 @@ export function RunQueuePanel() {
               <Badge size="xs" variant="light" color="orange">
                 {index + 1}
               </Badge>
-              <Text size="xs" ff="monospace" truncate>
+              <Text size="xs" fw={500} truncate>
                 {run.request.project}
               </Text>
               <Badge size="xs" variant="light" color="gray">

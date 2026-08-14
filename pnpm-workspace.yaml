@@ -1,5 +1,11 @@
 packages:
   - "scripts/third-party/google"
+  # `hub` itself, not just its three sub-packages: `@hub/root` owns the e2e
+  # devDependency (@playwright/test) used by `pnpm -C hub run test:smoke`.
+  # While it was outside the workspace that dep was absent from the root
+  # lockfile and survived only as a junction into the root store, so any
+  # root-level install could prune it and no form of `pnpm install` restored it.
+  - "hub"
   - "hub/shared"
   - "hub/server"
   - "hub/client"

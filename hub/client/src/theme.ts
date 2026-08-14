@@ -40,6 +40,11 @@ const brand: MantineColorsTuple = [
 //   dark[7] → `--mantine-color-body`, the page canvas
 //   dark[6] → `--mantine-color-default`, inputs (and Paper/Card via index.css)
 //   dark[4] → `--mantine-color-default-border`, EVERY outline in the app
+// dark[4] is deliberately dim. Since the canvas/surface split above already
+// separates a card by FILL, the outline only needs to refine the edge — and one
+// token controls every Paper, Table, input and `withBorder` at once. Brightening
+// it is what turns a page into a visible grid of boxes; tune it here, never
+// per-component (see frontend-design → DESIGN_LANGUAGE, "Borders are ONE token").
 // They used to sit within ~8% of each other, so a card was invisible against the
 // page and only its 1px outline said "card" — which is what made the Hub read as
 // a grid of boxes. The canvas is now clearly darker than the surface, so cards
@@ -49,7 +54,7 @@ const slate: MantineColorsTuple = [
   '#adb0b6',
   '#8b8f99',
   '#5d626c',
-  '#34383f',
+  '#2e3239',
   '#22262c',
   '#191c22',
   '#0f1115',
@@ -57,7 +62,15 @@ const slate: MantineColorsTuple = [
   '#07080a',
 ];
 
-const fontStack = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+// IBM Plex Sans Thai carries BOTH Thai and Latin in one family, which is the
+// point of choosing it. The UI is Thai, and the previous `system-ui` stack had
+// no Thai coverage — so Thai fell back to the OS Thai face (Leelawadee UI on
+// Windows) while the Latin beside it stayed Segoe UI. Two families with
+// different metrics and stroke weights on the same line, at 12-14px, is what
+// made the app read as cold and unfinished. Self-hosted via @fontsource: the
+// Hub is local-only, so a webfont CDN would add an offline failure mode.
+// Faces are loaded in `index.css`; the system stack stays as the fallback tail.
+const fontStack = '"IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 export const theme = createTheme({
   primaryColor: 'brand',
@@ -68,7 +81,9 @@ export const theme = createTheme({
   colors: { brand, dark: slate },
 
   fontFamily: fontStack,
-  fontFamilyMonospace: 'JetBrains Mono, Fira Code, Consolas, monospace',
+  // This stack used to name three faces the app did not ship, so every mono
+  // glyph silently rendered as Consolas. JetBrains Mono is now installed.
+  fontFamilyMonospace: '"JetBrains Mono", "Fira Code", Consolas, monospace',
   defaultRadius: 'md',
 
   // Slightly rounder than Mantine defaults (sm 4→6, md 8→10). Soft corners read
@@ -88,11 +103,16 @@ export const theme = createTheme({
 
   // A deliberate type scale: tighter line-heights + heavier weights on headings
   // create clear hierarchy so users' eyes land on titles first.
+  // Weights are the ones actually installed (400/500/600/700). The old '650'
+  // had no matching face, so the browser synthesised it — a subtly smeared
+  // stroke that is part of why headings looked flat.
   headings: {
     fontFamily: fontStack,
-    fontWeight: '650',
+    fontWeight: '600',
     sizes: {
-      h1: { fontSize: rem(28), lineHeight: '1.3', fontWeight: '700' },
+      // h1 is the page headline (`PageHeader`). 24px, not 28: confident enough
+      // to anchor the page without shouting in an app this dense.
+      h1: { fontSize: rem(24), lineHeight: '1.3', fontWeight: '700' },
       h2: { fontSize: rem(23), lineHeight: '1.35' },
       h3: { fontSize: rem(19), lineHeight: '1.4' },
       h4: { fontSize: rem(16), lineHeight: '1.45' },
@@ -117,7 +137,12 @@ export const theme = createTheme({
     // leaving `filled` as an explicit choice for the one status that matters.
     Badge: { defaultProps: { variant: 'light' } },
     // One density rhythm for every table in the app, instead of each page
-    // picking its own vertical spacing.
-    Table: { defaultProps: { verticalSpacing: 6, horizontalSpacing: 'sm' } },
+    // picking its own vertical spacing. Tabular figures keep digits in a fixed
+    // advance width, so counts, percentages and durations line up column-wise
+    // and no longer shift as values change.
+    Table: {
+      defaultProps: { verticalSpacing: 6, horizontalSpacing: 'sm' },
+      styles: { table: { fontVariantNumeric: 'tabular-nums' } },
+    },
   },
 });

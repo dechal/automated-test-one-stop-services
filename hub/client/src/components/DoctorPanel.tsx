@@ -352,7 +352,7 @@ function CheckCard({
         ) : (
           <FailIcon color={failColor} size={16} />
         )}
-        <Text size="sm" ff="monospace" truncate>
+        <Text size="sm" fw={500} truncate>
           {check.name}
         </Text>
       </Group>

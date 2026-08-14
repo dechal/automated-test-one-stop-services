@@ -930,7 +930,7 @@ export const th: Record<TranslationKey, string> = {
   'common.advancedMode': 'โหมดขั้นสูง',
   'common.advancedModeOn': 'เปิดโหมดขั้นสูง — แสดงคอลัมน์และช่องกรอกเชิงเทคนิคครบทุกอย่าง',
   'common.advancedModeOff': 'มุมมองแบบง่าย — ซ่อนรายละเอียดเชิงเทคนิคไว้ ไม่ได้ลบข้อมูลทิ้ง',
-  'run.technicalOutput': 'ผลลัพธ์เชิงเทคนิค',
+  'run.technicalOutput': 'ผลการรัน',
   'run.verdictAllPassed': 'ผ่านทั้งหมด {total} ข้อ',
   'run.verdictFailed': 'ไม่ผ่าน {failed} จาก {total} ข้อ',
   'run.verdictCritical': 'ในนั้นเป็นระดับ Critical {n} ข้อ',
@@ -943,4 +943,17 @@ export const th: Record<TranslationKey, string> = {
   'run.hideConfig': 'ซ่อนค่าการรัน',
   'run.terminalFontSize': 'ขนาดตัวอักษรผลลัพธ์',
   'bookmark.load': 'โหลดบุ๊กมาร์ก',
+
+  // คำบอกผลลัพธ์ — บอกว่าเกิดอะไรขึ้น ไม่ใช่บอกว่า runner เขียนลงโฟลเดอร์ไหน
+  // "เทสไม่ผ่าน" กับ "รันไม่สำเร็จ" เป็นปัญหาต่างกัน ห้ามใช้คำหรือสีเดียวกัน
+  // สั้นไว้ตั้งใจ: คอลัมน์สถานะแย่งพื้นที่กับอีก 11 คอลัมน์ คำยาวกว่านี้
+  // ("ผ่านทั้งหมด") ถูกตัดเป็น "ผ่านทั้งห…" — ความต่างระหว่างไม่ผ่านกับรันพังยังอยู่
+  'status.testsFailed': 'ไม่ผ่าน',
+  'status.allPassed': 'ผ่าน',
+  'status.runError': 'รันไม่สำเร็จ',
+  'status.cancelled': 'ยกเลิกแล้ว',
+  'status.unknown': 'ไม่ทราบผล',
+  'status.runErrorHelp': 'การรันหยุดก่อนที่จะได้ผลลัพธ์ — ดูที่ผลการรัน',
+  'status.sameForAllRows': 'ทุกแถวในหน้านี้ค่าเดียวกัน',
+  'status.moreTags': '+{n} รายการ',
 };

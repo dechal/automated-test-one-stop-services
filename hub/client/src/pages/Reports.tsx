@@ -49,7 +49,7 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { formatAbsolute, formatDurationMs, formatRelative } from '~/utils/datetime.js';
-import { getStatusColor, getStatusIcon } from '~/utils/run-status.js';
+import { getStatusColor, getStatusIcon, runOutcome } from '~/utils/run-status.js';
 
 const ALL_STATUSES = ['success', 'error'];
 
@@ -279,6 +279,22 @@ export function ReportsPage() {
   /** Rows on this page that bulk delete is allowed to touch (favourites are not). */
   const selectablePaths = paginatedData.filter((r) => !r.favorite).map((r) => r.reportPath);
 
+  /**
+   * A column whose value is identical on every visible row carries no
+   * information — it only repeats. Filtering to one project made `project` and
+   * `type` do exactly that, 25 rows deep. The column folds away and its single
+   * value is shown once above the table instead, so two columns of noise go
+   * without any data leaving the page.
+   */
+  const sharedProject =
+    paginatedData.length > 1 && paginatedData.every((r) => r.project === paginatedData[0]?.project)
+      ? (paginatedData[0]?.project ?? null)
+      : null;
+  const sharedType =
+    paginatedData.length > 1 && paginatedData.every((r) => r.type === paginatedData[0]?.type)
+      ? (paginatedData[0]?.type ?? null)
+      : null;
+
   const activeFilterCount =
     (selectedTools.size > 0 ? 1 : 0) +
     (selectedStatuses.size > 0 ? 1 : 0) +
@@ -479,6 +495,26 @@ export function ReportsPage() {
         </Paper>
       )}
 
+      {/* The values whose columns folded away because every row shared them.
+          Shown once so the fold hides nothing. */}
+      {(sharedProject !== null || sharedType !== null) && (
+        <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+          <Text size="xs" c="dimmed">
+            {t('status.sameForAllRows')}
+          </Text>
+          {sharedProject !== null && (
+            <Badge size="sm" variant="light" color="gray">
+              {sharedProject}
+            </Badge>
+          )}
+          {sharedType !== null && (
+            <Badge size="sm" variant="light" color="gray">
+              {sharedType}
+            </Badge>
+          )}
+        </Group>
+      )}
+
       {reports.data && (
         <Group justify="space-between" style={{ flexShrink: 0 }}>
           <Text size="xs" c="dimmed">
@@ -624,24 +660,28 @@ export function ReportsPage() {
                       />
                     </Table.Th>
                   )}
-                  <Table.Th>
-                    <SortableHeader
-                      label={t('run.project')}
-                      field="project"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
-                  <Table.Th>
-                    <SortableHeader
-                      label={t('run.type')}
-                      field="type"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
+                  {sharedProject === null && (
+                    <Table.Th>
+                      <SortableHeader
+                        label={t('run.project')}
+                        field="project"
+                        currentField={sortField}
+                        currentDir={sortDir}
+                        onSort={handleSort}
+                      />
+                    </Table.Th>
+                  )}
+                  {sharedType === null && (
+                    <Table.Th>
+                      <SortableHeader
+                        label={t('run.type')}
+                        field="type"
+                        currentField={sortField}
+                        currentDir={sortDir}
+                        onSort={handleSort}
+                      />
+                    </Table.Th>
+                  )}
                   <Table.Th>{t('reports.cases')}</Table.Th>
                   <Table.Th>{t('reports.passScore')}</Table.Th>
                   <Table.Th>{t('table.duration')}</Table.Th>
@@ -682,34 +722,42 @@ export function ReportsPage() {
                       />
                     </Table.Td>
                     <Table.Td>
+                      {/* Outcome, not the raw output folder. `r.status` only says
+                          which directory the runner wrote into, so a run with a
+                          few failing tests badged as `ERROR` — indistinguishable
+                          from a run that never produced a result. */}
                       <Badge
-                        color={getStatusColor(r.status)}
-                        variant="light"
+                        color={runOutcome(r.status, r.summary).color}
+                        variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
                         size="sm"
-                        leftSection={getStatusIcon(r.status)}
+                        leftSection={runOutcome(r.status, r.summary).icon}
                       >
-                        {r.status}
+                        {t(runOutcome(r.status, r.summary).labelKey)}
                       </Badge>
                     </Table.Td>
                     {advancedMode && (
                       <Table.Td>
-                        <Text size="xs" ff="monospace" truncate maw={120}>
+                        <Text size="xs" truncate maw={120}>
                           {r.tool}
                         </Text>
                       </Table.Td>
                     )}
-                    <Table.Td>
-                      <Tooltip label={r.project} withArrow>
-                        <Text size="xs" ff="monospace" truncate maw={150}>
-                          {r.project}
+                    {sharedProject === null && (
+                      <Table.Td>
+                        <Tooltip label={r.project} withArrow>
+                          <Text size="xs" fw={500} truncate maw={150}>
+                            {r.project}
+                          </Text>
+                        </Tooltip>
+                      </Table.Td>
+                    )}
+                    {sharedType === null && (
+                      <Table.Td>
+                        <Text size="xs" truncate maw={80}>
+                          {r.type}
                         </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" truncate maw={80}>
-                        {r.type}
-                      </Text>
-                    </Table.Td>
+                      </Table.Td>
+                    )}
                     <Table.Td>
                       <CaseCountCell summary={r.summary} />
                     </Table.Td>
@@ -730,20 +778,27 @@ export function ReportsPage() {
                     <Table.Td>
                       {r.runTag ? (
                         <Tooltip label={r.runTag} withArrow>
-                          <Group gap={3} wrap="wrap" maw={140}>
+                          <Group gap={4} wrap="nowrap" maw={150}>
                             {/* Tags are a filter record, not a status. As outlined
                                 blue chips they out-shouted the pass rate — the
-                                one number this table exists to show. */}
-                            {parseTagExpr(r.runTag)
-                              .slice(0, 3)
-                              .map((tag) => (
-                                <Text key={tag} size="xs" c="dimmed" ff="monospace">
-                                  {tag.replace(/^@/, '')}
-                                </Text>
-                              ))}
-                            {parseTagExpr(r.runTag).length > 3 && (
-                              <Text size="xs" c="dimmed">
-                                +{parseTagExpr(r.runTag).length - 3}
+                                one number this table exists to show.
+                                `nowrap` is load-bearing: wrapping made a two-tag
+                                row roughly 3x taller than its neighbours, and that
+                                uneven rhythm is what made the table hard to scan.
+                                The tooltip still holds the full expression, so the
+                                cell re-flows without hiding anything. */}
+                            {/* ONE tag, readable, plus a count. Two tags sharing
+                                150px each truncated to `fire-bene…` / `fire-spec…`
+                                — two fragments that identify nothing, and with
+                                exactly two tags no overflow hint appeared either.
+                                One legible name plus `+N` says more in less space;
+                                the tooltip still has the full expression. */}
+                            <Text size="xs" c="dimmed" ff="monospace" truncate>
+                              {(parseTagExpr(r.runTag)[0] ?? '').replace(/^@/, '')}
+                            </Text>
+                            {parseTagExpr(r.runTag).length > 1 && (
+                              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                                +{parseTagExpr(r.runTag).length - 1}
                               </Text>
                             )}
                           </Group>

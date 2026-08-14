@@ -941,7 +941,7 @@ export const en = {
   'common.advancedMode': 'Advanced mode',
   'common.advancedModeOn': 'Advanced mode on — every technical column and field is shown',
   'common.advancedModeOff': 'Simple view — technical details are hidden, nothing is deleted',
-  'run.technicalOutput': 'Technical output',
+  'run.technicalOutput': 'Run output',
   'run.verdictAllPassed': 'All {total} checks passed',
   'run.verdictFailed': '{failed} of {total} checks did not pass',
   'run.verdictCritical': '{n} of them are Critical',
@@ -954,6 +954,21 @@ export const en = {
   'run.hideConfig': 'Hide run settings',
   'run.terminalFontSize': 'Output text size',
   'bookmark.load': 'Load a bookmark',
+
+  // Outcome vocabulary — what happened, not which folder the runner wrote to.
+  // "Tests failed" and "Run error" are different problems and must not share a
+  // label or a colour (see utils/run-status.tsx).
+  // Kept SHORT on purpose: these sit in a status column competing with 11 other
+  // columns, and a longer label ("All passed") was clipped to "All passe…".
+  // The failed/run-error distinction survives the shortening; the length does not.
+  'status.testsFailed': 'Failed',
+  'status.allPassed': 'Passed',
+  'status.runError': 'Run error',
+  'status.cancelled': 'Cancelled',
+  'status.unknown': 'Unknown',
+  'status.runErrorHelp': 'The run stopped before producing any result — check the output',
+  'status.sameForAllRows': 'Same for every row on this page',
+  'status.moreTags': '+{n} more',
 } as const;
 
 export type TranslationKey = keyof typeof en;

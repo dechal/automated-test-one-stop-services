@@ -53,7 +53,7 @@ import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
 import { formatAbsolute, formatDurationBetween, formatRelative } from '~/utils/datetime.js';
-import { getStatusColor, getStatusIcon } from '~/utils/run-status.js';
+import { getStatusColor, getStatusIcon, runOutcome } from '~/utils/run-status.js';
 import { buildTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
@@ -273,6 +273,22 @@ export function HistoryPage() {
   const safePage = Math.min(currentPage, totalPages || 1);
   const paginatedData = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
+  /**
+   * Same rule as Reports: a column identical on every visible row is repetition,
+   * not information. It folds away and its one value is shown above the table, so
+   * this 12-column grid loses two columns without losing any data.
+   */
+  const sharedProject =
+    paginatedData.length > 1 &&
+    paginatedData.every((r) => r.request.project === paginatedData[0]?.request.project)
+      ? (paginatedData[0]?.request.project ?? null)
+      : null;
+  const sharedType =
+    paginatedData.length > 1 &&
+    paginatedData.every((r) => r.request.type === paginatedData[0]?.request.type)
+      ? (paginatedData[0]?.request.type ?? null)
+      : null;
+
   const activeFilterCount =
     (selectedTools.size > 0 ? 1 : 0) +
     (selectedStatuses.size > 0 ? 1 : 0) +
@@ -477,8 +493,28 @@ export function HistoryPage() {
         </Paper>
       )}
 
+      {/* The values whose columns folded away because every visible row shared
+          them. Shown once so the fold hides nothing. */}
+      {(sharedProject !== null || sharedType !== null) && (
+        <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+          <Text size="xs" c="dimmed">
+            {t('status.sameForAllRows')}
+          </Text>
+          {sharedProject !== null && (
+            <Badge size="sm" variant="light" color="gray">
+              {sharedProject}
+            </Badge>
+          )}
+          {sharedType !== null && (
+            <Badge size="sm" variant="light" color="gray">
+              {sharedType}
+            </Badge>
+          )}
+        </Group>
+      )}
+
       {history.data && (
-        <Group justify="space-between" style={{ flexShrink: 0 }}>
+        <Group justify="space-between" style={{ flexShrink: 0 }} wrap="nowrap">
           <Text size="xs" c="dimmed">
             {t('filter.showing')} {paginatedData.length} {t('filter.of')} {sorted.length}{' '}
             {t('history.runsWord')}
@@ -596,16 +632,18 @@ export function HistoryPage() {
                       onSort={handleSort}
                     />
                   </Table.Th>
-                  <Table.Th>
-                    <SortableHeader
-                      label={t('run.project')}
-                      field="project"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
-                  <Table.Th>{t('table.type')}</Table.Th>
+                  {sharedProject === null && (
+                    <Table.Th>
+                      <SortableHeader
+                        label={t('run.project')}
+                        field="project"
+                        currentField={sortField}
+                        currentDir={sortDir}
+                        onSort={handleSort}
+                      />
+                    </Table.Th>
+                  )}
+                  {sharedType === null && <Table.Th>{t('table.type')}</Table.Th>}
                   <Table.Th>{t('table.cases')}</Table.Th>
                   <Table.Th>{t('table.passScore')}</Table.Th>
                   <Table.Th>{t('table.tag')}</Table.Th>
@@ -637,13 +675,16 @@ export function HistoryPage() {
                       />
                     </Table.Td>
                     <Table.Td>
+                      {/* Same outcome vocabulary as Reports: a run whose tests
+                          failed and a run that never produced a result are
+                          different problems and must not read alike. */}
                       <Badge
-                        color={getStatusColor(r.status)}
-                        variant="light"
+                        color={runOutcome(r.status, r.summary).color}
+                        variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
                         size="sm"
-                        leftSection={getStatusIcon(r.status)}
+                        leftSection={runOutcome(r.status, r.summary).icon}
                       >
-                        {r.status}
+                        {t(runOutcome(r.status, r.summary).labelKey)}
                       </Badge>
                     </Table.Td>
                     {/* Tool / mode / trigger are context, not signals. As pills
@@ -655,18 +696,22 @@ export function HistoryPage() {
                         {toolLabel(r.request.tool, tools)}
                       </Text>
                     </Table.Td>
-                    <Table.Td>
-                      <Tooltip label={`${r.request.tool}/${r.request.type}/${r.request.project}`}>
-                        <Text size="xs" ff="monospace" truncate maw={160}>
-                          {r.request.project}
+                    {sharedProject === null && (
+                      <Table.Td>
+                        <Tooltip label={`${r.request.tool}/${r.request.type}/${r.request.project}`}>
+                          <Text size="xs" fw={500} truncate maw={160}>
+                            {r.request.project}
+                          </Text>
+                        </Tooltip>
+                      </Table.Td>
+                    )}
+                    {sharedType === null && (
+                      <Table.Td>
+                        <Text size="xs" truncate maw={80}>
+                          {r.request.type}
                         </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" truncate maw={80}>
-                        {r.request.type}
-                      </Text>
-                    </Table.Td>
+                      </Table.Td>
+                    )}
                     <Table.Td>
                       <Text size="xs" c="dimmed">
                         {r.summary
@@ -680,17 +725,17 @@ export function HistoryPage() {
                     <Table.Td>
                       {r.request.tag ? (
                         <Tooltip label={r.request.tag} withArrow>
-                          <Group gap={3} wrap="wrap" maw={130}>
-                            {parseTagExpr(r.request.tag)
-                              .slice(0, 3)
-                              .map((tag) => (
-                                <Badge key={tag} size="xs" variant="outline" color="blue">
-                                  {tag.replace(/^@/, '')}
-                                </Badge>
-                              ))}
-                            {parseTagExpr(r.request.tag).length > 3 && (
-                              <Text size="xs" c="dimmed">
-                                +{parseTagExpr(r.request.tag).length - 3}
+                          {/* One line, same rule as the Reports tag cell: stacked
+                              chips made these rows twice the height of their
+                              neighbours and the eye lost the row rhythm. The
+                              tooltip still carries the full expression. */}
+                          <Group gap={4} wrap="nowrap" maw={130}>
+                            <Badge size="xs" variant="outline" color="blue" style={{ minWidth: 0 }}>
+                              {(parseTagExpr(r.request.tag)[0] ?? '').replace(/^@/, '')}
+                            </Badge>
+                            {parseTagExpr(r.request.tag).length > 1 && (
+                              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                                +{parseTagExpr(r.request.tag).length - 1}
                               </Text>
                             )}
                           </Group>

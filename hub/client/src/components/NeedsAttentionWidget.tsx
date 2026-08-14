@@ -92,8 +92,10 @@ export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string
       <Title order={5} mb="sm">
         {t('dashboard.needsAttention')}
       </Title>
-      <ScrollArea h="35vh">
-        <Stack gap="xs" h="100%">
+      {/* Autosize + cap, not a fixed height: with three items a fixed 35vh left
+          most of this card empty. */}
+      <ScrollArea.Autosize mah="35vh">
+        <Stack gap="xs">
           {/* Neutral surface + a left accent, not a tinted Alert. Three filled
               red/amber bars made every item shout equally, so severity stopped
               ranking anything — the icon and the accent carry it now, and the
@@ -127,7 +129,7 @@ export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string
             </Paper>
           ))}
         </Stack>
-      </ScrollArea>
+      </ScrollArea.Autosize>
     </Paper>
   );
 }

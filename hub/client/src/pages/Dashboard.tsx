@@ -29,7 +29,7 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
-import { getStatusColor } from '~/utils/run-status.js';
+import { runOutcome } from '~/utils/run-status.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
 /**
@@ -198,8 +198,13 @@ export function DashboardPage() {
           to keep the dashboard clean for users with a healthy environment. */}
           <DoctorPanel doctor={doctor.data} isLoading={doctor.isLoading} />
 
-          {/* Recent Runs + Project Overview — side by side */}
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+          {/* Recent Runs + Project Overview — side by side.
+              `alignItems: start` is deliberate: a CSS grid stretches every child
+              to the tallest row, so the two short cards were padded out to the
+              height of the scrolling run list and sat ~60% empty. Letting each
+              card end where its content ends removes that dead space without
+              taking anything off the page. */}
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md" style={{ alignItems: 'start' }}>
             {/* Recent Runs */}
             <Paper p="md" withBorder>
               <Group justify="space-between" mb="sm">
@@ -230,8 +235,12 @@ export function DashboardPage() {
                 </Text>
               )}
               {recentRuns.length > 0 && (
-                <ScrollArea h="35vh">
-                  <Stack gap={6} h="100%">
+                // Autosize + `mah`, not a fixed `h`: a fixed height padded the
+                // card out to 35vh even when the list was shorter, which is where
+                // the empty space under these cards came from. The cap still stops
+                // a long list from pushing the trend chart off-screen.
+                <ScrollArea.Autosize mah="35vh">
+                  <Stack gap={6}>
                     {recentRuns.map((run) => (
                       <Tooltip
                         key={run.id}
@@ -254,11 +263,15 @@ export function DashboardPage() {
                             <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
                               {/* Tinted, not filled: eight solid red pills down a
                                   short list read as one alarming block rather
-                                  than eight separate outcomes. */}
-                              <Badge size="xs" color={getStatusColor(run.status)}>
-                                {run.status}
+                                  than eight separate outcomes.
+                                  Same `runOutcome` vocabulary as Reports and
+                                  History — showing `FAILED` here while those
+                                  pages said "tests failed" gave one app two names
+                                  for one thing, which is worse than either. */}
+                              <Badge size="xs" color={runOutcome(run.status, run.summary).color}>
+                                {t(runOutcome(run.status, run.summary).labelKey)}
                               </Badge>
-                              <Text size="xs" ff="monospace" truncate>
+                              <Text size="xs" fw={500} truncate>
                                 {run.request.project}
                               </Text>
                               {/* Tool is context; it does not need a chip of its own. */}
@@ -281,7 +294,7 @@ export function DashboardPage() {
                       </Tooltip>
                     ))}
                   </Stack>
-                </ScrollArea>
+                </ScrollArea.Autosize>
               )}
             </Paper>
             {/* Project overview */}
@@ -305,7 +318,7 @@ export function DashboardPage() {
                 // three values filled the whole column and still read as three
                 // separate widgets. As rows they scan top-to-bottom in one pass
                 // and sit at the same density as the run list beside them.
-                <ScrollArea h="35vh">
+                <ScrollArea.Autosize mah="35vh">
                   <Stack gap={2}>
                     {enabledTools.map((tool) => (
                       <Group
@@ -322,13 +335,13 @@ export function DashboardPage() {
                         <Text size="xs" truncate>
                           {tool.title}
                         </Text>
-                        <Text size="sm" fw={700} ff="monospace" style={{ flexShrink: 0 }}>
+                        <Text size="sm" fw={700} style={{ flexShrink: 0 }}>
                           {projects.data?.filter((p) => p.tool === tool.id).length ?? 0}
                         </Text>
                       </Group>
                     ))}
                   </Stack>
-                </ScrollArea>
+                </ScrollArea.Autosize>
               )}
             </Paper>
             {/* Needs Attention */}

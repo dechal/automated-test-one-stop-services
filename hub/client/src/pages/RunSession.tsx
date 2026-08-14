@@ -677,11 +677,16 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           withBorder
           style={{
             opacity: isRunning ? 0.85 : 1,
-            // Expanded, the card is the growing member of the column. Collapsed,
-            // it is one line plus the gating alerts, so it takes its natural
-            // height (`0 1 auto`) and shrinks — scrolling inside itself — only on
-            // a viewport too short for it, rather than growing into empty space.
-            flex: formCollapsed ? '0 1 auto' : 1,
+            // Natural height in BOTH states, shrinking — and scrolling inside
+            // itself — only on a viewport too short to hold the fields. Expanded
+            // used to be `flex: 1`, which grew the card into whatever space was
+            // left: on a 900px viewport the fields ended ~450px above the card's
+            // own bottom edge, so the page showed a large empty BORDERED box,
+            // which reads as broken rather than spacious. The slack now sits in
+            // the spacer below, as plain background. The reasoning that already
+            // justified `0 1 auto` for the collapsed state applies just as well
+            // expanded.
+            flex: '0 1 auto',
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
@@ -926,6 +931,13 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           )}
           {gatingAlerts}
         </Paper>
+
+        {/* Takes the slack the form card no longer grows into, so the footer below
+            stays pinned to the bottom of the column. This is what keeps Run in a
+            fixed place: a repeatable control must not move between clicks, and
+            collapsing or expanding the form must not relocate it (UX checklist
+            §2). Empty background here, not an empty bordered card. */}
+        <div style={{ flex: 1, minHeight: 0 }} aria-hidden />
 
         {/* Pinned action footer — stays level with the command bar on the right;
             the tag list above scrolls independently. Widths are explicit (Run

@@ -73,7 +73,7 @@ export function ProjectRow({
       <Group justify="space-between" wrap="nowrap" gap="sm">
         <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
           <Tooltip label={name} openDelay={400}>
-            <Text size="sm" ff="monospace" truncate>
+            <Text size="sm" fw={500} truncate>
               {name}
             </Text>
           </Tooltip>

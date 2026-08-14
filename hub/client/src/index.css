@@ -1,3 +1,19 @@
+/* Fonts — self-hosted, no CDN. The Hub is local-only, so a Google Fonts link
+   would add an offline failure mode to a tool that has no network dependency.
+   Only the subsets this UI actually renders (Thai + Latin) and the weights the
+   theme actually uses (400 body, 500 labels, 600/700 headings) are imported;
+   pulling the package's `index.css` would ship cyrillic and 100-300 too.
+   Family names are consumed in `theme.ts` — change them there, not here. */
+@import '@fontsource/ibm-plex-sans-thai/thai-400.css';
+@import '@fontsource/ibm-plex-sans-thai/thai-500.css';
+@import '@fontsource/ibm-plex-sans-thai/thai-600.css';
+@import '@fontsource/ibm-plex-sans-thai/thai-700.css';
+@import '@fontsource/ibm-plex-sans-thai/latin-400.css';
+@import '@fontsource/ibm-plex-sans-thai/latin-500.css';
+@import '@fontsource/ibm-plex-sans-thai/latin-600.css';
+@import '@fontsource/ibm-plex-sans-thai/latin-700.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
 @import '@xterm/xterm/css/xterm.css';
 
 /* Test-case field in read mode: show it is editable on hover / focus, so the
@@ -8,6 +24,31 @@
 }
 .tc-editable:hover,
 .tc-editable:focus-visible {
+  background-color: var(--mantine-color-default-hover);
+}
+
+/* Motion — the app had none, which is a large part of why it felt rigid: every
+   state change landed instantly, with no sense of cause and effect. Only colour
+   and border are transitioned (compositor-cheap, no layout work), only on the
+   surfaces a pointer actually touches, and at 150ms, which reads as responsive
+   rather than animated. Nothing moves position, so no control drifts under the
+   cursor. `prefers-reduced-motion` turns it all off. */
+@media (prefers-reduced-motion: no-preference) {
+  .mantine-Table-tr,
+  .mantine-NavLink-root,
+  .mantine-ActionIcon-root,
+  .mantine-Button-root,
+  .mantine-Badge-root {
+    transition:
+      background-color 150ms ease-out,
+      border-color 150ms ease-out,
+      color 150ms ease-out;
+  }
+}
+
+/* Table rows need a hover target at all — without one, a 25-row grid gives no
+   feedback that a row is the thing you are pointing at. */
+.mantine-Table-tr:hover > td {
   background-color: var(--mantine-color-default-hover);
 }
 

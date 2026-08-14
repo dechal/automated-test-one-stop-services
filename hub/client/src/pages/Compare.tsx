@@ -62,7 +62,7 @@ function SideCard({ label, side }: { label: string; side: CompareSide }) {
         <Text size="xs" c="dimmed">
           {label}
         </Text>
-        <Text size="sm" fw={600} ff="monospace" truncate>
+        <Text size="sm" fw={600} truncate>
           {side.project}
         </Text>
         <Text size="xs" c="dimmed">
