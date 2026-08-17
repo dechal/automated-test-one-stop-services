@@ -11,7 +11,7 @@
   "packageManager": "pnpm@11.10.0",
   "scripts": {
     "updater": "pnpm up -i -L -r",
-    "check": "biome check . && biome format --write .",
+    "check": "biome check --write .",
     "lint": "biome lint .",
     "md:check": "markdownlint-cli2 \"**/*.md\"",
     "md:fix": "markdownlint-cli2 --fix \"**/*.md\"",

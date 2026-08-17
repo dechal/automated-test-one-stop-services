@@ -21,6 +21,11 @@
       "allowComments": true
     }
   },
+  "css": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -59,7 +64,7 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "**/*.{js,jsx,mjs,ts,tsx,json}",
+      "**/*.{js,jsx,mjs,ts,tsx,json,css}",
       "!!**/*.{robot,resource,py,pem,key,log,xml,db}",
       "!!**/.vscode",
       "!!**/.idea",
@@ -103,10 +108,19 @@
       "!!**/*lock.json",
       "!**/package*.json",
       "!**/tsconfig.json",
+      "!**/docs/**/*.xlsx.edited.json",
       "!config/pipeline.json"
     ]
   },
   "overrides": [
+    {
+      "includes": ["hub/client/**"],
+      "linter": {
+        "domains": {
+          "react": "recommended"
+        }
+      }
+    },
     {
       "includes": ["**/__tests__/**"],
       "linter": {
