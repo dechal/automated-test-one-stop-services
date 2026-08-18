@@ -93,6 +93,21 @@ jobs:
         continue-on-error: true
         run: node scripts/eval/test-quality.mjs
 
+  # Dependency advisories. This FAILS on a high-severity finding — the tree was
+  # taken to zero on 2026-08-17, so red here means "something new arrived", not
+  # "we still have not started". It is deliberately NOT in `release.needs`: an
+  # advisory is published by a third party without any commit in this repo, so it
+  # must be visible on every run without holding a tagged release hostage.
+  # A fix is a bump of the direct dependency, or a bounded entry under
+  # `overrides:` in pnpm-workspace.yaml (bound the major — see the note there).
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: pnpm audit (high and above)
+        run: pnpm audit --audit-level=high
+
   release:
     needs: [lint, typecheck, typecheck-tools, test]
     if: startsWith(github.ref, 'refs/tags/')

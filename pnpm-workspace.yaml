@@ -21,3 +21,20 @@ minimumReleaseAgeExclude:
 overrides:
   basic-ftp@<=5.2.2: ">=5.3.0"
   uuid@<14.0.0: ">=14.0.0"
+  # Transitive security advisories (`pnpm audit`, 2026-08-17). Each SELECTOR is the
+  # advisory's vulnerable range, so an entry stops matching — and can be deleted —
+  # once every parent has moved past it on its own. Direct dependencies are bumped
+  # in their own package.json instead of being pinned here.
+  # Every TARGET is bounded to the vulnerable range's own major. An unbounded
+  # ">=x" target resolves to the newest version in existence, which silently
+  # crosses majors: `brace-expansion@<1.1.18: ">=1.1.18"` moved `minimatch@3`
+  # (which asks for ^1.1.7) onto brace-expansion 5.0.7 — a different major AND
+  # still vulnerable. Bounding keeps the patch a patch.
+  "brace-expansion@<1.1.18": ">=1.1.18 <2"
+  "brace-expansion@>=2.0.0 <2.1.4": ">=2.1.4 <3"
+  "brace-expansion@>=4.0.0 <5.0.9": ">=5.0.9 <6"
+  "fast-uri@<3.1.5": ">=3.1.5 <4"
+  "find-my-way@<=9.6.0": ">=9.6.1 <10"
+  "js-yaml@<=5.2.1": ">=5.2.2 <6"
+  "nanoid@<3.3.18": ">=3.3.18 <4"
+  "undici@<7.29.0": ">=7.29.0 <8"

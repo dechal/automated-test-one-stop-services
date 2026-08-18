@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTaskCommand,
   matchesWhen,
+  quoteExtraArgs,
   type RunnerAnswers,
   resolveValue,
   substitute,
@@ -373,5 +374,74 @@ describe.skipIf(!TOOLS_PRESENT)('buildTaskCommand — edge cases', () => {
     const cmd = buildTaskCommand(pw, answers);
     // Falls back to `task {ns}:{executionType}-{environment}` → `task pw:custom-local`
     expect(cmd).toBe('task pw:custom-local TYPE=web PROJECT=test');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// quoteExtraArgs() — SECURITY regression suite.
+//
+// `extraArgs` is the only free-form run field, it reaches the Hub over an
+// unauthenticated loopback API, and the Hub spawns the built command as ONE
+// string through a shell. Before this suite the value was passed through
+// verbatim, so `--headed; <cmd>` ran `<cmd>`. Every case below asserts the
+// metacharacter survives as DATA inside a quoted word: no unquoted `;`, `&&`,
+// `|`, backtick or `$(` may appear in the emitted fragment.
+//
+// Needs no manifest, so it runs even when the tool repos are absent (CI).
+// ---------------------------------------------------------------------------
+
+describe('quoteExtraArgs', () => {
+  /** The Hub's real quoter (hub/server/src/services/command-builder.ts). */
+  const shellQuote = (v: string): string => `'${v.replace(/'/g, `'\\''`)}'`;
+  const identity = (v: string): string => v;
+
+  it('quotes each word so a command separator cannot start a second command', () => {
+    expect(quoteExtraArgs('--headed; rm -rf out', shellQuote)).toBe("'--headed;' 'rm' '-rf' 'out'");
+  });
+
+  it.each([
+    ['&& chained', '--headed && whoami'],
+    ['| piped', '--headed | whoami'],
+    ['backtick substitution', '--grep `whoami`'],
+    ['$() substitution', '--grep $(whoami)'],
+    ['newline injection', '--headed\nwhoami'],
+    ['redirect', '--headed > out.txt'],
+  ])('leaves no unquoted shell metacharacter for %s', (_name, raw) => {
+    const emitted = quoteExtraArgs(raw, shellQuote);
+    // Strip every single-quoted span; whatever remains is what the shell parses.
+    const outsideQuotes = emitted.replace(/'(?:[^']|'\\'')*'/g, '');
+    expect(outsideQuotes.trim()).toBe('');
+    expect(outsideQuotes).not.toMatch(/[;&|`$<>\n]/);
+  });
+
+  it('keeps ordinary flags usable — value flags, = flags and regex greps', () => {
+    expect(quoteExtraArgs('--workers=2', shellQuote)).toBe("'--workers=2'");
+    expect(quoteExtraArgs('--loglevel DEBUG', shellQuote)).toBe("'--loglevel' 'DEBUG'");
+    expect(quoteExtraArgs('--grep (?=.*@a)', shellQuote)).toBe("'--grep' '(?=.*@a)'");
+  });
+
+  it('treats a quoted value as ONE word', () => {
+    expect(quoteExtraArgs('--grep "@smoke a"', shellQuote)).toBe("'--grep' '@smoke a'");
+    expect(quoteExtraArgs("--grep '@smoke a'", shellQuote)).toBe("'--grep' '@smoke a'");
+  });
+
+  it("escapes a single quote inside a word so the quoting can't be broken out of", () => {
+    // Closed double quotes make the apostrophe part of the word; the quoter then
+    // has to escape it, which is the only way out of a single-quoted span.
+    expect(quoteExtraArgs(`--grep "it's"`, shellQuote)).toBe("'--grep' 'it'\\''s'");
+    // A bare quote is a DELIMITER (shell semantics), so it is consumed, not kept.
+    expect(quoteExtraArgs("--grep it's", shellQuote)).toBe("'--grep' 'its'");
+  });
+
+  it('is structurally transparent under the identity quote (CLI parity)', () => {
+    expect(quoteExtraArgs('--workers=2', identity)).toBe('--workers=2');
+    expect(quoteExtraArgs('--loglevel DEBUG', identity)).toBe('--loglevel DEBUG');
+    // Collapses runs of whitespace — the words are what the shell would see.
+    expect(quoteExtraArgs('  --headed   --workers=2  ', identity)).toBe('--headed --workers=2');
+  });
+
+  it('returns an empty string for whitespace-only input', () => {
+    expect(quoteExtraArgs('   ', shellQuote)).toBe('');
+    expect(quoteExtraArgs('', shellQuote)).toBe('');
   });
 });

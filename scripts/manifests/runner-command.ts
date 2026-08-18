@@ -214,9 +214,10 @@ export function buildHeadlessToken(manifest: ToolManifest, context: RunnerContex
  * `quote` is the value-escaping hook. The Hub injects its `shellQuote` (the
  * command is spawned through a shell, so regex tags like `(?=.*@x)` must be
  * single-quoted); the CLI runner / parity tests inject the identity function.
- * Quoting wraps the task-var VALUES only (TYPE/PROJECT/TAG/SECTION/
- * PERFORMANCE_TYPE); cli args (the headless flag, extra args) pass through
- * verbatim — matching the legacy Hub `command-builder`.
+ * Quoting wraps the task-var VALUES (TYPE/PROJECT/TAG/SECTION/
+ * PERFORMANCE_TYPE) and every WORD of `extraArgs` (see
+ * {@link quoteExtraArgs}). The headless cli flag is manifest-sourced, never
+ * caller-supplied, so it passes through verbatim.
  */
 export interface RunCommandInput {
   readonly mode: 'local' | 'docker';
@@ -258,6 +259,63 @@ export function resolveHeadlessStepValue(manifest: ToolManifest, headless: boole
 }
 
 /**
+ * Split a free-form argument string into shell WORDS, honouring single and
+ * double quotes so a quoted value stays one word (`--grep "@a b"` → two words).
+ * Pure — no shell, no expansion: `$VAR`, backticks and `$(…)` stay literal
+ * characters, which is the point.
+ */
+function tokenizeArgs(raw: string): string[] {
+  const words: string[] = [];
+  let word = '';
+  let open = false;
+  let quoteChar: "'" | '"' | null = null;
+  for (const ch of raw) {
+    if (quoteChar !== null) {
+      if (ch === quoteChar) quoteChar = null;
+      else word += ch;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quoteChar = ch;
+      open = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (open) {
+        words.push(word);
+        word = '';
+        open = false;
+      }
+      continue;
+    }
+    word += ch;
+    open = true;
+  }
+  if (open) words.push(word);
+  return words;
+}
+
+/**
+ * Quote every word of a caller-supplied extra-args string.
+ *
+ * `extraArgs` is the ONE run field that is free-form text, and the Hub spawns
+ * the built command as a single string through a shell — so an unquoted value
+ * containing `;`, `&&`, `|`, a backtick or `$(…)` would start a SECOND command
+ * with the Hub user's privileges. Quoting per word keeps every flag working
+ * (`--workers=2`, `--grep (?=.*@a)`, `--loglevel DEBUG`) while making every
+ * shell metacharacter inert: it becomes an argument the test runner rejects,
+ * not a command the shell runs.
+ *
+ * Per-word rather than whole-string, because the shell must still see the words
+ * as separate arguments. With the identity quote (CLI runner, parity tests) the
+ * output is the input re-joined by single spaces, so the structural form is
+ * unchanged.
+ */
+export function quoteExtraArgs(extraArgs: string, quote: (value: string) => string): string {
+  return tokenizeArgs(extraArgs).map(quote).join(' ');
+}
+
+/**
  * Build the `task …` run command for the Hub from a neutral
  * {@link RunCommandInput}, delegating to {@link buildTaskCommand}.
  *
@@ -283,7 +341,9 @@ export function buildRunCommandFromInput(manifest: ToolManifest, input: RunComma
   if (input.performanceType !== undefined && input.performanceType !== '') {
     extra.performance_type = input.quote(input.performanceType);
   }
-  if (input.extraArgs !== undefined && input.extraArgs !== '') extra.args = input.extraArgs;
+  if (input.extraArgs !== undefined && input.extraArgs !== '') {
+    extra.args = quoteExtraArgs(input.extraArgs, input.quote);
+  }
   // Headless is a cli-step value resolved from the manifest. Docker forcing is
   // handled by `buildTaskCommand` via the step's `dockerOverride`, so we only
   // resolve the local intent; an unspecified local headless emits no token.

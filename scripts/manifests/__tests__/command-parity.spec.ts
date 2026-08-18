@@ -97,7 +97,7 @@ const scenarios: Scenario[] = [
     expected:
       'task pw:run-local TYPE=web PROJECT=ecom TAG=(?=.*@TEST-C001) -- --headed --workers=1',
     expectedQuoted:
-      "task pw:run-local TYPE='web' PROJECT='ecom' TAG='(?=.*@TEST-C001)' -- --headed --workers=1",
+      "task pw:run-local TYPE='web' PROJECT='ecom' TAG='(?=.*@TEST-C001)' -- --headed '--workers=1'",
   },
   {
     name: 'playwright local headless — no headless token',
@@ -168,7 +168,7 @@ const scenarios: Scenario[] = [
     expected:
       'task robot:run-local TYPE=desktop PROJECT=crm -- --variable HEADLESS:False --loglevel DEBUG',
     expectedQuoted:
-      "task robot:run-local TYPE='desktop' PROJECT='crm' -- --variable HEADLESS:False --loglevel DEBUG",
+      "task robot:run-local TYPE='desktop' PROJECT='crm' -- --variable HEADLESS:False '--loglevel' 'DEBUG'",
   },
   {
     name: 'robot docker + tag (headless forced True by dockerOverride)',
@@ -231,7 +231,7 @@ describe.skipIf(!TOOLS_PRESENT)(
         expect(hub).toBe(s.expected);
       });
 
-      it(`${s.name}: shell-quoted Hub output quotes task-var values only`, () => {
+      it(`${s.name}: shell-quoted Hub output quotes task-var values + extra-arg words`, () => {
         const hub = buildRunCommandFromInput(s.manifest, { ...s.hub, quote: shellQuote });
         expect(hub).toBe(s.expectedQuoted);
       });
