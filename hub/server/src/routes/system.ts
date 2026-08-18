@@ -3,9 +3,8 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import { WORKSPACE_ROOT } from '../config.js';
 import { mapPool } from '../lib/map-pool.js';
-import { runChild } from '../services/exec.js';
+import { rebuildHub, scheduleHubRestart } from '../services/hub-rebuild.js';
 import { isUnderOutputs, isUnderWorkspace } from '../services/path-guard.js';
 import { loadJson, saveJson } from '../services/persistence.js';
 import { invalidateReportsCache, listReports } from '../services/reports.js';
@@ -298,58 +297,31 @@ function runUpdateInBackground(): void {
   updateState.error = undefined;
   updateState.finishedAt = undefined;
 
-  const buildShell = process.platform === 'win32';
-  const hubDir = path.resolve(WORKSPACE_ROOT, 'hub');
-
   // Run the workflow with no top-level await so the request handler returns
   // immediately. Errors are recorded onto updateState; the client polls the
   // status endpoint to find out.
   void (async () => {
     try {
-      const clientBuild = await runChild('pnpm', ['-C', 'hub/client', 'run', 'build'], {
-        cwd: WORKSPACE_ROOT,
-        shell: buildShell,
+      // Build + restart live in services/hub-rebuild.ts — /api/projects/pull-all
+      // runs the same two steps, and this endpoint's `client`/`server` stage names
+      // are its own public contract, so they are mapped here rather than there.
+      const build = await rebuildHub((stage) => {
+        updateState.stage = stage;
       });
-      if (!clientBuild.ok) {
-        updateState.error = `client build failed: ${clientBuild.output}`;
-        updateState.running = false;
-        updateState.stage = 'idle';
-        return;
-      }
-
-      updateState.stage = 'server';
-      const serverBuild = await runChild('pnpm', ['-C', 'hub/server', 'run', 'build'], {
-        cwd: WORKSPACE_ROOT,
-        shell: buildShell,
-      });
-      if (!serverBuild.ok) {
-        updateState.error = `server build failed: ${serverBuild.output}`;
+      if (!build.ok) {
+        updateState.error = `${build.failedAt} build failed: ${build.output}`;
         updateState.running = false;
         updateState.stage = 'idle';
         return;
       }
 
       updateState.stage = 'restarting';
-      // Give the status endpoint one last poll opportunity before we are killed.
-      setTimeout(() => {
-        // Restart through the shared Hub launcher so the swap works whether the
-        // Hub runs daemonless or under an OS supervisor (systemd/launchd) —
-        // see hub/bin/hub-service.mjs.
-        const launcher = path.join(hubDir, 'bin', 'hub-service.mjs');
-        const child = spawn(process.execPath, [launcher, 'restart'], {
-          cwd: hubDir,
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-        });
-        child.on('error', (err) => {
-          // launcher/node missing or PATH issue — leave the failure visible.
-          updateState.error = `hub restart failed: ${err.message}`;
-          updateState.running = false;
-          updateState.stage = 'idle';
-        });
-        child.unref();
-      }, 500);
+      scheduleHubRestart((message) => {
+        // launcher/node missing or PATH issue — leave the failure visible.
+        updateState.error = message;
+        updateState.running = false;
+        updateState.stage = 'idle';
+      });
 
       // We won't reach this in practice because the launcher restart recycles
       // the process, but mark "done" defensively in case it does not.

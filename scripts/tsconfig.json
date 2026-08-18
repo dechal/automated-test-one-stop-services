@@ -1,0 +1,26 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": ["node"],
+    // `lib/*.mjs` are plain JS helpers with JSDoc. `allowJs` lets TS INFER their
+    // shapes (so `import … from './lib/usage-log.mjs'` is typed instead of
+    // `implicitly any`) while `checkJs` stays off, so the .mjs files themselves are
+    // not gated by this project — a .d.ts per helper would be the same result with
+    // more files to keep in sync.
+    "allowJs": true,
+    "checkJs": false
+  },
+  // The top-level entry points (`runner.ts`, `create-project.ts`,
+  // `sync-projects.ts`, `install-tool.ts`) belonged to NO tsconfig project: the
+  // two sub-projects (`manifests/`, `install-core/`) use a folder-local
+  // `include: ["*.ts"]`, and the root tsconfig is only an `extends` base. So the
+  // scripts a user runs every day (`task`, `task create-project`, `task setup`)
+  // were checked by nothing and a type error surfaced at runtime.
+  //
+  // Scope is this folder's own `*.ts` only. The imported sub-projects are pulled
+  // in through their imports and stay owned by their own tsconfig, which is what
+  // keeps `pnpm exec tsc -p scripts/manifests/tsconfig.json` meaningful.
+  "include": ["*.ts"],
+  "exclude": ["node_modules/**", "manifests/**", "install-core/**", "third-party/**"]
+}

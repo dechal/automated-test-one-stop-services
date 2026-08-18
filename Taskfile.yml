@@ -438,6 +438,16 @@ tasks:
       - pnpm -C hub/shared run typecheck
       - pnpm -C hub/server run typecheck
       - pnpm -C hub/client run typecheck
+      # The three script projects, mirroring the CI `typecheck` job. Each
+      # tsconfig is folder-local (`include: ["*.ts"]`): `scripts/` covers the
+      # top-level entry points this Taskfile itself runs (runner.ts,
+      # create-project.ts, sync-projects.ts, install-tool.ts) — they belonged to no
+      # project at all until 2026-08-17, so a type error in the daily-driver
+      # scripts only ever showed up at runtime. lefthook checks `manifests` alone,
+      # and `--no-verify` skips even that, so this gate is the one that always runs.
+      - pnpm exec tsc --noEmit -p scripts/tsconfig.json
+      - pnpm exec tsc --noEmit -p scripts/manifests/tsconfig.json
+      - pnpm exec tsc --noEmit -p scripts/install-core/tsconfig.json
       - |
         for cfg in tools/playwright/tsconfig.json tools/k6/tsconfig.json; do
           if [ -f "$cfg" ]; then

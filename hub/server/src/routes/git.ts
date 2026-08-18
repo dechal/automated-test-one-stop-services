@@ -1,9 +1,8 @@
-import { spawn } from 'node:child_process';
-import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { WORKSPACE_ROOT } from '../config.js';
 import { mapPool } from '../lib/map-pool.js';
 import { runChild } from '../services/exec.js';
+import { rebuildHub, scheduleHubRestart } from '../services/hub-rebuild.js';
 import { listAllProjects } from '../services/scanner.js';
 
 interface PullResult {
@@ -220,9 +219,6 @@ function runPullAllInBackground(): void {
   pullAllState.restarted = false;
   pullAllState.finishedAt = undefined;
 
-  const buildShell = process.platform === 'win32';
-  const hubDir = path.resolve(WORKSPACE_ROOT, 'hub');
-
   void (async () => {
     try {
       // 1. Capture HEAD before pull
@@ -275,40 +271,21 @@ function runPullAllInBackground(): void {
           ]);
 
           if (diffRes.stdout.trim()) {
-            // Stage: build client
-            pullAllState.stage = 'building-client';
-            const clientBuild = await runChild('pnpm', ['-C', 'hub/client', 'run', 'build'], {
-              cwd: WORKSPACE_ROOT,
-              shell: buildShell,
+            // Build + restart are shared with POST /api/system/update
+            // (services/hub-rebuild.ts). What stays here is this endpoint's own
+            // vocabulary: the `building-*` stage names and the `(hub-rebuild)`
+            // result row the Projects page renders.
+            const build = await rebuildHub((stage) => {
+              pullAllState.stage = stage === 'client' ? 'building-client' : 'building-server';
             });
-            if (!clientBuild.ok) {
-              pullAllState.error = `client build failed: ${clientBuild.output}`;
+            if (!build.ok) {
+              pullAllState.error = `${build.failedAt} build failed: ${build.output}`;
               pullAllState.results.push({
                 project: '(hub-rebuild)',
                 tool: 'root',
                 type: '',
                 success: false,
-                output: `client: FAIL`,
-              });
-              pullAllState.running = false;
-              pullAllState.stage = 'idle';
-              return;
-            }
-
-            // Stage: build server
-            pullAllState.stage = 'building-server';
-            const serverBuild = await runChild('pnpm', ['-C', 'hub/server', 'run', 'build'], {
-              cwd: WORKSPACE_ROOT,
-              shell: buildShell,
-            });
-            if (!serverBuild.ok) {
-              pullAllState.error = `server build failed: ${serverBuild.output}`;
-              pullAllState.results.push({
-                project: '(hub-rebuild)',
-                tool: 'root',
-                type: '',
-                success: false,
-                output: `client: OK, server: FAIL`,
+                output: build.failedAt === 'client' ? 'client: FAIL' : 'client: OK, server: FAIL',
               });
               pullAllState.running = false;
               pullAllState.stage = 'idle';
@@ -324,25 +301,12 @@ function runPullAllInBackground(): void {
               output: 'client: OK, server: OK',
             });
 
-            // Stage: restart via the shared Hub launcher, which runs the Hub as
-            // a daemonless / OS-supervised background process — see
-            // hub/bin/hub-service.mjs.
             pullAllState.stage = 'restarting';
-            setTimeout(() => {
-              const launcher = path.join(hubDir, 'bin', 'hub-service.mjs');
-              const child = spawn(process.execPath, [launcher, 'restart'], {
-                cwd: hubDir,
-                detached: true,
-                stdio: 'ignore',
-                windowsHide: true,
-              });
-              child.on('error', (err: Error) => {
-                pullAllState.error = `hub restart failed: ${err.message}`;
-                pullAllState.running = false;
-                pullAllState.stage = 'idle';
-              });
-              child.unref();
-            }, 500);
+            scheduleHubRestart((message) => {
+              pullAllState.error = message;
+              pullAllState.running = false;
+              pullAllState.stage = 'idle';
+            });
 
             pullAllState.restarted = true;
           }

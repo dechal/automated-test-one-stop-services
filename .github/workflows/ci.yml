@@ -46,6 +46,17 @@ jobs:
       - run: pnpm -C hub/shared run typecheck
       - run: pnpm -C hub/server run typecheck
       - run: pnpm -C hub/client run typecheck
+      # The three script projects. `scripts/tsconfig.json` covers the top-level
+      # entry points a user runs daily (`runner.ts`, `create-project.ts`,
+      # `sync-projects.ts`, `install-tool.ts`); before it existed they were in NO
+      # project, so nothing type-checked them. `install-core` was likewise gated by
+      # neither a hook nor CI, and only `manifests` had a pre-commit hook — which a
+      # `--no-verify` commit skips, so CI owns all three.
+      - name: Script projects
+        run: |
+          pnpm exec tsc --noEmit -p scripts/tsconfig.json
+          pnpm exec tsc --noEmit -p scripts/manifests/tsconfig.json
+          pnpm exec tsc --noEmit -p scripts/install-core/tsconfig.json
 
   # The tools carry the test code users actually write, so their TypeScript is
   # worth the same gate as the Hub's — this mirrors the `tools/*/tsconfig.json`
