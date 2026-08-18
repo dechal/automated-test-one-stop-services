@@ -119,8 +119,12 @@ describe.skipIf(!realToolsPresent(WORKSPACE_ROOT, TOOL_IDS))('projectPipeline', 
     const p = await buildProjection(ws);
     expect(p.run_commands.playwright.local).toContain('task pw:run-local');
     expect(p.run_commands.k6.docker).toContain('task k6:run-docker');
+    // Must mirror what the k6 Taskfile actually writes: `.temp/` is promoted to
+    // `<status>/<date>/<time>/round_N/`. This assertion existed with the retired
+    // `{year}/{user}/{month}/{day}/{time}` shape, which kept the stale value alive
+    // in the generated pipeline.json that delivery globs for CI artifacts.
     expect(p.artifact_paths.k6).toEqual([
-      'outputs/k6/{project}/{section}/{year}/{user}/{month}/{day}/{time}/',
+      'outputs/k6/{project}/{section}/{status}/{date}/{time}/round_{round}/',
     ]);
   });
 

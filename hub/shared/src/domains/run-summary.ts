@@ -9,6 +9,8 @@
  * Supports Playwright, Robot Framework, and k6 reporter formats and strips ANSI
  * colour codes before matching. Returns `null` when no known summary line is
  * present, so callers can tell "no result yet" apart from "0 passed / 0 failed".
+ * That distinction is load-bearing: `runOutcome` (client) badges a run with no
+ * counts as "Run error", so a format this parser misses looks like a crash.
  */
 export interface RunSummary {
   passed: number;
@@ -51,12 +53,25 @@ export function parseRunSummary(raw: string): RunSummary | null {
     matched = true;
   }
 
-  // k6 checks summary
-  const k6Checks = text.match(/checks_succeeded\s*[.…]*\s*([\d.]+)%/);
+  // k6 checks summary. k6 has no per-test-case concept, so a run is reported as
+  // ONE logical case — the counts answer "did this run meet its criteria?".
+  //
+  // Two summary formats are in the field, and which one appears depends on the
+  // locally provisioned k6 version (`task k6:setup`), so both must be accepted:
+  //   legacy: "checks.........................: 34.59% ✓ 67216      ✗ 127105"
+  //   v1.x:   "checks_succeeded...............: 100.00% 46 out of 46"
+  // The dot leaders AND the ':' separator are both optional here; requiring no
+  // ':' was the bug that left every k6 run without counts, which the Hub then
+  // badged as "Run error" (reserved for a run that produced no result at all).
+  const k6Checks = text.match(/checks(?:_succeeded)?[\s.…]*:?\s*([\d.]+)%/);
   if (k6Checks) {
     matched = true;
+    // A threshold breach exits 99 and CAN happen with 100% successful checks,
+    // so it has to count as a failure too — otherwise a breached run is badged
+    // green "All passed".
+    const thresholdsCrossed = /thresholds? on metrics?\b[^\n]*crossed/i.test(text);
     const pct = Number.parseFloat(k6Checks[1] ?? '0');
-    if (pct === 100) passed = 1;
+    if (pct === 100 && !thresholdsCrossed) passed = 1;
     else failed = 1;
   }
 
