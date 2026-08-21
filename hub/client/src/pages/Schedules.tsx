@@ -41,6 +41,7 @@ import { type Schedule, ScheduleForm } from '~/components/schedule-form/Schedule
 import { toast } from '~/components/Toast.js';
 import { useToolOptions } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { usePreferences } from '~/stores/hub.js';
 import { getStatusColor } from '~/utils/run-status.js';
 
 /**
@@ -90,6 +91,7 @@ export function SchedulesPage() {
    * and the one that existed before custom schedules.
    */
   const [kind, setKind] = useState<'tool' | 'custom'>('tool');
+  const advancedMode = usePreferences((s) => s.advancedMode);
 
   // Filters
   const [filterTool, setFilterTool] = useState<string | null>(null);
@@ -277,12 +279,14 @@ export function SchedulesPage() {
                     {toolCount}
                   </Badge>
                 </Tabs.Tab>
-                <Tabs.Tab value="custom" leftSection={<TbTerminal2 size={14} />}>
-                  {t('schedules.kindCustom')}
-                  <Badge size="xs" variant="light" color="gray" ml={6}>
-                    {customCount}
-                  </Badge>
-                </Tabs.Tab>
+                {advancedMode && (
+                  <Tabs.Tab value="custom" leftSection={<TbTerminal2 size={14} />}>
+                    {t('schedules.kindCustom')}
+                    <Badge size="xs" variant="light" color="gray" ml={6}>
+                      {customCount}
+                    </Badge>
+                  </Tabs.Tab>
+                )}
               </Tabs.List>
             </Tabs>
 

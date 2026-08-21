@@ -131,8 +131,6 @@ const NAV_CATEGORIES: NavCategory[] = [
         labelKey: 'nav.schedules',
         descKey: 'nav.schedules.desc',
         icon: <TbCalendarTime size={18} />,
-        // Cron expressions + custom shell commands are operator surfaces.
-        advanced: true,
       },
     ],
   },

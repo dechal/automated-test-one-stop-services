@@ -377,20 +377,21 @@ export function ScheduleForm({
           </Group>
         </Stack>
 
-        {/* Kind is chosen BEFORE the run config, because it decides which fields
-            below are shown. Locked in edit mode: switching an existing schedule
-            between kinds would silently discard the other kind's settings. */}
-        <SegmentedControl
-          fullWidth
-          size="xs"
-          value={kind}
-          onChange={(v) => setKind(v === 'custom' ? 'custom' : 'tool')}
-          disabled={isEdit}
-          data={[
-            { value: 'tool', label: t('schedules.kindTools') },
-            { value: 'custom', label: t('schedules.kindCustom') },
-          ]}
-        />
+        {/* Kind picker: only shown in advanced mode. Normal mode creates tool
+            schedules only and never sees the custom path. */}
+        {advancedMode && (
+          <SegmentedControl
+            fullWidth
+            size="xs"
+            value={kind}
+            onChange={(v) => setKind(v === 'custom' ? 'custom' : 'tool')}
+            disabled={isEdit}
+            data={[
+              { value: 'tool', label: t('schedules.kindTools') },
+              { value: 'custom', label: t('schedules.kindCustom') },
+            ]}
+          />
+        )}
 
         {kind === 'custom' && (
           <Paper withBorder p="sm" mt="xs">
