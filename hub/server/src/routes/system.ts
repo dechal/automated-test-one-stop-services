@@ -284,7 +284,7 @@ export async function systemRoutes(app: FastifyInstance): Promise<void> {
 
 interface UpdateState {
   running: boolean;
-  stage: 'idle' | 'client' | 'server' | 'restarting' | 'done';
+  stage: 'idle' | 'shared' | 'client' | 'server' | 'restarting' | 'done';
   error?: string;
   finishedAt?: string;
 }
@@ -293,7 +293,8 @@ const updateState: UpdateState = { running: false, stage: 'idle' };
 
 function runUpdateInBackground(): void {
   updateState.running = true;
-  updateState.stage = 'client';
+  // First stage of rebuildHub — keep in step with its STAGES order.
+  updateState.stage = 'shared';
   updateState.error = undefined;
   updateState.finishedAt = undefined;
 
@@ -303,8 +304,8 @@ function runUpdateInBackground(): void {
   void (async () => {
     try {
       // Build + restart live in services/hub-rebuild.ts — /api/projects/pull-all
-      // runs the same two steps, and this endpoint's `client`/`server` stage names
-      // are its own public contract, so they are mapped here rather than there.
+      // runs the same steps, and this endpoint's `shared`/`server`/`client` stage
+      // names are its own public contract, so they are mapped here rather than there.
       const build = await rebuildHub((stage) => {
         updateState.stage = stage;
       });

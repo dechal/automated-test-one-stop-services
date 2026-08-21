@@ -82,6 +82,13 @@ interface NavItem {
   labelKey: TranslationKey;
   descKey: TranslationKey;
   icon: React.ReactNode;
+  /**
+   * Advanced-only ITEM inside an otherwise basic category. Hidden from the navbar
+   * in simple mode, and it keeps its category (moving it into an `advanced`
+   * category would file it under the wrong heading). ⌘K still reaches it, exactly
+   * like the items in `advanced` categories.
+   */
+  advanced?: boolean;
 }
 
 interface NavCategory {
@@ -124,6 +131,8 @@ const NAV_CATEGORIES: NavCategory[] = [
         labelKey: 'nav.schedules',
         descKey: 'nav.schedules.desc',
         icon: <TbCalendarTime size={18} />,
+        // Cron expressions + custom shell commands are operator surfaces.
+        advanced: true,
       },
     ],
   },
@@ -375,6 +384,10 @@ export function AppLayout() {
     );
   };
 
+  /** Items of a basic category that are visible in the CURRENT mode. */
+  const visibleItems = (cat: NavCategory) =>
+    cat.items.filter((item) => !item.advanced || advancedMode);
+
   const renderCategory = (cat: NavCategory, index: number) => (
     <div key={cat.labelKey}>
       {rail ? (
@@ -386,7 +399,7 @@ export function AppLayout() {
           {t(cat.labelKey)}
         </Text>
       )}
-      {cat.items.map(renderItem)}
+      {visibleItems(cat).map(renderItem)}
     </div>
   );
 

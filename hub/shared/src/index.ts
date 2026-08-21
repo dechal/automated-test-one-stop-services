@@ -23,6 +23,7 @@ export * from './domains/runs.js';
 export * from './domains/schedules.js';
 export * from './domains/severity-score.js';
 export * from './domains/tags.js';
+export * from './domains/task-exit-code.js';
 export * from './domains/testcases.js';
 export * from './domains/tool-plugins.js';
 export * from './domains/tools.js';

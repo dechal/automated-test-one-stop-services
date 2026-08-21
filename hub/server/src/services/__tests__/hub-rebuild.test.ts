@@ -23,21 +23,35 @@ beforeEach(() => {
 });
 
 describe('rebuildHub', () => {
-  it('builds the client, then the server, and reports the stages in that order', async () => {
+  // `shared` MUST be first and MUST be present: both other packages import
+  // @hub/shared and load its compiled dist/ at runtime. It was missing until
+  // 2026-08-21, which silently served a stale dist after every in-app update.
+  it('builds shared, then server, then client, and reports the stages in that order', async () => {
     mocks.runChild.mockResolvedValue(ok);
     const stages: RebuildStage[] = [];
 
     const result = await rebuildHub((stage) => stages.push(stage));
 
     expect(result).toEqual({ ok: true });
-    expect(stages).toEqual(['client', 'server']);
-    expect(mocks.runChild).toHaveBeenCalledTimes(2);
+    expect(stages).toEqual(['shared', 'server', 'client']);
+    expect(mocks.runChild).toHaveBeenCalledTimes(3);
     expect(mocks.runChild.mock.calls[0]).toEqual([
       'pnpm',
-      ['-C', 'hub/client', 'run', 'build'],
+      ['-C', 'hub/shared', 'run', 'build'],
       { cwd: WORKSPACE_ROOT, shell: process.platform === 'win32' },
     ]);
     expect(mocks.runChild.mock.calls[1]?.[1]).toEqual(['-C', 'hub/server', 'run', 'build']);
+    expect(mocks.runChild.mock.calls[2]?.[1]).toEqual(['-C', 'hub/client', 'run', 'build']);
+  });
+
+  it('matches the build order of the `build` script in hub/package.json', async () => {
+    mocks.runChild.mockResolvedValue(ok);
+    const stages: RebuildStage[] = [];
+
+    await rebuildHub((stage) => stages.push(stage));
+
+    // hub/package.json: shared && server && client
+    expect(stages.join(' && ')).toBe('shared && server && client');
   });
 
   it('reports the stage BEFORE its build runs, so a caller can publish progress', async () => {
@@ -49,15 +63,22 @@ describe('rebuildHub', () => {
 
     await rebuildHub((stage) => seen.push(`stage:${stage}`));
 
-    expect(seen).toEqual(['stage:client', 'build:hub/client', 'stage:server', 'build:hub/server']);
+    expect(seen).toEqual([
+      'stage:shared',
+      'build:hub/shared',
+      'stage:server',
+      'build:hub/server',
+      'stage:client',
+      'build:hub/client',
+    ]);
   });
 
-  it('stops at a failed client build and never starts the server build', async () => {
-    mocks.runChild.mockResolvedValueOnce(fail('vite: out of memory'));
+  it('stops at a failed shared build and never starts the server or client build', async () => {
+    mocks.runChild.mockResolvedValueOnce(fail('tsc: TS2554'));
 
     const result = await rebuildHub();
 
-    expect(result).toEqual({ ok: false, failedAt: 'client', output: 'vite: out of memory' });
+    expect(result).toEqual({ ok: false, failedAt: 'shared', output: 'tsc: TS2554' });
     expect(mocks.runChild).toHaveBeenCalledTimes(1);
   });
 
@@ -68,6 +89,18 @@ describe('rebuildHub', () => {
 
     expect(result).toEqual({ ok: false, failedAt: 'server', output: 'tsup: TS2304' });
     expect(mocks.runChild).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a failed client build with its output', async () => {
+    mocks.runChild
+      .mockResolvedValueOnce(ok)
+      .mockResolvedValueOnce(ok)
+      .mockResolvedValueOnce(fail('vite: out of memory'));
+
+    const result = await rebuildHub();
+
+    expect(result).toEqual({ ok: false, failedAt: 'client', output: 'vite: out of memory' });
+    expect(mocks.runChild).toHaveBeenCalledTimes(3);
   });
 
   it('never throws — a failure is a return value, because the callers run it detached', async () => {

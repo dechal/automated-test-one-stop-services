@@ -548,7 +548,8 @@ export const en = {
   'settings.reset': 'Reset',
   'settings.systemUpdate': 'System Update',
   'settings.updateHub': 'Update Hub',
-  'settings.updateHubDesc': 'Build client & server, then restart the Hub to apply the latest code',
+  'settings.updateHubDesc':
+    'Build shared, server & client, then restart the Hub to apply the latest code',
   'settings.updating': 'Updating...',
   'settings.update': 'Update',
   'settings.allRightsReserved': 'All rights reserved.',
@@ -814,12 +815,26 @@ export const en = {
   // Schedules (page body)
   'schedules.list': 'List',
   'schedules.calendar': 'Calendar',
+  // Schedule kinds — a tool run vs a plain shell command.
+  'schedules.kindTools': 'Tools',
+  'schedules.kindCustom': 'Custom',
+  'schedule.customCommand': 'Command to run',
+  'schedule.customScript': 'Script or command',
+  'schedule.customScriptHint': 'Runs from the workspace root through the same runner as a test',
+  'schedule.customScriptRequired': 'Required — enter the command to run',
+  'schedule.customArgs': 'Arguments',
+  'schedule.customCwd': 'Working directory',
+  'schedule.customCwdHint': 'Relative to the workspace; must stay inside it',
+  'schedule.runLabelConfig': 'Labels for this schedule',
+  'schedules.noToolSchedules': 'No tool schedules match. Create one to run tests automatically.',
+  'schedules.noCustom': 'No custom schedules yet. Create one to run a script or command on a cron.',
   'schedule.lastPrefix': 'Last:',
   'schedule.lastRunPrefix': 'Last run:',
   'schedule.tagged': 'tagged',
 
   // Settings (build status + misc)
   'settings.startingBuild': 'Starting build...',
+  'settings.buildingShared': 'Building shared...',
   'settings.buildingClient': 'Building client...',
   'settings.buildingServer': 'Building server...',
   'settings.restartingHub': 'Restarting hub...',

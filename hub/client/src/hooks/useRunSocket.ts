@@ -1,4 +1,5 @@
 import type { RunStatus, WsServerEvent } from '@hub/shared';
+import { formatExitCode } from '@hub/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { api } from '~/api/client.js';
@@ -104,8 +105,11 @@ export function useRunSocket({
             setRunStatus(msg.record.status);
             const summary = parseRunSummary(fullOutputRef.current);
             if (summary) setRunSummary(summary);
+            // `record.exitCode` is go-task's, which is a fixed 201 for ANY task
+            // failure — show the tool's own code alongside it (see formatExitCode).
+            const exitLabel = formatExitCode(msg.record.exitCode, fullOutputRef.current);
             term.writeln(
-              `\n\x1b[${msg.record.status === 'passed' ? '32' : '31'}m[${msg.record.status.toUpperCase()}]\x1b[0m Exit code: ${msg.record.exitCode ?? 'N/A'}`,
+              `\n\x1b[${msg.record.status === 'passed' ? '32' : '31'}m[${msg.record.status.toUpperCase()}]\x1b[0m Exit code: ${exitLabel}`,
             );
             if (msg.record.status === 'passed') {
               toast.success(`${t('run.testPassed')} (${msg.record.request.project})`, {

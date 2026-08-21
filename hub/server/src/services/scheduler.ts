@@ -1,7 +1,8 @@
-import type { RunRecord, RunRequest, RunStatus, WsServerEvent } from '@hub/shared';
+import type { CustomCommand, RunRecord, RunRequest, RunStatus, WsServerEvent } from '@hub/shared';
 import { nanoid } from 'nanoid';
 import cron from 'node-cron';
 import { buildTaskCommand } from './command-builder.js';
+import { buildCustomCommand } from './custom-command-builder.js';
 import { getEnabledToolIds } from './manifest-registry.js';
 import { loadJson, saveJson } from './persistence.js';
 import { runner } from './runner.js';
@@ -33,6 +34,12 @@ export interface Schedule {
   name: string;
   cron: string;
   config: RunRequest;
+  /**
+   * Present ⇒ a CUSTOM schedule: the cron tick runs this shell command instead of
+   * a tool run, and the enabled-tool gate is skipped. Absent ⇒ a tool run, which
+   * behaves exactly as it did before this field existed.
+   */
+  command?: CustomCommand;
   enabled: boolean;
   createdAt: string;
   lastRunAt?: string;
@@ -115,7 +122,7 @@ class SchedulerService {
     return this.schedules.find((s) => s.id === id);
   }
 
-  create(name: string, cronExpr: string, config: RunRequest): Schedule {
+  create(name: string, cronExpr: string, config: RunRequest, command?: CustomCommand): Schedule {
     if (!cron.validate(cronExpr)) {
       throw new Error(`Invalid cron expression: ${cronExpr}`);
     }
@@ -125,6 +132,9 @@ class SchedulerService {
       name,
       cron: cronExpr,
       config,
+      // Spread so a tool schedule keeps NO `command` key at all, rather than an
+      // explicit `undefined` that would be persisted as `"command": null`.
+      ...(command ? { command } : {}),
       enabled: true,
       createdAt: new Date().toISOString(),
       noOverlap: true,
@@ -138,7 +148,9 @@ class SchedulerService {
 
   update(
     id: string,
-    updates: Partial<Pick<Schedule, 'name' | 'cron' | 'config' | 'enabled' | 'noOverlap'>>,
+    updates: Partial<
+      Pick<Schedule, 'name' | 'cron' | 'config' | 'command' | 'enabled' | 'noOverlap'>
+    >,
   ): Schedule | null {
     const idx = this.schedules.findIndex((s) => s.id === id);
     if (idx === -1) return null;
@@ -194,11 +206,15 @@ class SchedulerService {
     this.stopTask(schedule.id);
 
     const task = cron.schedule(schedule.cron, async () => {
-      // Skip ticks for a disabled/uninstalled tool — the cron stays registered
-      // so re-enabling the tool resumes firing without recreating the schedule.
-      const enabledIds = await getEnabledToolIds();
-      if (!enabledIds.has(schedule.config.tool)) {
-        return;
+      // A custom schedule owns no tool, so the enabled-tool gate must be skipped
+      // for it — checked FIRST, or every custom tick would be dropped silently.
+      if (!schedule.command) {
+        // Skip ticks for a disabled/uninstalled tool — the cron stays registered
+        // so re-enabling the tool resumes firing without recreating the schedule.
+        const enabledIds = await getEnabledToolIds();
+        if (!enabledIds.has(schedule.config.tool)) {
+          return;
+        }
       }
       // Skip overlapping runs unless explicitly opted out.
       const noOverlap = schedule.noOverlap !== false;
@@ -206,7 +222,9 @@ class SchedulerService {
         return;
       }
       schedule.lastRunAt = new Date().toISOString();
-      const command = await buildTaskCommand(schedule.config);
+      const command = schedule.command
+        ? buildCustomCommand(schedule.command)
+        : await buildTaskCommand(schedule.config);
       const record = runner.start(schedule.config, command, 'schedule');
       schedule.lastRunId = record.id;
       schedule.lastStatus = 'pending';

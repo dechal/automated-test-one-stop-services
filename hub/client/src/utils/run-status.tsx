@@ -106,6 +106,18 @@ export function runOutcome(
       emphasise: false,
     };
   }
+  // Counters can be all-green while the RUN itself failed: a k6 threshold breach
+  // exits 99 with every check passing, and a Playwright global teardown can fail
+  // after the last test passed. The process outcome wins over the counters —
+  // otherwise a failed run is badged green "All passed".
+  if (ranSomething && (status === 'error' || status === 'failed')) {
+    return {
+      labelKey: 'status.testsFailed',
+      color: 'orange',
+      icon: <TbCircleX size={size} />,
+      emphasise: false,
+    };
+  }
   if (ranSomething) {
     return {
       labelKey: 'status.allPassed',

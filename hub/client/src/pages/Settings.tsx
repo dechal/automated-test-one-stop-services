@@ -70,7 +70,7 @@ async function waitForHealth(timeoutMs: number): Promise<boolean> {
 
 interface UpdateStatusResponse {
   running: boolean;
-  stage: 'idle' | 'client' | 'server' | 'restarting' | 'done';
+  stage: 'idle' | 'shared' | 'client' | 'server' | 'restarting' | 'done';
   error?: string;
   finishedAt?: string;
 }
@@ -86,7 +86,7 @@ async function pollUpdateStatus(
   labels: Record<UpdateStatusResponse['stage'], string>,
 ): Promise<UpdateStatusResponse> {
   const start = Date.now();
-  let last: UpdateStatusResponse = { running: true, stage: 'client' };
+  let last: UpdateStatusResponse = { running: true, stage: 'shared' };
   while (Date.now() - start < timeoutMs) {
     try {
       last = await api.get<UpdateStatusResponse>('/api/system/update/status');
@@ -232,6 +232,7 @@ export function SettingsPage() {
       // Poll the status endpoint to surface real stage transitions to the user.
       const stageLabels: Record<UpdateStatusResponse['stage'], string> = {
         idle: '',
+        shared: t('settings.buildingShared'),
         client: t('settings.buildingClient'),
         server: t('settings.buildingServer'),
         restarting: t('settings.restartingHub'),

@@ -1,3 +1,4 @@
+import type { CustomCommand } from '@hub/shared';
 import {
   ActionIcon,
   Badge,
@@ -25,6 +26,8 @@ import {
   TbClock,
   TbList,
   TbPencil,
+  TbTerminal2,
+  TbTool,
   TbTrash,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
@@ -39,6 +42,16 @@ import { toast } from '~/components/Toast.js';
 import { useToolOptions } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { getStatusColor } from '~/utils/run-status.js';
+
+/**
+ * Human-readable one-liner for a custom schedule's command, for the row tooltip.
+ * Mirrors what the server will actually run (`buildCustomCommand`) closely enough
+ * to be useful, without importing server code into the client.
+ */
+function buildCommandPreview(command: CustomCommand): string {
+  const parts = [command.script, command.args].filter(Boolean).join(' ');
+  return command.cwd ? `${parts}\n(cwd: ${command.cwd})` : parts;
+}
 
 function describeNextRun(cronExpr: string): string {
   try {
@@ -70,6 +83,13 @@ export function SchedulesPage() {
   const queryClient = useQueryClient();
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+
+  /**
+   * Which KIND of schedule the list shows. A custom schedule carries `command`;
+   * a tool schedule does not. Tools is the default because it is the common case
+   * and the one that existed before custom schedules.
+   */
+  const [kind, setKind] = useState<'tool' | 'custom'>('tool');
 
   // Filters
   const [filterTool, setFilterTool] = useState<string | null>(null);
@@ -106,10 +126,18 @@ export function SchedulesPage() {
     if (ok) deleteMutation.mutate(id);
   }
 
-  const filtered = (schedules.data ?? []).filter((s) => {
-    if (filterTool && s.config.tool !== filterTool) return false;
-    if (filterProject && !s.config.project.toLowerCase().includes(filterProject.toLowerCase()))
-      return false;
+  const all = schedules.data ?? [];
+  const toolCount = all.filter((s) => s.command === undefined).length;
+  const customCount = all.length - toolCount;
+
+  const filtered = all.filter((s) => {
+    if (kind === 'custom' ? s.command === undefined : s.command !== undefined) return false;
+    // The tool/project filters only mean something for a tool schedule.
+    if (kind === 'tool') {
+      if (filterTool && s.config.tool !== filterTool) return false;
+      if (filterProject && !s.config.project.toLowerCase().includes(filterProject.toLowerCase()))
+        return false;
+    }
     if (filterStatus === 'enabled' && !s.enabled) return false;
     if (filterStatus === 'disabled' && s.enabled) return false;
     return true;
@@ -239,7 +267,46 @@ export function SchedulesPage() {
           </Tabs.List>
 
           <Tabs.Panel value="list" pt="md">
-            <Stack gap="md">
+            {/* Sub-tabs used as a CONTROL only (no panels): both kinds render the
+                same rows below, so there is nothing to duplicate. */}
+            <Tabs value={kind} onChange={(v) => setKind(v === 'custom' ? 'custom' : 'tool')}>
+              <Tabs.List>
+                <Tabs.Tab value="tool" leftSection={<TbTool size={14} />}>
+                  {t('schedules.kindTools')}
+                  <Badge size="xs" variant="light" color="gray" ml={6}>
+                    {toolCount}
+                  </Badge>
+                </Tabs.Tab>
+                <Tabs.Tab value="custom" leftSection={<TbTerminal2 size={14} />}>
+                  {t('schedules.kindCustom')}
+                  <Badge size="xs" variant="light" color="gray" ml={6}>
+                    {customCount}
+                  </Badge>
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs>
+
+            {filtered.length === 0 && (
+              <EmptyState
+                icon={
+                  kind === 'custom' ? (
+                    <TbTerminal2 size={40} color="var(--mantine-color-dimmed)" />
+                  ) : (
+                    <TbTool size={40} color="var(--mantine-color-dimmed)" />
+                  )
+                }
+                description={
+                  kind === 'custom' ? t('schedules.noCustom') : t('schedules.noToolSchedules')
+                }
+                action={
+                  <Button size="xs" leftSection={<TbCalendarPlus size={14} />} onClick={openCreate}>
+                    {t('schedules.newSchedule')}
+                  </Button>
+                }
+              />
+            )}
+
+            <Stack gap="md" pt="md">
               {groups.map((group) => (
                 <Stack key={group.label || '__all'} gap="xs">
                   {group.label && (
@@ -283,11 +350,25 @@ export function SchedulesPage() {
                           </Stack>
                         </Group>
                         <Group gap="xs" wrap="wrap">
-                          <Tooltip label={`${s.config.tool}/${s.config.project}`}>
-                            <Badge variant="light" color="gray" maw={180}>
-                              {s.config.tool}/{s.config.project}
-                            </Badge>
-                          </Tooltip>
+                          {s.command ? (
+                            <Tooltip label={buildCommandPreview(s.command)} multiline w={360}>
+                              <Badge
+                                variant="light"
+                                color="grape"
+                                maw={220}
+                                leftSection={<TbTerminal2 size={11} />}
+                                style={{ fontFamily: 'var(--mantine-font-family-monospace)' }}
+                              >
+                                {s.command.script}
+                              </Badge>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip label={`${s.config.tool}/${s.config.project}`}>
+                              <Badge variant="light" color="gray" maw={180}>
+                                {s.config.tool}/{s.config.project}
+                              </Badge>
+                            </Tooltip>
+                          )}
                           {s.config.tag && (
                             <Tooltip label={s.config.tag} multiline w={400}>
                               <Badge variant="light" color="blue" maw={140}>

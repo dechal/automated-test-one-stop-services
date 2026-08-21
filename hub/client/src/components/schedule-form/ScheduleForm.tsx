@@ -1,4 +1,11 @@
-import type { HeadlessMode, PerformanceType, RunMode, RunRequest, ToolId } from '@hub/shared';
+import type {
+  CustomCommand,
+  HeadlessMode,
+  PerformanceType,
+  RunMode,
+  RunRequest,
+  ToolId,
+} from '@hub/shared';
 import {
   Badge,
   Button,
@@ -7,6 +14,7 @@ import {
   Modal,
   Paper,
   ScrollArea,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -81,6 +89,8 @@ export interface Schedule {
   name: string;
   cron: string;
   config: RunRequest;
+  /** Present ⇒ a CUSTOM schedule (a plain shell command); absent ⇒ a tool run. */
+  command?: CustomCommand;
   enabled: boolean;
   createdAt: string;
   lastRunAt?: string;
@@ -151,6 +161,12 @@ export function ScheduleForm({
     discardReport: false,
     section: '',
     perfType: 'LOAD' as PerformanceType,
+    // A new schedule is a TOOL run unless the user switches — the common case,
+    // and the only kind that existed before custom schedules.
+    kind: 'tool' as 'tool' | 'custom',
+    script: '',
+    args: '',
+    cwd: '',
   };
 
   const [name, setName] = useState(defaults.name);
@@ -168,6 +184,10 @@ export function ScheduleForm({
   const [discardReport, setDiscardReport] = useState(defaults.discardReport);
   const [section, setSection] = useState(defaults.section);
   const [perfType, setPerfType] = useState<PerformanceType>(defaults.perfType);
+  const [kind, setKind] = useState<'tool' | 'custom'>(defaults.kind);
+  const [script, setScript] = useState(defaults.script);
+  const [args, setArgs] = useState(defaults.args);
+  const [cwd, setCwd] = useState(defaults.cwd);
   const [initializedFor, setInitializedFor] = useState<string | null>(null);
 
   // Populate state when an edit-target schedule arrives (or changes id).
@@ -188,6 +208,10 @@ export function ScheduleForm({
     const selection = parseTagExpression(schedule.config.tool, schedule.config.tag);
     setSelectedTags(selection.include);
     setExcludedTags(selection.exclude);
+    setKind(schedule.command ? 'custom' : 'tool');
+    setScript(schedule.command?.script ?? defaults.script);
+    setArgs(schedule.command?.args ?? defaults.args);
+    setCwd(schedule.command?.cwd ?? defaults.cwd);
     setInitializedFor(schedule.id);
   }
 
@@ -207,6 +231,10 @@ export function ScheduleForm({
     setPerfType(defaults.perfType);
     setSelectedTags(defaults.selectedTags);
     setExcludedTags([]);
+    setKind(defaults.kind);
+    setScript(defaults.script);
+    setArgs(defaults.args);
+    setCwd(defaults.cwd);
     setInitializedFor(null);
   }
 
@@ -273,7 +301,11 @@ export function ScheduleForm({
         section: sectionAxis ? section || undefined : undefined,
         performanceType: sectionAxis ? perfType : undefined,
       };
-      const body = { name, cron: cronExpr, config };
+      // `config` is sent for BOTH kinds: it carries the project label the schedule
+      // list and history render. For a custom schedule the command is what runs.
+      const command: CustomCommand | undefined =
+        kind === 'custom' ? { script, args: args || undefined, cwd: cwd || undefined } : undefined;
+      const body = { name, cron: cronExpr, config, ...(command ? { command } : {}) };
       return isEdit
         ? api.put(`/api/schedules/${schedule?.id}`, body)
         : api.post('/api/schedules', body);
@@ -345,9 +377,63 @@ export function ScheduleForm({
           </Group>
         </Stack>
 
+        {/* Kind is chosen BEFORE the run config, because it decides which fields
+            below are shown. Locked in edit mode: switching an existing schedule
+            between kinds would silently discard the other kind's settings. */}
+        <SegmentedControl
+          fullWidth
+          size="xs"
+          value={kind}
+          onChange={(v) => setKind(v === 'custom' ? 'custom' : 'tool')}
+          disabled={isEdit}
+          data={[
+            { value: 'tool', label: t('schedules.kindTools') },
+            { value: 'custom', label: t('schedules.kindCustom') },
+          ]}
+        />
+
+        {kind === 'custom' && (
+          <Paper withBorder p="sm" mt="xs">
+            <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb="sm">
+              {t('schedule.customCommand')}
+            </Text>
+            <Stack gap="sm">
+              <TextInput
+                label={t('schedule.customScript')}
+                description={t('schedule.customScriptHint')}
+                size="xs"
+                value={script}
+                onChange={(e) => setScript(e.currentTarget.value)}
+                placeholder="node scripts/seed.mjs"
+                styles={{ input: { fontFamily: 'monospace' } }}
+                error={script.trim().length === 0 ? t('schedule.customScriptRequired') : undefined}
+              />
+              <SimpleGrid cols={2} spacing="xs">
+                <TextInput
+                  label={t('schedule.customArgs')}
+                  size="xs"
+                  value={args}
+                  onChange={(e) => setArgs(e.currentTarget.value)}
+                  placeholder="--rows 100"
+                  styles={{ input: { fontFamily: 'monospace' } }}
+                />
+                <TextInput
+                  label={t('schedule.customCwd')}
+                  description={t('schedule.customCwdHint')}
+                  size="xs"
+                  value={cwd}
+                  onChange={(e) => setCwd(e.currentTarget.value)}
+                  placeholder="tools/k6"
+                  styles={{ input: { fontFamily: 'monospace' } }}
+                />
+              </SimpleGrid>
+            </Stack>
+          </Paper>
+        )}
+
         <Paper withBorder p="sm" mt="xs">
           <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb="sm">
-            {t('schedule.runConfig')}
+            {kind === 'custom' ? t('schedule.runLabelConfig') : t('schedule.runConfig')}
           </Text>
           <Stack gap="sm">
             <SimpleGrid cols={2} spacing="xs">

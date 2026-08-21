@@ -63,16 +63,25 @@ export function parseRunSummary(raw: string): RunSummary | null {
   // The dot leaders AND the ':' separator are both optional here; requiring no
   // ':' was the bug that left every k6 run without counts, which the Hub then
   // badged as "Run error" (reserved for a run that produced no result at all).
-  const k6Checks = text.match(/checks(?:_succeeded)?[\s.…]*:?\s*([\d.]+)%/);
+  const k6Checks = text.match(
+    /checks(?:_succeeded)?[\s.…]*:?\s*([\d.]+)%(?:\s*✓\s*(\d+)\s+✗\s*(\d+))?/,
+  );
   if (k6Checks) {
     matched = true;
-    // A threshold breach exits 99 and CAN happen with 100% successful checks,
-    // so it has to count as a failure too — otherwise a breached run is badged
-    // green "All passed".
-    const thresholdsCrossed = /thresholds? on metrics?\b[^\n]*crossed/i.test(text);
-    const pct = Number.parseFloat(k6Checks[1] ?? '0');
-    if (pct === 100 && !thresholdsCrossed) passed = 1;
-    else failed = 1;
+    const ok = k6Checks[2];
+    const ko = k6Checks[3];
+    if (ok !== undefined && ko !== undefined) {
+      // Real check counts. Reporting `{passed:1}`/`{failed:1}` instead rendered a
+      // 95.65% run as "0.0% (0/1)" and "1 of 1 checks did not pass", which reads
+      // as a total failure and hides that 198 of 207 checks passed.
+      passed = Number.parseInt(ok, 10);
+      failed = Number.parseInt(ko, 10);
+    } else {
+      // v1.x prints no ✓/✗ pair; the percentage is all there is.
+      const pct = Number.parseFloat(k6Checks[1] ?? '0');
+      if (pct === 100) passed = 1;
+      else failed = 1;
+    }
   }
 
   if (!matched) return null;

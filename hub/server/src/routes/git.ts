@@ -194,7 +194,14 @@ export async function gitRoutes(app: FastifyInstance): Promise<void> {
 
 interface PullAllState {
   running: boolean;
-  stage: 'idle' | 'pulling' | 'building-client' | 'building-server' | 'restarting' | 'done';
+  stage:
+    | 'idle'
+    | 'pulling'
+    | 'building-shared'
+    | 'building-client'
+    | 'building-server'
+    | 'restarting'
+    | 'done';
   error?: string;
   results: PullResult[];
   rebuilt: boolean;
@@ -276,7 +283,7 @@ function runPullAllInBackground(): void {
             // vocabulary: the `building-*` stage names and the `(hub-rebuild)`
             // result row the Projects page renders.
             const build = await rebuildHub((stage) => {
-              pullAllState.stage = stage === 'client' ? 'building-client' : 'building-server';
+              pullAllState.stage = `building-${stage}`;
             });
             if (!build.ok) {
               pullAllState.error = `${build.failedAt} build failed: ${build.output}`;
@@ -285,7 +292,7 @@ function runPullAllInBackground(): void {
                 tool: 'root',
                 type: '',
                 success: false,
-                output: build.failedAt === 'client' ? 'client: FAIL' : 'client: OK, server: FAIL',
+                output: `${build.failedAt}: FAIL`,
               });
               pullAllState.running = false;
               pullAllState.stage = 'idle';

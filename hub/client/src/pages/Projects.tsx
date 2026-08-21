@@ -44,7 +44,14 @@ interface PullResult {
 
 interface PullAllStatus {
   running: boolean;
-  stage: 'idle' | 'pulling' | 'building-client' | 'building-server' | 'restarting' | 'done';
+  stage:
+    | 'idle'
+    | 'pulling'
+    | 'building-shared'
+    | 'building-client'
+    | 'building-server'
+    | 'restarting'
+    | 'done';
   error?: string;
   results: PullResult[];
   rebuilt: boolean;

@@ -31,21 +31,31 @@ describe('parseRunSummary', () => {
       passed: 1,
       failed: 0,
     });
-    // Legacy summary name, taken verbatim from a real run log.
+    // Legacy summary name, verbatim from a real run log — the ✓/✗ pair IS the
+    // check tally and is reported as-is.
     expect(
       parseRunSummary('     checks.........................: 34.59% ✓ 67216      ✗ 127105'),
-    ).toEqual({ passed: 0, failed: 1 });
+    ).toEqual({ passed: 67216, failed: 127105 });
     expect(parseRunSummary('     checks.........................: 100.00% ✓ 46       ✗ 0')).toEqual(
-      { passed: 1, failed: 0 },
+      { passed: 46, failed: 0 },
     );
   });
 
-  it('counts a threshold breach as a failure even when every check succeeded', () => {
+  it('reports the real k6 check counts, not a single synthetic case', () => {
+    // Verbatim from a run the Hub previously showed as "0.0% (0/1)".
+    expect(
+      parseRunSummary('     checks.........................: 95.65% ✓ 198       ✗ 9  '),
+    ).toEqual({ passed: 198, failed: 9 });
+  });
+
+  it('leaves a threshold breach with all checks passing to the run status, not the counts', () => {
+    // The counts stay honest (46/0); `runOutcome` turns the non-zero exit into
+    // "Failed" so the run is not badged green.
     const log = [
       '     checks.........................: 100.00% ✓ 46       ✗ 0',
       'level=error msg="thresholds on metrics \'http_req_duration\' have been crossed"',
     ].join('\n');
-    expect(parseRunSummary(log)).toEqual({ passed: 0, failed: 1 });
+    expect(parseRunSummary(log)).toEqual({ passed: 46, failed: 0 });
   });
 
   it('ignores the k6 checks_failed line so it cannot be read as the checks total', () => {

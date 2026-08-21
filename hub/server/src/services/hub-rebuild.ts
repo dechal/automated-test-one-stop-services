@@ -8,7 +8,7 @@ import { runChild } from './exec.js';
  *
  * Two endpoints need it — `POST /api/system/update` (pull the Hub's own new code)
  * and `POST /api/projects/pull-all` (rebuild when a pull touched hub/ or scripts/).
- * They had a copy each: same two build commands, the same win32 shell flag, the
+ * They had a copy each: the same build commands, the same win32 shell flag, the
  * same detached launcher spawn, and a comment in the second one admitting it
  * "mirrors" the first. A change to the build order had to be made twice.
  *
@@ -19,7 +19,7 @@ import { runChild } from './exec.js';
  */
 
 /** Which package is being built. The value is also its directory under `hub/`. */
-export type RebuildStage = 'client' | 'server';
+export type RebuildStage = 'shared' | 'server' | 'client';
 
 export interface RebuildResult {
   readonly ok: boolean;
@@ -37,11 +37,21 @@ const HUB_DIR = path.resolve(WORKSPACE_ROOT, 'hub');
  */
 const BUILD_SHELL = process.platform === 'win32';
 
-/** Build order is fixed: the client bundle first, then the server that serves it. */
-const STAGES: readonly RebuildStage[] = ['client', 'server'];
+/**
+ * Build order mirrors the `build` script in `hub/package.json` — `shared` FIRST,
+ * because both other packages import `@hub/shared` and consume its compiled
+ * `dist/` at runtime.
+ *
+ * `shared` was missing here until 2026-08-21, and the omission was silent: an edit
+ * under `hub/shared/src/` never reached `hub/shared/dist/`, so the restarted server
+ * kept executing a stale compiled copy with no error — while typecheck and vitest
+ * stayed green, because both resolve workspace SOURCE rather than `dist`. Adding a
+ * fourth package here means adding it to this list too.
+ */
+const STAGES: readonly RebuildStage[] = ['shared', 'server', 'client'];
 
 /**
- * Build `hub/client` then `hub/server`, stopping at the first failure.
+ * Build `hub/shared`, `hub/server`, then `hub/client`, stopping at the first failure.
  *
  * `onStage` fires BEFORE each build starts, so a caller can publish its own
  * progress value while the build runs. Never throws: a failed build comes back as
