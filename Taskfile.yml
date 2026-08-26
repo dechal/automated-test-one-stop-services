@@ -340,6 +340,12 @@ tasks:
         echo ""
         echo "Run 'task setup' to reinstall."
 
+  clean-cache:
+    desc: "Clean disposable .cache scratch (default: deletable/; -- --deep adds regenerable/; -- --root-scratch adds legacy loose files; -- --dry-run to preview). Never touches playwright-browsers."
+    silent: true
+    cmds:
+      - node scripts/clean-cache.mjs {{.CLI_ARGS}}
+
   rerun:
     desc: Re-run the last task command from .last-run history
     silent: true

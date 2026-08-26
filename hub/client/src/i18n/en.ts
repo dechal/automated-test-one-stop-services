@@ -318,6 +318,8 @@ export const en = {
   'tools.updated': 'Updated',
   'tools.removed': 'Removed',
   'tools.updateFailed': 'Update failed',
+  'tools.setupDone': 'Setup complete — browsers are up to date',
+  'tools.setupFailed': 'Setup failed',
   'tools.removeFailed': 'Remove failed',
   'tools.removeTitle': 'Remove tool',
   'tools.removeDesc':
@@ -372,6 +374,8 @@ export const en = {
   'moreMenu.actions': 'Actions',
   'moreMenu.viewManifest': 'View manifest',
   'moreMenu.update': 'Update',
+  'moreMenu.reRunSetup': 'Re-run setup',
+  'moreMenu.reRunSetupHint': 'Re-download browsers/binaries to match the installed version',
   'moreMenu.uninstall': 'Uninstall',
   'moreMenu.moreActions': 'More actions',
   'bookmark.title': 'Bookmarks',

@@ -65,7 +65,7 @@ const CHECKS: CheckDef[] = [
     name: 'task',
     cmd: 'task',
     args: ['--version'],
-    hint: 'Install Task: scoop install task | brew install go-task | https://taskfile.dev/installation/',
+    hint: 'Install Task: scoop install task | brew install go-task | see taskfile.dev/installation',
     category: 'required-install',
   },
   {
@@ -264,7 +264,6 @@ async function checkPython(present: boolean): Promise<DoctorCheck> {
   };
 }
 
-/**
 /** True when `dir` exists and holds at least one installed browser (a non-dot
  *  entry like `chromium-1223`). A bare-but-empty cache dir is NOT "installed",
  *  so it correctly reads as missing. */
@@ -274,6 +273,139 @@ function hasInstalledBrowsers(dir: string): boolean {
   } catch {
     return false; // not a directory / does not exist
   }
+}
+
+/** The revision Playwright expects for one browser, plus every revision that is
+ *  ALSO acceptable for it (webkit ships per-OS `revisionOverrides`, so an older
+ *  build on some Linux/macOS targets is not stale). Keyed by the on-disk folder
+ *  base name (Playwright names folders with `_`, e.g. `chromium_headless_shell`). */
+interface ExpectedBrowser {
+  revision: string;
+  accept: Set<string>;
+  browserVersion?: string;
+}
+
+interface BrowsersJsonEntry {
+  name: string;
+  revision: string;
+  installByDefault?: boolean;
+  browserVersion?: string;
+  revisionOverrides?: Record<string, string>;
+}
+
+/**
+ * Resolve `playwright-core/browsers.json` for the pinned `@playwright/test`
+ * WITHOUT spawning a process (the doctor sweep is already slow). It is the same
+ * table `playwright install --dry-run` reads, so the revisions it lists are
+ * exactly what the installed Playwright will look for at run time. Zero-config:
+ * the version is read from the tool's own `package.json`, never hardcoded.
+ * Returns `undefined` on any failure so the caller degrades to presence-only.
+ */
+function resolveBrowsersJsonPath(): string | undefined {
+  const toolDir = path.join(TOOLS_DIR, 'playwright');
+  const pnpmDir = path.join(toolDir, 'node_modules', '.pnpm');
+  // 1) Deterministic pnpm path for the pinned version (playwright-core tracks
+  //    @playwright/test lockstep, so their versions match).
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(toolDir, 'package.json'), 'utf8')) as {
+      devDependencies?: Record<string, string>;
+      dependencies?: Record<string, string>;
+    };
+    const spec =
+      pkg.devDependencies?.['@playwright/test'] ?? pkg.dependencies?.['@playwright/test'];
+    const version = spec?.replace(/^[^0-9]*/, '');
+    if (version) {
+      const p = path.join(
+        pnpmDir,
+        `playwright-core@${version}`,
+        'node_modules',
+        'playwright-core',
+        'browsers.json',
+      );
+      if (fs.existsSync(p)) return p;
+    }
+  } catch {
+    // fall through to the scan
+  }
+  // 2) Fallback: scan for the installed playwright-core (spec/lock mismatch).
+  try {
+    const entry = fs.readdirSync(pnpmDir).find((e) => e.startsWith('playwright-core@'));
+    if (entry) {
+      const p = path.join(pnpmDir, entry, 'node_modules', 'playwright-core', 'browsers.json');
+      if (fs.existsSync(p)) return p;
+    }
+  } catch {
+    // give up — caller degrades to presence-only
+  }
+  return undefined;
+}
+
+/** Parse `browsers.json` into the expected-revision map for browsers that
+ *  Playwright installs by default. `null` when unresolved/unparsable. */
+function readExpectedBrowserRevisions(): Map<string, ExpectedBrowser> | null {
+  const jsonPath = resolveBrowsersJsonPath();
+  if (!jsonPath) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as {
+      browsers?: BrowsersJsonEntry[];
+    };
+    const map = new Map<string, ExpectedBrowser>();
+    for (const b of data.browsers ?? []) {
+      if (!b.installByDefault) continue;
+      const base = b.name.replace(/-/g, '_');
+      const accept = new Set<string>([b.revision, ...Object.values(b.revisionOverrides ?? {})]);
+      map.set(base, { revision: b.revision, accept, browserVersion: b.browserVersion });
+    }
+    return map.size ? map : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Group the installed browser folders in `dir` by base name → set of revisions.
+ *  `chromium-1234` → `chromium`:{1234}; `chromium_headless_shell-1234` →
+ *  `chromium_headless_shell`:{1234}. Dotfiles and non-`<name>-<digits>` entries
+ *  are ignored. */
+function readInstalledBrowsers(dir: string): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return map;
+  }
+  for (const entry of entries) {
+    if (entry.startsWith('.')) continue;
+    const dash = entry.lastIndexOf('-');
+    if (dash <= 0) continue;
+    const rev = entry.slice(dash + 1);
+    if (!/^\d+$/.test(rev)) continue;
+    const base = entry.slice(0, dash);
+    const revs = map.get(base) ?? new Set<string>();
+    revs.add(rev);
+    map.set(base, revs);
+  }
+  return map;
+}
+
+/** A browser that IS installed but at none of the revisions the pinned
+ *  Playwright accepts — i.e. stale after an upgrade. Browsers not tracked in
+ *  `expected` (winldd) and browsers absent entirely (caught by the presence
+ *  gate) are ignored, so a user who installed only chromium is never faulted
+ *  for missing firefox/webkit. Pure — unit-tested without the filesystem. */
+export function findStaleBrowsers(
+  expected: Map<string, ExpectedBrowser>,
+  installed: Map<string, Set<string>>,
+): { base: string; have: string[]; need: string }[] {
+  const stale: { base: string; have: string[]; need: string }[] = [];
+  for (const [base, revs] of installed) {
+    const exp = expected.get(base);
+    if (!exp) continue;
+    if (![...revs].some((r) => exp.accept.has(r))) {
+      stale.push({ base, have: [...revs], need: exp.revision });
+    }
+  }
+  return stale;
 }
 
 /**
@@ -291,6 +423,15 @@ function hasInstalledBrowsers(dir: string): boolean {
  * so a relative value works), then the workspace cache itself — and never the
  * global `~/.cache/ms-playwright`, which the workspace does not use. This is why
  * a machine with browsers present used to show a false "missing".
+ *
+ * It is also VERSION-AWARE: after a Playwright upgrade the old `chromium-<n>`
+ * folder is still present, so a presence-only check would stay green while the
+ * runtime fails with `Executable doesn't exist … chromium-<n>`. We therefore
+ * compare the installed revisions against what the pinned `@playwright/test`
+ * expects (read from `browsers.json`, zero-config, no spawn) and fail — which
+ * surfaces the existing one-click Provision button — when they drift. If that
+ * metadata cannot be resolved, the check degrades to presence-only (never worse
+ * than before, never a false failure).
  */
 function checkPlaywrightBrowsers(present: boolean): DoctorCheck {
   if (!present) return absentToolCheck('playwright-browsers', 'playwright');
@@ -302,18 +443,45 @@ function checkPlaywrightBrowsers(present: boolean): DoctorCheck {
   ].filter((p): p is string => !!p);
 
   const found = candidates.find(hasInstalledBrowsers);
-  if (found) {
+  if (!found) {
     return {
       name: 'playwright-browsers',
-      ok: true,
-      version: `path: ${found}`,
+      ok: false,
+      hint: 'Run: pnpm exec playwright install (or click Provision)',
       category: 'required-install',
     };
   }
+
+  const expected = readExpectedBrowserRevisions();
+  if (expected) {
+    const stale = findStaleBrowsers(expected, readInstalledBrowsers(found));
+    if (stale.length > 0) {
+      const detail = stale
+        .map((s) => `${s.base} (have ${s.have.join(', ')}, need ${s.need})`)
+        .join('; ');
+      return {
+        name: 'playwright-browsers',
+        ok: false,
+        hint: `Browser build changed after a Playwright upgrade — ${detail}. Click Provision (or run: pnpm exec playwright install).`,
+        category: 'required-install',
+      };
+    }
+    const chromium = expected.get('chromium');
+    return {
+      name: 'playwright-browsers',
+      ok: true,
+      version: chromium?.browserVersion
+        ? `chromium ${chromium.browserVersion} · ${found}`
+        : `path: ${found}`,
+      category: 'required-install',
+    };
+  }
+
+  // Metadata unresolved → degrade to presence-only (previous behaviour).
   return {
     name: 'playwright-browsers',
-    ok: false,
-    hint: 'Run: pnpm exec playwright install (or click Provision)',
+    ok: true,
+    version: `path: ${found}`,
     category: 'required-install',
   };
 }

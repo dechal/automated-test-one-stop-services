@@ -5,7 +5,12 @@ import { TbGitFork } from 'react-icons/tb';
 import { toast } from '~/components/Toast.js';
 import { TypeToConfirmModal } from '~/components/TypeToConfirmModal.js';
 import { MoreMenu } from '~/components/tools/MoreMenu.js';
-import { useToggleTool, useUninstallTool, useUpdateTool } from '~/hooks/useTools.js';
+import {
+  useProvisionTool,
+  useToggleTool,
+  useUninstallTool,
+  useUpdateTool,
+} from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 
 interface ToolSectionActionsProps {
@@ -16,14 +21,18 @@ interface ToolSectionActionsProps {
 
 /**
  * Right-side lifecycle controls for an installed tool's section header:
- * enable/disable switch, "Import project", and a more-menu (Update / Remove).
- * Remove is disabled while the tool still owns projects — the guard is also
- * enforced server-side (409 TOOL_HAS_PROJECTS); this just blocks the UI early.
+ * enable/disable switch, "Import project", and a more-menu (Update / Re-run
+ * setup / Remove). Remove is disabled while the tool still owns projects — the
+ * guard is also enforced server-side (409 TOOL_HAS_PROJECTS); this just blocks
+ * the UI early. "Re-run setup" re-provisions browsers/binaries so a version bump
+ * can be synced from the UI (the provision task can take minutes; the hook sets
+ * a long per-request timeout and reports failure in-band).
  */
 export function ToolSectionActions({ tool, onCloneProject }: ToolSectionActionsProps) {
   const t = useT();
   const toggle = useToggleTool();
   const update = useUpdateTool();
+  const provision = useProvisionTool();
   const uninstall = useUninstallTool();
   const [removeOpen, setRemoveOpen] = useState(false);
 
@@ -64,6 +73,16 @@ export function ToolSectionActions({ tool, onCloneProject }: ToolSectionActionsP
             },
           )
         }
+        onReRunSetup={() =>
+          provision.mutate(tool.id, {
+            onSuccess: (data) =>
+              data.ok
+                ? toast.success(`${t('tools.setupDone')} — ${tool.title}`)
+                : toast.error(data.postInstallError?.message ?? t('tools.setupFailed')),
+            onError: (e) => toast.error(e instanceof Error ? e.message : t('tools.setupFailed')),
+          })
+        }
+        reRunSetupLoading={provision.isPending}
         onUninstall={() => setRemoveOpen(true)}
         uninstallDisabled={hasProjects}
         uninstallTooltip={uninstallTooltip}

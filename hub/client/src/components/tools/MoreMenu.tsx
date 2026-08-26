@@ -1,20 +1,27 @@
 import type { ToolView } from '@hub/shared';
-import { ActionIcon, Menu, Tooltip } from '@mantine/core';
-import { TbDotsVertical, TbFileText, TbRefresh, TbTrash } from 'react-icons/tb';
+import { ActionIcon, Loader, Menu, Tooltip } from '@mantine/core';
+import { TbDotsVertical, TbDownload, TbFileText, TbRefresh, TbTrash } from 'react-icons/tb';
 import { useT } from '~/i18n/index.js';
 
 interface MoreMenuProps {
   readonly tool: ToolView;
   readonly onUpdate: () => void;
+  readonly onReRunSetup: () => void;
+  readonly reRunSetupLoading: boolean;
   readonly onUninstall: () => void;
   readonly uninstallDisabled: boolean;
   readonly uninstallTooltip: string;
 }
 
-/** Dropdown menu with additional actions: view manifest, update, uninstall. */
+/** Dropdown menu with additional actions: view manifest, update, re-run setup,
+ *  uninstall. "Re-run setup" re-runs the tool's `setup` task (browser/binary
+ *  download) so a version bump can be re-synced without the terminal — the same
+ *  provision action the Environment panel offers when it detects a mismatch. */
 export function MoreMenu({
   tool,
   onUpdate,
+  onReRunSetup,
+  reRunSetupLoading,
   onUninstall,
   uninstallDisabled,
   uninstallTooltip,
@@ -44,6 +51,16 @@ export function MoreMenu({
             {t('moreMenu.update')}
           </Menu.Item>
         )}
+
+        <Tooltip label={t('moreMenu.reRunSetupHint')} withArrow position="left">
+          <Menu.Item
+            leftSection={reRunSetupLoading ? <Loader size={14} /> : <TbDownload size={14} />}
+            disabled={reRunSetupLoading}
+            onClick={onReRunSetup}
+          >
+            {t('moreMenu.reRunSetup')}
+          </Menu.Item>
+        </Tooltip>
 
         <Menu.Divider />
 

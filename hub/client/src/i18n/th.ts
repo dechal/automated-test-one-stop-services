@@ -314,6 +314,8 @@ export const th: Record<TranslationKey, string> = {
   'tools.updated': 'อัปเดตแล้ว',
   'tools.removed': 'ลบแล้ว',
   'tools.updateFailed': 'อัปเดตไม่สำเร็จ',
+  'tools.setupDone': 'ติดตั้งเสร็จแล้ว — browser ตรงเวอร์ชันแล้ว',
+  'tools.setupFailed': 'ติดตั้งไม่สำเร็จ',
   'tools.removeFailed': 'ลบไม่สำเร็จ',
   'tools.removeTitle': 'ลบเครื่องมือ',
   'tools.removeDesc':
@@ -368,6 +370,8 @@ export const th: Record<TranslationKey, string> = {
   'moreMenu.actions': 'การจัดการ',
   'moreMenu.viewManifest': 'ดู manifest',
   'moreMenu.update': 'อัปเดต',
+  'moreMenu.reRunSetup': 'รัน setup ใหม่',
+  'moreMenu.reRunSetupHint': 'ดาวน์โหลด browser/ไฟล์ของเครื่องมือใหม่ให้ตรงกับเวอร์ชันที่ติดตั้ง',
   'moreMenu.uninstall': 'ถอนการติดตั้ง',
   'moreMenu.moreActions': 'การจัดการเพิ่มเติม',
   'bookmark.title': 'บุ๊กมาร์ก',
