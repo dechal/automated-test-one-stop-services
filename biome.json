@@ -64,7 +64,7 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "**/*.{js,jsx,mjs,ts,tsx,json,css}",
+      "**/*.{js,jsx,mjs,ts,tsx,json,jsonc,css}",
       "!!**/*.{robot,resource,py,pem,key,log,xml,db}",
       "!!**/.vscode",
       "!!**/.idea",
@@ -134,6 +134,7 @@
   ],
   "vcs": {
     "clientKind": "git",
+    "defaultBranch": "main",
     "enabled": true,
     "useIgnoreFile": false
   }

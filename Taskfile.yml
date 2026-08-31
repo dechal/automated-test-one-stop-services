@@ -437,10 +437,26 @@ tasks:
       - node --test "scripts/__tests__/**/*.spec.mjs"
 
   check:
-    desc: "Full validation gate — biome + markdown + typechecks + the whole test suite"
+    desc: "Full validation gate — biome + markdown + ruff/robocop/ty + typechecks + the whole test suite"
     cmds:
       - pnpm exec biome check .
       - pnpm run md:check
+      # Python + Robot. These lived ONLY in lefthook pre-commit, which `--no-verify`
+      # skips, and are absent from CI by design (the root repo tracks zero .py/.robot —
+      # they all live in the separate, git-ignored tool repo), so this gate is the one
+      # that always runs. Same argument as the script tsconfigs below.
+      # ruff is root-scoped and safe when no tool is installed (it excludes .kiro/**/*.py
+      # and finds nothing else); robocop + ty need the robot-framework tool present, and
+      # `ty check <absent path>` reports an io diagnostic, so both are presence-gated.
+      - uv run ruff check .
+      - uv run ruff format --check .
+      - |
+        if [ -d tools/robot-framework ]; then
+          echo "[robocop] tools/robot-framework"
+          uv run robocop check --config tools/robot-framework/robot.toml tools/robot-framework || exit 1
+          echo "[ty] tools/robot-framework"
+          uv run ty check tools/robot-framework || exit 1
+        fi
       - pnpm -C hub/shared run typecheck
       - pnpm -C hub/server run typecheck
       - pnpm -C hub/client run typecheck

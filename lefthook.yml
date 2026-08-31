@@ -2,9 +2,14 @@ pre-commit:
   parallel: true
   commands:
     biome:
-      glob: "**/*.{js,ts,json}"
-      run: pnpm exec biome check --write --no-errors-on-unmatched --staged
-        {staged_files}
+      # Keep this glob EQUAL to `files.includes[0]` in biome.json. When it was the
+      # narrower `**/*.{js,ts,json}` it skipped 90 tracked files — every `.tsx` (the
+      # whole React Hub UI), `.mjs` (scripts/lib, scripts/eval, scripts/setup,
+      # hub/bin), `.jsx` and `.css` — so the editor and CI formatted them but the
+      # commit hook never did. `stage_fixed` re-stages the glob-filtered set, so a
+      # file biome fixes outside this glob would be fixed but left unstaged.
+      glob: "**/*.{js,jsx,mjs,ts,tsx,json,jsonc,css}"
+      run: pnpm exec biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
     ruff-check:
       glob: "**/*.py"
@@ -28,4 +33,6 @@ pre-commit:
       stage_fixed: true
     manifests-typecheck:
       glob: "scripts/manifests/*.ts"
-      run: npx tsc --noEmit -p scripts/manifests/tsconfig.json
+      # `pnpm exec`, not `npx`: npx may reach the registry, and a git hook must
+      # resolve only what is already installed. Also matches every sibling here.
+      run: pnpm exec tsc --noEmit -p scripts/manifests/tsconfig.json

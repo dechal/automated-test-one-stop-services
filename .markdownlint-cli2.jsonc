@@ -1,10 +1,14 @@
 // markdownlint-cli2 — root config
 // Docs: https://github.com/DavidAnson/markdownlint-cli2
 //
-// Scope: every *.md in the workspace, minus generated/vendor folders.
-// Per-folder overrides live next to the content they govern:
+// Scope: every *.md in THIS repo (root + hub/ + tools/), minus generated/vendor
+// folders. `.kiro/` and `brain/` are separate git repos with their own config AND
+// their own lefthook markdownlint gate, so they are ignored here rather than linted
+// with the wrong ruleset — see the `ignores` note below. Their configs:
 //   - .kiro/.markdownlint-cli2.jsonc  → AI-layer steering syntax (#[[file:...]])
 //   - brain/.markdownlint-cli2.jsonc  → Obsidian wikilinks, vault conventions
+// tools/* ARE linted from here (18 files, clean): those repos carry only a typecheck
+// hook, so this is their only markdown gate.
 //
 // Rule philosophy (Phase 1 — permissive baseline):
 //   Keep rules with high signal (broken links, heading hash spacing, fenced
@@ -43,7 +47,16 @@
     "**/_archive/**",
     "**/.obsidian/**",
     "**/scripts/third-party/**",
-    "**/CHANGELOG.md"
+    "**/CHANGELOG.md",
+
+    // Separate repos, each with its own markdownlint config + pre-commit gate.
+    // Linting them from here used to pull 229 extra files into `pnpm run md:check`
+    // and fail on THEIR content (exit 126), which aborted `task check` before the
+    // typechecks and the test suite ever ran — while CI stayed green because neither
+    // folder is checked out there. `.kiro/` is additionally off-limits to workspace
+    // runners (steering `kiro-boundary` §1).
+    "**/brain/**",
+    "**/.kiro/**"
   ],
 
   "config": {
