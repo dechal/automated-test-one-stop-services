@@ -301,16 +301,7 @@
   // ahead of raw file count. Tradeoff to know about: the SCM panel then lists only
   // repos that have a file open, so open a file from a repo before acting on it.
   // Never use `git.autofetch: "all"` alongside this — that fetches every repo on a timer.
-  "git.autoRepositoryDetection": "openEditors",
-
-  // No `python.defaultInterpreterPath` on purpose. It must name the interpreter
-  // BINARY, and that path is OS-specific (`.venv/Scripts/python.exe` on Windows vs
-  // `.venv/bin/python` on macOS/Linux) — settings.json has no per-OS form for this
-  // key, so any committed value breaks somebody. A folder path does not resolve
-  // ("Could not resolve interpreter path"). The extension auto-discovers `.venv/`
-  // in the workspace root instead, and this key is ignored anyway once an
-  // interpreter has been picked explicitly. Select it once via
-  // "Python: Select Interpreter" if discovery misses.
+  "git.autoRepositoryDetection": "subFolders",
   "ruff.lineLength": 100,
   "ruff.configuration": "${workspaceFolder}/pyproject.toml",
   "ty.configurationFile": "${workspaceFolder}/pyproject.toml",
