@@ -16,6 +16,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { generateDockerCompose } from './manifests/compose-gen.js';
 import { createManifestRegistry, loadPipelineStatic, projectPipeline } from './manifests/index.js';
 import { generateTsConfig } from './manifests/tsconfig-gen.js';
+import type { ToolManifest } from './manifests/types.js';
+import { syncUvWorkspaceMembers } from './manifests/uv-workspace-sync.js';
+import { syncToolVersion } from './manifests/version-sync.js';
 
 const currentDir =
   typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
@@ -86,8 +89,24 @@ async function runManifestSync(workspaceRoot: string): Promise<string[]> {
   const registry = createManifestRegistry(workspaceRoot);
   await registry.refresh();
 
+  const knownManifests = registry
+    .all()
+    .map((record) => record.manifest)
+    .filter((manifest): manifest is ToolManifest => manifest !== null);
+  const uvFile = syncUvWorkspaceMembers(workspaceRoot, knownManifests);
+  if (uvFile !== null) {
+    regeneratedFiles.push(uvFile);
+    console.log(`✅ uv workspace members ← tools present on disk → ${uvFile}`);
+  }
+
   // Generate per-tool artefacts for enabled tools
   for (const tool of registry.enabled()) {
+    const versionFile = syncToolVersion(workspaceRoot, tool);
+    if (versionFile !== null) {
+      regeneratedFiles.push(versionFile);
+      console.log(`✅ ${tool.id} version ← its own pin → ${versionFile}`);
+    }
+
     generateDockerCompose(workspaceRoot, tool);
     regeneratedFiles.push(
       path.relative(

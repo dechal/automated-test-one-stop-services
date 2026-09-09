@@ -169,6 +169,7 @@ export const ToolManifestSchema = z.object({
   run: RunCapabilitySchema.optional(),
   reports: ReportsCapabilitySchema.optional(),
   tags: TagsCapabilitySchema.optional(),
+  versionFrom: z.object({ file: z.string().min(1), dependency: z.string().min(1) }).optional(),
 });
 
 /** Successful single-manifest validation carries the fully-typed manifest. */

@@ -66,6 +66,11 @@ export interface ToolTsconfigGenConfig {
   readonly aliasTarget: string;
 }
 
+export interface ToolVersionSourceConfig {
+  readonly file: string;
+  readonly dependency: string;
+}
+
 export interface ToolDockerConfig {
   /** Base image with optional template tokens (e.g. {playwrightVersion}). */
   readonly baseImage: string;
@@ -243,6 +248,7 @@ export interface ToolManifest {
   readonly run?: ToolRunCapability;
   readonly reports?: ToolReportsCapability;
   readonly tags?: ToolTagsCapability;
+  readonly versionFrom?: ToolVersionSourceConfig;
 }
 
 /**

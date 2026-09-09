@@ -438,6 +438,7 @@ tasks:
 
   check:
     desc: "Full validation gate — biome + markdown + ruff/robocop/ty + typechecks + the whole test suite"
+    deps: [_init-env]
     cmds:
       - pnpm exec biome check .
       - pnpm run md:check

@@ -4,6 +4,24 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@types/node':
+      specifier: ^26.2.0
+      version: 26.2.0
+    '@vitest/coverage-v8':
+      specifier: 4.1.11
+      version: 4.1.11
+    typescript:
+      specifier: ^7.0.2
+      version: 7.0.2
+    vitest:
+      specifier: 4.1.11
+      version: 4.1.11
+    zod:
+      specifier: 4.4.3
+      version: 4.4.3
+
 overrides:
   basic-ftp@<=5.2.2: '>=5.3.0'
   uuid@<14.0.0: '>=14.0.0'
@@ -27,13 +45,13 @@ importers:
         specifier: ^2.1.10
         version: 2.1.10
       '@types/node':
-        specifier: ^26.2.0
+        specifier: 'catalog:'
         version: 26.2.0
       '@types/prompts':
         specifier: ^2.4.9
         version: 2.4.9
       '@vitest/coverage-v8':
-        specifier: 4.1.11
+        specifier: 'catalog:'
         version: 4.1.11(vitest@4.1.11)
       dayjs:
         specifier: ^1.11.23
@@ -48,13 +66,13 @@ importers:
         specifier: ^2.4.2
         version: 2.4.2
       typescript:
-        specifier: ^7.0.2
+        specifier: 'catalog:'
         version: 7.0.2
       vitest:
-        specifier: 4.1.11
+        specifier: 'catalog:'
         version: 4.1.11(@types/node@26.2.0)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
+        specifier: 'catalog:'
         version: 4.4.3
 
   hub:
@@ -138,7 +156,7 @@ importers:
         specifier: ^5.8.0
         version: 5.8.0
       zod:
-        specifier: 4.4.3
+        specifier: 'catalog:'
         version: 4.4.3
       zustand:
         specifier: ^5.0.15
@@ -172,13 +190,13 @@ importers:
         specifier: ^8.5.26
         version: 8.5.26
       typescript:
-        specifier: ^7.0.2
+        specifier: 'catalog:'
         version: 7.0.2
       vite:
         specifier: ^8.2.2
         version: 8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.0)
       vitest:
-        specifier: 4.1.11
+        specifier: 'catalog:'
         version: 4.1.11(@types/node@26.2.0)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12)(yaml@2.9.0))
 
   hub/server:
@@ -226,14 +244,14 @@ importers:
         specifier: ^4.23.12
         version: 4.23.12
       zod:
-        specifier: 4.4.3
+        specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
       '@types/archiver':
         specifier: ^8.0.0
         version: 8.0.0
       '@types/node':
-        specifier: ^26.2.0
+        specifier: 'catalog:'
         version: 26.2.0
       '@types/node-cron':
         specifier: ^3.0.11
@@ -242,19 +260,19 @@ importers:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.5.26)(supports-color@7.2.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0)
       typescript:
-        specifier: ^7.0.2
+        specifier: 'catalog:'
         version: 7.0.2
       vitest:
-        specifier: 4.1.11
+        specifier: 'catalog:'
         version: 4.1.11(@types/node@26.2.0)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.2.0)(esbuild@0.27.2)(tsx@4.23.12)(yaml@2.9.0))
 
   hub/shared:
     devDependencies:
       '@types/node':
-        specifier: ^26.2.0
+        specifier: 'catalog:'
         version: 26.2.0
       typescript:
-        specifier: ^7.0.2
+        specifier: 'catalog:'
         version: 7.0.2
 
   scripts/third-party/google:
