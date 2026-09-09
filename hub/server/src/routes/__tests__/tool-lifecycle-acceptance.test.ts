@@ -180,6 +180,13 @@ function createTestServices(tmpDir: string, mod: ManifestModule, sync: SyncModul
             root: 'projects',
             sectionAxis: false,
           },
+          capabilities: {
+            tagsStrategy: 'none',
+            reportKind: null,
+            resultGlob: '**/*.html',
+            runVars: [],
+            supportsHeadless: false,
+          },
           ...detectOrigin(id),
         };
       }
@@ -205,6 +212,13 @@ function createTestServices(tmpDir: string, mod: ManifestModule, sync: SyncModul
           fixedType: manifest.projects.fixedType,
           root: manifest.projects.root,
           sectionAxis: manifest.projects.sectionAxis,
+        },
+        capabilities: {
+          tagsStrategy: 'none',
+          reportKind: null,
+          resultGlob: '**/*.html',
+          runVars: [],
+          supportsHeadless: false,
         },
         ...detectOrigin(manifest.id),
       };

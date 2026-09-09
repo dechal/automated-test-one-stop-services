@@ -261,6 +261,8 @@ export const th: Record<TranslationKey, string> = {
   'history.noMatchFilter': 'ไม่มีการรันที่ตรงกับตัวกรอง',
   'history.startRun': 'เริ่มรัน',
   'performance.selectProject': 'เลือกโปรเจกต์ k6 เพื่อดูแนวโน้มประสิทธิภาพ',
+  'performance.toolMissing':
+    'หน้านี้อ่านผลจาก k6 แต่ยังไม่ได้ติดตั้ง k6 ไว้ ติดตั้งจากหน้า Tools แล้วแนวโน้มประสิทธิภาพจะขึ้นที่นี่',
   'performance.noData': 'ยังไม่มีข้อมูลแนวโน้มของโปรเจกต์นี้ รัน k6 แล้วกด Refresh',
   'flaky.empty': 'ไม่พบเทสที่ไม่เสถียร กดวิเคราะห์เพื่อสแกนผลล่าสุด',
   'flaky.emptyForProject': 'ไม่มีเทสที่ไม่เสถียรในโปรเจกต์นี้',
@@ -763,6 +765,9 @@ export const th: Record<TranslationKey, string> = {
   // Projects (page body)
   'projects.loading': 'กำลังโหลดโปรเจกต์...',
   'projects.emptyTool': 'ยังไม่มีโปรเจกต์ — กด สร้าง หรือ โคลน เพื่อเพิ่ม',
+  'projects.noToolsTitle': 'ยังไม่ได้ติดตั้งเครื่องมือทดสอบ',
+  'projects.noToolsDesc':
+    'โปรเจกต์อยู่ภายใต้เครื่องมือ จึงต้องติดตั้งเครื่องมือก่อน — Playwright สำหรับเว็บและ API, Robot Framework สำหรับเดสก์ท็อปและมือถือ, k6 สำหรับทดสอบโหลด',
 
   // History / list page body (filters, columns, summary)
   'history.filterRuns': 'กรองการรัน',
@@ -932,6 +937,9 @@ export const th: Record<TranslationKey, string> = {
   // Schedule notifications
   'schedule.completed': 'ตารางเวลารันเสร็จแล้ว',
   'schedule.failed': 'ตารางเวลารันไม่สำเร็จ',
+  'schedule.skipped': 'ตารางเวลาไม่ได้รัน',
+  'run.reportMissing': 'รันจบแล้วแต่ไม่มีรายงาน',
+  'run.reportMissingBody': 'หาไฟล์ผลลัพธ์ไม่เจอ สถานะ test case จึงไม่ถูกอัปเดต',
 
   // Settings extras
   'settings.exportDownloaded': 'ดาวน์โหลดไฟล์ส่งออกแล้ว',

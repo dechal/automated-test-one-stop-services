@@ -79,7 +79,7 @@ import { mergeExtraArgs, parseRunArgs, SUPPORTS_RUN_FLAGS } from '~/utils/run-fl
 import { getStatusColor } from '~/utils/run-status.js';
 import { runVerdict } from '~/utils/run-verdict.js';
 import { buildTagQuery, parseTagQuery } from '~/utils/tag-selection.js';
-import { toolLabel, toolSelectData } from '~/utils/tool-label.js';
+import { enabledTools, toolLabel, toolSelectData } from '~/utils/tool-label.js';
 
 /** Split bounds mirror the clamp the preferences store commits, so the live drag
  *  preview can never show a width that will not be saved. */
@@ -312,6 +312,18 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // Derive the selected tool's project axes from its manifest (via useTools),
   // replacing hardcoded `tool === 'k6'` branches so any portable tool works.
   const toolsQuery = useTools();
+  const installedTools = enabledTools(toolsQuery.data ?? []);
+  useEffect(() => {
+    if (installedTools.length === 0) return;
+    if (installedTools.some((t) => t.id === tool)) return;
+    const fallback = installedTools[0];
+    if (!fallback) return;
+    setTool(fallback.id as ToolId);
+    setType('');
+    setProject('');
+    setSelectedTags([]);
+    setExcludedTags([]);
+  }, [installedTools, tool]);
   const toolView = (toolsQuery.data ?? []).find((t) => t.id === tool);
   const sectionAxis = toolView?.projects.sectionAxis ?? false;
   /** Fields actually rendered in the options row — drives its column count. */
@@ -329,7 +341,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const effectiveType = typeAxis ? type : (fixedType ?? '');
   const types = useProjectTypes(tool);
   const projectsQ = useProjectList(tool, effectiveType);
-  const sectionsQ = useProjectSections(project, sectionAxis);
+  const sectionsQ = useProjectSections(project, sectionAxis, tool);
   // Project .env drives the live VU counts shown in the perf-type labels
   // (PEAK_VUS → LOAD, MINIMAL_LOAD_VUS → MINIMAL_LOAD); only fetched for a
   // section-axis tool (k6), where the perf-type Select is shown.
@@ -337,7 +349,8 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     qProjectEnv(sectionAxis ? tool : '', effectiveType, sectionAxis ? project : ''),
   );
   const perfTypeData = buildPerfTypeData(projectEnvQ.data?.entries);
-  const tags = useProjectTags(sectionAxis ? '' : tool, effectiveType, project);
+  const supportsTags = (toolView?.capabilities.tagsStrategy ?? 'none') !== 'none';
+  const tags = useProjectTags(supportsTags ? tool : '', effectiveType, project);
 
   // One line of what a run will use, read from the same live state
   // `currentConfig()` submits: the axes that decide a run's identity, in the
@@ -858,7 +871,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                 </SimpleGrid>
               )}
 
-              {!sectionAxis && project && !isRunning && (
+              {supportsTags && project && !isRunning && (
                 <TagSelector
                   tags={tags.data}
                   isLoading={tags.isLoading}
@@ -870,7 +883,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                   fill
                 />
               )}
-              {!sectionAxis && project && isRunning && selectedTags.length > 0 && (
+              {supportsTags && project && isRunning && selectedTags.length > 0 && (
                 <Stack gap={4}>
                   <Text size="xs" c="dimmed">
                     {t('run.tags')}
@@ -946,7 +959,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             count — with three controls that would shrink Run to a third. */}
         <Group gap="xs" style={{ flexShrink: 0 }}>
           {(() => {
-            const tagsLoading = !sectionAxis && !!project && !!effectiveType && tags.isLoading;
+            const tagsLoading = supportsTags && !!project && !!effectiveType && tags.isLoading;
             const disabledReason =
               missingReqs.length > 0
                 ? `${t('run.missingRequirements')}: ${missingReqs.join(', ')}`

@@ -6,6 +6,7 @@ import {
   shouldShowScheduleToast,
 } from '~/components/schedule-toast-helpers.js';
 import { notifyRunFinished } from '~/hooks/useDesktopNotification.js';
+import { translate } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 
 /**
@@ -39,6 +40,26 @@ export function useScheduleToasts(): void {
       try {
         msg = JSON.parse(event.data) as WsServerEvent;
       } catch {
+        return;
+      }
+      if (msg.kind === 'schedule-skipped') {
+        notifications.show({
+          id: `schedule-skipped-${msg.scheduleId}`,
+          color: 'yellow',
+          title: translate('schedule.skipped'),
+          message: `${msg.scheduleName} — ${msg.message}`,
+          autoClose: 10000,
+        });
+        return;
+      }
+      if (msg.kind === 'run-report-missing') {
+        notifications.show({
+          id: `run-report-missing-${msg.runId}`,
+          color: 'yellow',
+          title: translate('run.reportMissing'),
+          message: `${msg.label} — ${translate('run.reportMissingBody')}`,
+          autoClose: 10000,
+        });
         return;
       }
       if (msg.kind !== 'schedule-finished') return;

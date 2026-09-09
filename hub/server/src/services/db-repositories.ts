@@ -110,14 +110,15 @@ function rowToRunRecord(row: Row): RunRecord {
     endedAt: readStr(row.ended_at),
     exitCode: readNum(row.exit_code),
     reportPath: readStr(row.report_path),
+    outputStamp: readStr(row.output_stamp),
     summary,
     triggeredBy: readStr(row.triggered_by) as RunRecord['triggeredBy'],
   };
 }
 
 const HISTORY_INSERT = `INSERT OR REPLACE INTO history
-  (id, status, command, started_at, ended_at, exit_code, report_path, summary_passed, summary_failed, summary_skipped, triggered_by, ${REQ_COLS})
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`;
+  (id, status, command, started_at, ended_at, exit_code, report_path, output_stamp, summary_passed, summary_failed, summary_skipped, triggered_by, ${REQ_COLS})
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`;
 
 function historyValues(rec: RunRecord): SqlValue[] {
   return [
@@ -128,6 +129,7 @@ function historyValues(rec: RunRecord): SqlValue[] {
     strCol(rec.endedAt),
     numCol(rec.exitCode),
     strCol(rec.reportPath),
+    strCol(rec.outputStamp),
     numCol(rec.summary?.passed),
     numCol(rec.summary?.failed),
     numCol(rec.summary?.skipped),

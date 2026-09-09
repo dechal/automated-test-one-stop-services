@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { ToolId } from '@hub/shared';
+import { runDirFromReportPath, type ToolId } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { SERVER_PKG_DIR } from '../config.js';
 import { isUnderOutputs } from '../services/path-guard.js';
@@ -104,8 +104,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
     // Report is at: .../html-results/index.html
     // Artifacts are sibling folders: .../evidences/<test-name>/{trace.zip, video.webm}
-    const htmlResultsDir = path.dirname(reportPath);
-    const runDir = path.dirname(htmlResultsDir);
+    const runDir = runDirFromReportPath(reportPath);
 
     const artifacts: ReportArtifacts = { groups: [] };
 

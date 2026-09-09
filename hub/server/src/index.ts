@@ -105,6 +105,15 @@ async function main(): Promise<void> {
   // page still has its results recorded.
   startPostRunPipeline();
 
+  const interrupted = historyStore.reconcileInterrupted();
+  if (interrupted.length > 0) {
+    app.log.warn(
+      `[boot] ${interrupted.length} run(s) were in flight when the Hub last stopped — marked as error: ${interrupted
+        .map((r) => `${r.request.tool}/${r.request.project}`)
+        .join(', ')}`,
+    );
+  }
+
   /**
    * Auto-load every route file under `src/routes/`. Each file exports a
    * Fastify plugin as default. Adding a new route is now zero-touch — just

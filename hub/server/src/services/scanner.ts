@@ -44,7 +44,7 @@ export async function listProjects(tool: ToolId, type: string): Promise<string[]
   return listDirs(dir).filter((n) => !isTemplateName(n));
 }
 
-function readMissingEnvKeys(projectDir: string): {
+export function readMissingEnvKeys(projectDir: string): {
   hasEnv: boolean;
   hasTemplate: boolean;
   missing: string[];
@@ -176,9 +176,11 @@ export function invalidateProjectCache(): void {
 }
 
 /** Sections for a section-axis tool (e.g. k6 `automations/specs/<section>/`). */
-export async function listSections(project: string): Promise<string[]> {
+export async function listSections(project: string, tool?: ToolId): Promise<string[]> {
   const tools = await getEnabledTools();
-  const manifest = tools.find((t) => t.projects.sectionAxis);
+  const manifest = tool
+    ? tools.find((t) => t.id === tool && t.projects.sectionAxis)
+    : tools.find((t) => t.projects.sectionAxis);
   if (!manifest) return [];
   const typeSlot = manifest.projects.fixedType ?? '';
   const specsRoot = path.join(

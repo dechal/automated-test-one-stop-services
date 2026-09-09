@@ -124,7 +124,7 @@ export function RunLogModal({ run, opened, onClose, onRerun }: RunLogModalProps)
             >
               {t('runlog.openReport')}
             </Button>
-            {run.request.tool === 'playwright' && <ArtifactMenu reportPath={reportPath} />}
+            <ArtifactMenu reportPath={reportPath} />
           </Group>
         )}
 

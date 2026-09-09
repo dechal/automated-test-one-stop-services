@@ -5,6 +5,7 @@ import { buildTaskCommand } from './command-builder.js';
 import { buildCustomCommand } from './custom-command-builder.js';
 import { getEnabledToolIds } from './manifest-registry.js';
 import { loadJson, saveJson } from './persistence.js';
+import { checkRunPreconditions } from './run-preconditions.js';
 import { runner } from './runner.js';
 
 const SCHEDULES_FILE = 'schedules.json';
@@ -196,6 +197,17 @@ class SchedulerService {
     return schedule;
   }
 
+  private announceSkip(schedule: Schedule, message: string): void {
+    console.warn(`[scheduler] skipped "${schedule.name}": ${message}`);
+    runner.emitEvent({
+      kind: 'schedule-skipped',
+      runId: schedule.lastRunId ?? schedule.id,
+      scheduleId: schedule.id,
+      scheduleName: schedule.name || schedule.id,
+      message,
+    });
+  }
+
   /** True when this schedule's previous run is still active (running/pending). */
   private isPreviousRunActive(schedule: Schedule): boolean {
     if (!schedule.lastRunId) return false;
@@ -213,15 +225,31 @@ class SchedulerService {
         // so re-enabling the tool resumes firing without recreating the schedule.
         const enabledIds = await getEnabledToolIds();
         if (!enabledIds.has(schedule.config.tool)) {
+          this.announceSkip(
+            schedule,
+            `tool "${schedule.config.tool}" is disabled or not installed`,
+          );
           return;
         }
       }
       // Skip overlapping runs unless explicitly opted out.
       const noOverlap = schedule.noOverlap !== false;
       if (noOverlap && this.isPreviousRunActive(schedule)) {
+        this.announceSkip(schedule, 'its previous run is still going');
         return;
       }
       schedule.lastRunAt = new Date().toISOString();
+      if (!schedule.command) {
+        const { blockers } = await checkRunPreconditions(schedule.config, {
+          allowDoctorSweep: false,
+        });
+        if (blockers.length > 0) {
+          schedule.lastStatus = 'error';
+          this.announceSkip(schedule, blockers.map((b) => b.message).join(' | '));
+          this.persist();
+          return;
+        }
+      }
       const command = schedule.command
         ? buildCustomCommand(schedule.command)
         : await buildTaskCommand(schedule.config);

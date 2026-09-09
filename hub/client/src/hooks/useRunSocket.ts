@@ -35,6 +35,13 @@ interface UseRunSocketOptions {
   t: (key: TranslationKey) => string;
 }
 
+const OUTPUT_TAIL_LIMIT = 512 * 1024;
+
+function appendCapped(current: string, chunk: string): string {
+  const next = current + chunk;
+  return next.length <= OUTPUT_TAIL_LIMIT ? next : next.slice(-OUTPUT_TAIL_LIMIT);
+}
+
 /**
  * Owns the per-session WebSocket: connection lifecycle, server-event routing
  * (stdout/stderr/started/finished), and reconnection to an in-flight run after
@@ -91,13 +98,13 @@ export function useRunSocket({
         case 'run-stdout':
           if (msg.runId === activeRunIdRef.current) {
             term.write(msg.chunk);
-            fullOutputRef.current += msg.chunk;
+            fullOutputRef.current = appendCapped(fullOutputRef.current, msg.chunk);
           }
           break;
         case 'run-stderr':
           if (msg.runId === activeRunIdRef.current) {
             term.write(`\x1b[31m${msg.chunk}\x1b[0m`);
-            fullOutputRef.current += msg.chunk;
+            fullOutputRef.current = appendCapped(fullOutputRef.current, msg.chunk);
           }
           break;
         case 'run-finished':

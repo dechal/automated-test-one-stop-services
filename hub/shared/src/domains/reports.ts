@@ -13,6 +13,8 @@ export interface ReportEntry {
   status: 'success' | 'error' | 'unknown';
   reportPath: string;
   timestamp: string;
+  section?: string;
+  stamp?: string;
   /**
    * Protected from auto-cleanup. Always true while {@link favorite} is set —
    * favouriting is a stronger statement than locking, so it implies the lock and
@@ -52,6 +54,16 @@ export interface ReportEntry {
    * Run mode (local | docker) from the matched run request.
    */
   runMode?: string;
+}
+
+const RUN_DATE_DIR = /^\d{4}-\d{2}-\d{2}$/;
+
+export function runDirFromReportPath(reportPath: string): string {
+  const parts = reportPath.replace(/\\/g, '/').split('/');
+  for (let i = parts.length - 2; i >= 1; i--) {
+    if (RUN_DATE_DIR.test(parts[i - 1] ?? '')) return parts.slice(0, i + 1).join('/');
+  }
+  return parts.slice(0, -2).join('/');
 }
 
 export interface ReportAnnotation {

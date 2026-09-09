@@ -36,6 +36,22 @@ interface ToolWalkConfig {
   readonly typeAxis: boolean;
   readonly type: string;
   readonly resultGlob: string;
+  readonly resultExt: string;
+}
+
+const KIND_EXTENSIONS: Readonly<Record<string, string>> = {
+  html: '.html',
+  json: '.json',
+  text: '.txt',
+  txt: '.txt',
+  xml: '.xml',
+  pdf: '.pdf',
+};
+
+export function resultExtensionFor(kind: string | null, resultGlob: string): string {
+  if (kind && KIND_EXTENSIONS[kind.toLowerCase()]) return KIND_EXTENSIONS[kind.toLowerCase()] ?? '';
+  const fromGlob = /\.([a-z0-9]+)$/i.exec(resultGlob);
+  return fromGlob ? `.${fromGlob[1]?.toLowerCase()}` : '.html';
 }
 
 /**
@@ -51,11 +67,12 @@ async function resolveToolWalkConfigs(): Promise<Map<string, ToolWalkConfig>> {
   const byId = new Map<string, ToolWalkConfig>();
   for (const manifest of tools) {
     const { typeAxis, fixedType } = manifest.projects;
-    const resultGlob = mod.resolveCapabilities(manifest).reports.resultGlob;
+    const { resultGlob, kind } = mod.resolveCapabilities(manifest).reports;
     byId.set(manifest.id, {
       typeAxis,
       type: fixedType ?? '',
       resultGlob,
+      resultExt: resultExtensionFor(kind, resultGlob),
     });
   }
   return byId;
@@ -132,12 +149,22 @@ function attachSummaries(entries: ReportEntry[]): void {
   for (const e of entries) {
     const candidates = byKey.get(`${e.tool}/${e.type}/${e.project}`);
     if (!candidates) continue;
+
+    const exact = e.stamp
+      ? candidates.find((run) => run.outputStamp !== undefined && run.outputStamp === e.stamp)
+      : undefined;
+    if (exact) {
+      applyRunToEntry(e, exact);
+      continue;
+    }
+
     const reportMs = Date.parse(e.timestamp);
     if (Number.isNaN(reportMs)) continue;
 
     let best: RunRecord | undefined;
     let bestDist = Number.POSITIVE_INFINITY;
     for (const run of candidates) {
+      if (run.outputStamp !== undefined) continue;
       if (!statusCompatible(e.status, run.status)) continue;
       const startMs = Date.parse(run.startedAt);
       const endMs = run.endedAt ? Date.parse(run.endedAt) : startMs;
@@ -150,16 +177,18 @@ function attachSummaries(entries: ReportEntry[]): void {
         best = run;
       }
     }
-    if (best && bestDist <= MATCH_WINDOW_MS) {
-      if (best.summary) e.summary = best.summary;
-      if (best.startedAt && best.endedAt) {
-        const dMs = Date.parse(best.endedAt) - Date.parse(best.startedAt);
-        if (!Number.isNaN(dMs) && dMs >= 0) e.durationMs = dMs;
-      }
-      if (best.request.tag) e.runTag = best.request.tag;
-      e.runMode = best.request.mode;
-    }
+    if (best && bestDist <= MATCH_WINDOW_MS) applyRunToEntry(e, best);
   }
+}
+
+function applyRunToEntry(entry: ReportEntry, run: RunRecord): void {
+  if (run.summary) entry.summary = run.summary;
+  if (run.startedAt && run.endedAt) {
+    const dMs = Date.parse(run.endedAt) - Date.parse(run.startedAt);
+    if (!Number.isNaN(dMs) && dMs >= 0) entry.durationMs = dMs;
+  }
+  if (run.request.tag) entry.runTag = run.request.tag;
+  entry.runMode = run.request.mode;
 }
 
 /** Drop the cache so the next listReports call re-walks `outputs/`. */
@@ -202,6 +231,13 @@ export async function reportEntryByRun(
   for (const run of runs) {
     const candidates = byKey.get(`${run.request.tool}/${run.request.type}/${run.request.project}`);
     if (!candidates) continue;
+
+    if (run.outputStamp !== undefined) {
+      const exact = candidates.find((e) => e.stamp === run.outputStamp);
+      if (exact) result.set(run.id, exact);
+      continue;
+    }
+
     const startMs = Date.parse(run.startedAt);
     const endMs = run.endedAt ? Date.parse(run.endedAt) : startMs;
 
@@ -280,20 +316,26 @@ function walkOutputs(
 
     const toolDir = path.join(baseDir, toolName);
     if (config.typeAxis) {
-      walkTypeAxis(toolDir, toolName, config.resultGlob, out);
+      walkTypeAxis(toolDir, toolName, config.resultGlob, config.resultExt, out);
     } else {
-      walkFlat(toolDir, toolName, config.type, config.resultGlob, out);
+      walkFlat(toolDir, toolName, config.type, config.resultGlob, config.resultExt, out);
     }
   }
 }
 
 /** Type-axis tools: outputs/<tool>/<type>/<project>/… (Playwright, Robot). */
-function walkTypeAxis(toolDir: string, tool: ToolId, resultGlob: string, out: ReportEntry[]): void {
+function walkTypeAxis(
+  toolDir: string,
+  tool: ToolId,
+  resultGlob: string,
+  resultExt: string,
+  out: ReportEntry[],
+): void {
   for (const type of safeDirs(toolDir)) {
     const typeDir = path.join(toolDir, type);
     for (const project of safeDirs(typeDir)) {
       const projDir = path.join(typeDir, project);
-      findHtmlReports(projDir, tool, type, project, resultGlob, out);
+      findHtmlReports(projDir, tool, type, project, resultGlob, resultExt, out);
     }
   }
 }
@@ -304,11 +346,12 @@ function walkFlat(
   tool: ToolId,
   type: string,
   resultGlob: string,
+  resultExt: string,
   out: ReportEntry[],
 ): void {
   for (const project of safeDirs(toolDir)) {
     const projDir = path.join(toolDir, project);
-    findHtmlReports(projDir, tool, type, project, resultGlob, out);
+    findHtmlReports(projDir, tool, type, project, resultGlob, resultExt, out);
   }
 }
 
@@ -318,6 +361,7 @@ function findHtmlReports(
   type: string,
   project: string,
   resultGlob: string,
+  resultExt: string,
   out: ReportEntry[],
 ): void {
   // The manifest's `reports.resultGlob` selects the tool's result file:
@@ -325,7 +369,7 @@ function findHtmlReports(
   //   Robot:      **/report.html
   //   k6:         **/summary.html
   //   unknown:    **/*.html                    (generic fallback)
-  const htmlFiles = findFiles(dir, '.html').filter((f) => matchesGlob(f, resultGlob));
+  const htmlFiles = findFiles(dir, resultExt).filter((f) => matchesGlob(f, resultGlob));
   for (const filePath of htmlFiles) {
     const rel = path.relative(dir, filePath).replace(/\\/g, '/');
     const parts = rel.split('/');
@@ -336,7 +380,7 @@ function findHtmlReports(
         ? 'error'
         : 'unknown';
 
-    const { timestamp } = extractMeta(parts);
+    const { timestamp, section, stamp } = extractMeta(parts);
 
     out.push({
       id: stableId(filePath),
@@ -346,6 +390,8 @@ function findHtmlReports(
       status: status as 'success' | 'error' | 'unknown',
       reportPath: filePath,
       timestamp,
+      ...(section ? { section } : {}),
+      ...(stamp ? { stamp } : {}),
       // A favourite is locked by definition, so the flag is derived here rather
       // than trusted from the marker files being in sync.
       locked: isLocked(filePath) || isFavorite(filePath),
@@ -436,17 +482,20 @@ function toIsoTimestamp(date: string, time: string): string {
   return `${date}T${time.replace(/-/g, ':')}`;
 }
 
-function extractMeta(parts: string[]): { timestamp: string } {
+function extractMeta(parts: string[]): { timestamp: string; section: string; stamp: string } {
   let timestamp = '';
+  let stamp = '';
 
   const statusIdx = parts.findIndex((p) => p === 'success' || p === 'error');
   if (statusIdx >= 0 && parts.length > statusIdx + 2) {
     const date = parts[statusIdx + 1] ?? '';
     const time = parts[statusIdx + 2] ?? '';
     timestamp = toIsoTimestamp(date, time);
+    stamp = `${date}/${time}`;
   }
 
-  return { timestamp };
+  const section = statusIdx > 0 ? parts.slice(0, statusIdx).join('/') : '';
+  return { timestamp, section, stamp };
 }
 
 function findFiles(dir: string, ext: string): string[] {

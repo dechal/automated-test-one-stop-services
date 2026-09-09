@@ -13,11 +13,14 @@ import {
 import { nanoid } from 'nanoid';
 import { BASH_PATH, WORKSPACE_ROOT } from '../config.js';
 import { historyStore } from './history-store.js';
+import { loadJson, saveJson } from './persistence.js';
 import { invalidateReportsCache } from './reports.js';
 import { webhookService } from './webhooks.js';
 import { createKillJob, type KillJob } from './win-job.js';
 
 const DEFAULT_MAX_CONCURRENCY = 2;
+
+const CONCURRENCY_FILE = 'run-concurrency.json';
 /**
  * Per-run live output buffer ceiling. We keep a sliding window so reconnect
  * always shows the most recent activity even on long-running load tests
@@ -51,6 +54,15 @@ const RECENT_FINISHED_LIMIT = 20;
  */
 const CANCEL_FINALIZE_GRACE_MS = 5000;
 
+const DEFAULT_RUN_TIMEOUT_MS = 4 * 60 * 60 * 1000;
+
+export function resolveRunTimeoutMs(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return DEFAULT_RUN_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_RUN_TIMEOUT_MS;
+  return parsed;
+}
+
 interface ActiveRun {
   record: RunRecord;
   child: ChildProcess;
@@ -75,11 +87,26 @@ interface ActiveRun {
    * `child.pid`, which `taskkill /T` cannot reach.
    */
   killJob: KillJob | null;
+  timeoutTimer: NodeJS.Timeout | null;
 }
 
 interface QueuedRun {
   record: RunRecord;
   request: RunRequest;
+}
+
+const pad = (n: number): string => String(n).padStart(2, '0');
+
+export function nextOutputStamp(now: Date, taken: ReadonlySet<string>): string {
+  const at = new Date(now.getTime());
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+    const time = `${pad(at.getHours())}-${pad(at.getMinutes())}-${pad(at.getSeconds())}`;
+    const stamp = `${date}/${time}`;
+    if (!taken.has(stamp)) return stamp;
+    at.setSeconds(at.getSeconds() + 1);
+  }
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}/${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
 }
 
 /** Append `chunk` to `run.outputBuffer`, trimming from the head when over the cap. */
@@ -168,7 +195,7 @@ class RunnerService extends EventEmitter {
    * Insertion-ordered; the oldest entry is evicted once over the cap.
    */
   private recentlyFinished = new Map<string, { record: RunRecord; output: string }>();
-  private maxConcurrency: number = DEFAULT_MAX_CONCURRENCY;
+  private maxConcurrency: number = loadJson<number>(CONCURRENCY_FILE, DEFAULT_MAX_CONCURRENCY);
   /**
    * Maintained incrementally on `run-finished`. Lets `/api/runs/last-status`
    * return without re-iterating history on every poll.
@@ -190,6 +217,7 @@ class RunnerService extends EventEmitter {
 
   setMaxConcurrency(n: number): void {
     this.maxConcurrency = Math.max(1, n);
+    saveJson(CONCURRENCY_FILE, this.maxConcurrency);
     this.drainQueue();
   }
 
@@ -248,9 +276,22 @@ class RunnerService extends EventEmitter {
     return record;
   }
 
+  private persistInFlight(record: RunRecord): void {
+    if (record.request.silent === true) return;
+    try {
+      historyStore.append(record);
+    } catch (err) {
+      console.error(`[runner] could not persist in-flight run ${record.id}:`, err);
+    }
+  }
+
   private spawn(record: RunRecord): void {
     const command = record.command;
     record.status = 'running';
+
+    const stamp = nextOutputStamp(new Date(), this.stampsInFlight());
+    record.outputStamp = stamp;
+    const [stampDate = '', stampTime = ''] = stamp.split('/');
 
     const silent = record.request.silent === true;
 
@@ -262,6 +303,8 @@ class RunnerService extends EventEmitter {
       ...process.env,
       PYTHONIOENCODING: 'utf-8',
       PYTHONUNBUFFERED: '1',
+      CURRENT_DATE: stampDate,
+      CURRENT_TIME: stampTime,
     };
     if (env.PATH) {
       env.PATH = env.PATH.split(path.delimiter)
@@ -290,6 +333,8 @@ class RunnerService extends EventEmitter {
       }
     }
 
+    this.persistInFlight(record);
+
     const id = record.id;
     const activeRun: ActiveRun = {
       record,
@@ -299,8 +344,21 @@ class RunnerService extends EventEmitter {
       silent,
       cancelRequested: false,
       killJob,
+      timeoutTimer: null,
     };
     this.active.set(id, activeRun);
+
+    const timeoutMs = resolveRunTimeoutMs(process.env.HUB_RUN_TIMEOUT_MS);
+    if (timeoutMs > 0) {
+      const timer = setTimeout(() => {
+        if (!this.active.has(id)) return;
+        console.error(`[runner] run ${id} exceeded ${timeoutMs}ms — cancelling`);
+        this.cancel(id);
+      }, timeoutMs);
+      timer.unref?.();
+      activeRun.timeoutTimer = timer;
+    }
+
     this.emitEvent({ kind: 'run-started', runId: id, record });
 
     // Best-effort Google Sheet usage logging at run start. Skipped when the user
@@ -382,6 +440,7 @@ class RunnerService extends EventEmitter {
       );
     }
 
+    if (run?.timeoutTimer) clearTimeout(run.timeoutTimer);
     this.active.delete(id);
     // Close our Job Object handle. If the run was cancelled, terminate() already
     // closed it (this is a guarded no-op); for a normal finish this frees the
@@ -483,6 +542,14 @@ class RunnerService extends EventEmitter {
     return [...this.active.values()].map((r) => r.record);
   }
 
+  private stampsInFlight(): Set<string> {
+    const taken = new Set<string>();
+    for (const run of this.active.values()) {
+      if (run.record.outputStamp) taken.add(run.record.outputStamp);
+    }
+    return taken;
+  }
+
   getOutputBuffer(id: string): string | null {
     const run = this.active.get(id);
     if (run) return formatOutputBuffer(run.outputBuffer, run.outputTruncated);
@@ -537,7 +604,7 @@ class RunnerService extends EventEmitter {
     this.recentlyFinished.clear();
   }
 
-  private emitEvent(event: WsServerEvent): void {
+  emitEvent(event: WsServerEvent): void {
     this.emit('event', event);
   }
 }

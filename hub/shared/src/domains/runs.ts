@@ -63,6 +63,7 @@ export interface RunRecord {
   exitCode?: number;
   /** Path to primary HTML report, if produced. */
   reportPath?: string;
+  outputStamp?: string;
   /** Test-case counts parsed from the run output, when a summary was present. */
   summary?: RunSummary;
   /** How the run was launched. Persisted; defaults to 'manual' for legacy rows. */
@@ -136,6 +137,18 @@ export type WsServerEvent =
       silent: boolean;
       /** Failure reason, when applicable. */
       message?: string;
+    }
+  | {
+      kind: 'schedule-skipped';
+      runId: string;
+      scheduleId: string;
+      scheduleName: string;
+      message: string;
+    }
+  | {
+      kind: 'run-report-missing';
+      runId: string;
+      label: string;
     };
 
 export type WsClientEvent =

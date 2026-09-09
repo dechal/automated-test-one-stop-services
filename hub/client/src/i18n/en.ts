@@ -264,6 +264,8 @@ export const en = {
   'history.noMatchFilter': 'No runs match your filters.',
   'history.startRun': 'Start a run',
   'performance.selectProject': 'Select a k6 project to view performance trends.',
+  'performance.toolMissing':
+    'This page reads k6 results, and k6 is not installed. Add it from the Tools page to see performance trends here.',
   'performance.noData': 'No trend data for this project yet. Run a k6 test, then click Refresh.',
   'flaky.empty': 'No flaky tests detected. Run analysis to scan recent results.',
   'flaky.emptyForProject': 'No flaky tests for this project.',
@@ -774,6 +776,9 @@ export const en = {
   // Projects (page body)
   'projects.loading': 'Loading projects...',
   'projects.emptyTool': 'No projects yet — use Create or Clone to add one.',
+  'projects.noToolsTitle': 'No test tools installed yet',
+  'projects.noToolsDesc':
+    'A project lives inside a tool, so install one first — Playwright for web and API, Robot Framework for desktop and mobile, k6 for load tests.',
 
   // History / list page body (filters, columns, summary)
   'history.filterRuns': 'Filter runs',
@@ -945,6 +950,9 @@ export const en = {
   // Schedule notifications
   'schedule.completed': 'Schedule completed',
   'schedule.failed': 'Schedule failed',
+  'schedule.skipped': 'Schedule did not run',
+  'run.reportMissing': 'Run finished without a report',
+  'run.reportMissingBody': 'No result file was found, so test-case statuses were not updated.',
 
   // Settings extras
   'settings.exportDownloaded': 'Export downloaded',

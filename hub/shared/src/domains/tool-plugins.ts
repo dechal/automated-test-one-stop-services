@@ -32,6 +32,17 @@ export interface ToolView {
     readonly root: string;
     readonly sectionAxis: boolean;
   };
+  readonly capabilities: ToolCapabilitiesView;
+}
+
+export type ToolTagsStrategy = 'playwright-list' | 'robot-files' | 'none';
+
+export interface ToolCapabilitiesView {
+  readonly tagsStrategy: ToolTagsStrategy;
+  readonly reportKind: string | null;
+  readonly resultGlob: string;
+  readonly runVars: readonly string[];
+  readonly supportsHeadless: boolean;
 }
 
 /** Shape for the marketplace registry entries (GET /api/tool-registry). */

@@ -81,7 +81,10 @@ export async function removeProjectCascade(ref: ProjectRef): Promise<ProjectClea
   const projectDirRemoved = safeRemoveDir(TOOLS_DIR, projectDir);
 
   // 2. artifacts under outputs/
-  const outputsDir = path.join(OUTPUTS_DIR, ref.tool, ref.type, ref.project);
+  const outputsDir =
+    manifest?.projects.typeAxis === false
+      ? path.join(OUTPUTS_DIR, ref.tool, ref.project)
+      : path.join(OUTPUTS_DIR, ref.tool, ref.type, ref.project);
   const outputsRemoved = safeRemoveDir(OUTPUTS_DIR, outputsDir);
 
   // 3. run history

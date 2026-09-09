@@ -4,6 +4,7 @@ import type { DoctorCategory, DoctorCheck, DoctorReport } from '@hub/shared';
 import { SCRIPTS_DIR, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { getComposeServiceStatus, isDockerRunning } from './docker.js';
 import { runChild } from './exec.js';
+import { getEnabledTools } from './manifest-registry.js';
 
 /**
  * The pinned Python version from `scripts/setup/versions.env` (the single
@@ -227,6 +228,37 @@ async function checkK6(present: boolean): Promise<DoctorCheck> {
     hint: 'Install k6: winget install Grafana.k6',
     category: 'required-install',
   });
+}
+
+const BINARY_TOOL_PROBES: Readonly<Record<string, (present: boolean) => Promise<DoctorCheck>>> = {
+  k6: checkK6,
+};
+
+async function binaryRuntimeToolIds(): Promise<string[]> {
+  try {
+    const tools = await getEnabledTools();
+    const ids = tools.filter((t) => t.runtime === 'binary').map((t) => t.id);
+    return ids.length > 0 ? ids : Object.keys(BINARY_TOOL_PROBES);
+  } catch {
+    return Object.keys(BINARY_TOOL_PROBES);
+  }
+}
+
+async function checkBinaryTools(ids: readonly string[]): Promise<DoctorCheck[]> {
+  return Promise.all(
+    ids.map(async (id): Promise<DoctorCheck> => {
+      const present = isToolFolderPresent(id);
+      const probe = BINARY_TOOL_PROBES[id];
+      if (probe) return probe(present);
+      if (!present) return absentToolCheck(id, id);
+      return {
+        name: id,
+        ok: true,
+        version: `present (tools/${id}); no version probe declared`,
+        category: toolCheckCategory(true),
+      };
+    }),
+  );
 }
 
 /**
@@ -518,17 +550,22 @@ const DOCTOR_CACHE_TTL_MS = 60_000;
  * Run all environment health checks concurrently. Cached briefly because the
  * full sweep spawns ~13 child processes; the dashboard refreshes often.
  */
+export function cachedDoctorReport(): DoctorReport | undefined {
+  if (lastReport && Date.now() - lastReport.at < DOCTOR_CACHE_TTL_MS) return lastReport.value;
+  return undefined;
+}
+
 export async function runDoctor(): Promise<DoctorReport> {
   const now = Date.now();
   if (lastReport && now - lastReport.at < DOCTOR_CACHE_TTL_MS) return lastReport.value;
 
-  const k6Present = isToolFolderPresent('k6');
   const playwrightPresent = isToolFolderPresent('playwright');
   const robotPresent = isToolFolderPresent('robot-framework');
+  const binaryToolIds = await binaryRuntimeToolIds();
 
   const checks = await Promise.all([
     ...CHECKS.map(runCheck),
-    checkK6(k6Present),
+    checkBinaryTools(binaryToolIds),
     checkPython(robotPresent),
     Promise.resolve(checkPlaywrightBrowsers(playwrightPresent)),
     checkDockerDaemon(),

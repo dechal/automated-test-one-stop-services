@@ -62,6 +62,7 @@ export const SCHEMA_DDL = `
     ended_at    TEXT,
     exit_code   INTEGER,
     report_path TEXT,
+    output_stamp    TEXT,
     summary_passed  INTEGER,
     summary_failed  INTEGER,
     summary_skipped INTEGER,

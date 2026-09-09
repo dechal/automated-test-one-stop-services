@@ -29,8 +29,12 @@ export function useProjectList(tool: ToolId | undefined | '', type: string | und
 }
 
 /** Used by k6 only — sections under `automations/specs/<section>/`. */
-export function useProjectSections(project: string | undefined | '', enabled = true) {
-  return useQuery(qProjectSections(project, enabled));
+export function useProjectSections(
+  project: string | undefined | '',
+  enabled = true,
+  tool?: string,
+) {
+  return useQuery(qProjectSections(project, enabled, tool));
 }
 
 export function useProjectTags(

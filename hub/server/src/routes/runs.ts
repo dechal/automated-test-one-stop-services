@@ -5,6 +5,7 @@ import { buildTaskCommand } from '../services/command-builder.js';
 import { getEnabledToolIds } from '../services/manifest-registry.js';
 import { severityByRun } from '../services/reports.js';
 import { compareRuns, failedSelectionFromReport } from '../services/run-compare.js';
+import { checkRunPreconditions } from '../services/run-preconditions.js';
 import { runner } from '../services/runner.js';
 import { resolveReportPath } from '../services/testcase-status-sync.js';
 
@@ -37,7 +38,12 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: RunRequest }>(
     '/api/runs',
     { schema: { body: runRequestSchema } },
-    async (req) => {
+    async (req, reply) => {
+      const { blockers, warnings } = await checkRunPreconditions(req.body);
+      if (blockers.length > 0) {
+        reply.status(409);
+        return { code: 'PRECONDITION_FAILED', message: blockers[0]?.message, blockers, warnings };
+      }
       const command = await buildTaskCommand(req.body);
       return runner.start(req.body, command);
     },
@@ -61,7 +67,11 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
   /** GET /api/runs/history — past runs of ENABLED tools (max 100) */
   app.get('/api/runs/history', async () => {
     const enabledIds = await getEnabledToolIds();
-    const records = runner.getHistory().filter((r) => enabledIds.has(r.request.tool));
+    const records = runner
+      .getHistory()
+      .filter(
+        (r) => enabledIds.has(r.request.tool) && r.status !== 'running' && r.status !== 'pending',
+      );
     // Enrich with the per-severity tally the report service already parsed,
     // matched back to each run (RunRecord has no path to its own results.json).
     const severity = await severityByRun(records);
@@ -118,9 +128,21 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { requests: RunRequest[] } }>(
     '/api/runs/batch',
     { schema: { body: z.object({ requests: z.array(runRequestSchema).min(1) }) } },
-    async (req) => {
+    async (req, reply) => {
+      const checked = await Promise.all(
+        req.body.requests.map(async (r) => ({ request: r, gate: await checkRunPreconditions(r) })),
+      );
+      const rejected = checked.filter((c) => c.gate.blockers.length > 0);
+      if (rejected.length > 0) {
+        reply.status(409);
+        return {
+          code: 'PRECONDITION_FAILED',
+          message: `${rejected.length} of ${checked.length} run(s) cannot start`,
+          rejected: rejected.map((c) => ({ request: c.request, blockers: c.gate.blockers })),
+        };
+      }
       const records = await Promise.all(
-        req.body.requests.map(async (r) => runner.start(r, await buildTaskCommand(r))),
+        checked.map(async (c) => runner.start(c.request, await buildTaskCommand(c.request))),
       );
       return { records };
     },

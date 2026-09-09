@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { TbDownload, TbPlus, TbPuzzle } from 'react-icons/tb';
 import { api } from '~/api/client.js';
+import { EmptyState } from '~/components/EmptyState.js';
 import { ErrorState } from '~/components/ErrorState.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { AddToolsModal } from '~/components/projects/AddToolsModal.js';
@@ -515,6 +516,19 @@ export function ProjectsPage() {
               );
             })}
           </SimpleGrid>
+
+          {(tools.data ?? []).length === 0 && (
+            <EmptyState
+              icon={<TbPuzzle size={40} color="var(--mantine-color-brand-6)" />}
+              title={t('projects.noToolsTitle')}
+              description={t('projects.noToolsDesc')}
+              action={
+                <Button leftSection={<TbPuzzle size={14} />} onClick={openAddTools}>
+                  {t('projects.addTools')}
+                </Button>
+              }
+            />
+          )}
         </>
       )}
 

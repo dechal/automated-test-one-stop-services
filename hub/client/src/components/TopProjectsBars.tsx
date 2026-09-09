@@ -62,7 +62,14 @@ export function TopProjectsBars() {
           { value: 'tool', label: 'By Tool' },
         ]}
       />
-      <BarsList data={data} valueFormatter={(v) => `${v} run${v === 1 ? '' : 's'}`} />
+      <BarsList
+        data={data}
+        valueFormatter={(v) => `${v} run${v === 1 ? '' : 's'}`}
+        styles={{
+          bar: { overflow: 'hidden' },
+          barLabel: { whiteSpace: 'nowrap', overflow: 'visible' },
+        }}
+      />
     </Stack>
   );
 }

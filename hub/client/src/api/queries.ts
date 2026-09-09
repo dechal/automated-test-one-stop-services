@@ -110,10 +110,11 @@ export const qProjectList = (tool: ToolId | undefined | '', type: string | undef
   });
 
 /** Used by k6 only — sections under `automations/specs/<section>/`. */
-export const qProjectSections = (project: string | undefined | '', enabled = true) =>
+export const qProjectSections = (project: string | undefined | '', enabled = true, tool?: string) =>
   queryOptions({
-    queryKey: ['sections', project] as const,
-    queryFn: () => api.get<string[]>(`/api/projects/sections?project=${project}`),
+    queryKey: ['sections', project, tool ?? ''] as const,
+    queryFn: () =>
+      api.get<string[]>(`/api/projects/sections?project=${project}${tool ? `&tool=${tool}` : ''}`),
     enabled: enabled && !!project,
     staleTime: STALE.structural,
     gcTime: Number.POSITIVE_INFINITY,

@@ -1,7 +1,13 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { LifecycleResult, ManifestPreview, ToolStatus, ToolView } from '@hub/shared';
+import type {
+  LifecycleResult,
+  ManifestPreview,
+  ToolCapabilitiesView,
+  ToolStatus,
+  ToolView,
+} from '@hub/shared';
 import { TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { SAFE_GIT_REF, SAFE_ID } from '../lib/safe-id.js';
 import {
@@ -9,6 +15,7 @@ import {
   getRegistry,
   invalidateManifestRegistry,
   type ManifestError,
+  type ResolvedCapabilities,
   type ToolManifest,
   type ValidateManifestResult,
 } from './manifest-registry.js';
@@ -268,6 +275,7 @@ export async function listToolViews(): Promise<readonly ToolView[]> {
           root: 'projects',
           sectionAxis: false,
         },
+        capabilities: BROKEN_TOOL_CAPABILITIES,
         ...detectOrigin(id),
       };
     }
@@ -296,9 +304,28 @@ export async function listToolViews(): Promise<readonly ToolView[]> {
         root: manifest.projects.root,
         sectionAxis: manifest.projects.sectionAxis,
       },
+      capabilities: toCapabilitiesView(mod.resolveCapabilities(manifest)),
       ...detectOrigin(manifest.id),
     };
   });
+}
+
+const BROKEN_TOOL_CAPABILITIES: ToolCapabilitiesView = {
+  tagsStrategy: 'none',
+  reportKind: null,
+  resultGlob: '**/*.html',
+  runVars: [],
+  supportsHeadless: false,
+};
+
+function toCapabilitiesView(resolved: ResolvedCapabilities): ToolCapabilitiesView {
+  return {
+    tagsStrategy: resolved.tags.strategy as ToolCapabilitiesView['tagsStrategy'],
+    reportKind: resolved.reports.kind,
+    resultGlob: resolved.reports.resultGlob,
+    runVars: resolved.run.vars.map((v) => v.name),
+    supportsHeadless: resolved.run.headlessVar !== null,
+  };
 }
 
 /**

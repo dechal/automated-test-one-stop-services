@@ -130,6 +130,11 @@ const mockManifestModule = {
     };
   }),
   listProjectDirs: vi.fn(() => ['project-a', 'project-b']),
+  resolveCapabilities: vi.fn(() => ({
+    run: { vars: [], headlessVar: null },
+    reports: { resultGlob: '**/*.html', kind: null },
+    tags: { strategy: 'none' as const },
+  })),
 };
 
 // We need to intercept the dynamic import. The service resolves:

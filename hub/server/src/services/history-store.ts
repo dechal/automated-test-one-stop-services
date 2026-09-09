@@ -62,6 +62,20 @@ class HistoryStore {
     this.cache = null; // invalidate memoized snapshot
   }
 
+  reconcileInterrupted(): RunRecord[] {
+    const stale = this.getAll().filter((r) => r.status === 'running' || r.status === 'pending');
+    if (stale.length === 0) return [];
+    for (const record of stale) {
+      getDb().appendHistory({
+        ...record,
+        status: 'error',
+        endedAt: record.endedAt ?? new Date().toISOString(),
+      });
+    }
+    this.cache = null;
+    return stale;
+  }
+
   /**
    * Force flush (for graceful shutdown). node:sqlite writes are synchronous and
    * already committed by the time `append`/`clear` return, so there is nothing

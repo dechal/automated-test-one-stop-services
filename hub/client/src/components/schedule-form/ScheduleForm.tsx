@@ -264,7 +264,7 @@ export function ScheduleForm({
   const sectionAxis = projectsCfg.sectionAxis;
   const effectiveType = projectsCfg.typeAxis ? type : (projectsCfg.fixedType ?? '');
   const projectsQ = useProjectList(tool, effectiveType);
-  const sectionsQ = useProjectSections(project, sectionAxis);
+  const sectionsQ = useProjectSections(project, sectionAxis, tool);
   // Project .env drives the live VU counts in the perf-type labels (PEAK_VUS →
   // LOAD, MINIMAL_LOAD_VUS → MINIMAL_LOAD); only fetched for a section-axis tool.
   const projectEnvQ = useQuery(

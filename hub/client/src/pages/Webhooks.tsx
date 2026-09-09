@@ -36,7 +36,7 @@ import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
 import { useProjectList, useProjectTypes } from '~/hooks/useProjectQueries';
-import { useToolOptions } from '~/hooks/useTools.js';
+import { useToolOptions, useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 
 interface Webhook {
@@ -318,8 +318,12 @@ function WebhookFormModal({
 
   const types = useProjectTypes(scopedToProject ? scopeTool : '');
   const toolOptions = useToolOptions();
+  const toolsQuery = useTools();
+  const scopeToolView = (toolsQuery.data ?? []).find((tv) => tv.id === scopeTool);
+  const scopeTypeAxis = scopeToolView?.projects.typeAxis ?? true;
+  const scopeFixedType = scopeToolView?.projects.fixedType ?? null;
 
-  const effectiveType = scopeTool === 'k6' ? 'performance' : scopeType;
+  const effectiveType = scopeTypeAxis ? scopeType : (scopeFixedType ?? '');
   const projects = useProjectList(scopedToProject ? scopeTool : '', effectiveType);
 
   const mutation = useMutation({
@@ -368,7 +372,9 @@ function WebhookFormModal({
   function onToolChange(next: ToolId | '') {
     setScopeTool(next);
     // Reset downstream — k6 forces type, others clear it
-    setScopeType(next === 'k6' ? 'performance' : '');
+    const nextView = (toolsQuery.data ?? []).find((tv) => tv.id === next);
+    const nextTypeAxis = nextView?.projects.typeAxis ?? true;
+    setScopeType(nextTypeAxis ? '' : (nextView?.projects.fixedType ?? ''));
     setScopeProject('');
   }
 
@@ -467,7 +473,7 @@ function WebhookFormModal({
                 placeholder={t('webhook.selectTool')}
                 clearable
               />
-              {scopeTool && scopeTool !== 'k6' && (
+              {scopeTool && scopeTypeAxis && (
                 <Select
                   label={t('run.type')}
                   value={scopeType || null}

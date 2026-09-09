@@ -88,9 +88,12 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** GET /api/projects/sections?project=my-project (section-axis tools) */
-  app.get<{ Querystring: { project: string } }>('/api/projects/sections', async (req) => {
-    return await listSections(req.query.project);
-  });
+  app.get<{ Querystring: { project: string; tool?: ToolId } }>(
+    '/api/projects/sections',
+    async (req) => {
+      return await listSections(req.query.project, req.query.tool);
+    },
+  );
 
   /**
    * POST /api/projects/create — create a new project via `task create-project`.

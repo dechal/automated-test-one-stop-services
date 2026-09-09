@@ -1,3 +1,4 @@
+import { runDirFromReportPath } from '@hub/shared';
 import {
   ActionIcon,
   Badge,
@@ -170,14 +171,7 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
 
   // Artifact run-directory = parent of html-results folder.
   // reportPath: .../<time>/html-results/index.html → dir: .../<time>/
-  const artifactDir = (() => {
-    const norm = reportPath.replace(/\\/g, '/');
-    const lastSep = norm.lastIndexOf('/');
-    if (lastSep === -1) return reportPath;
-    const htmlResultsDir = norm.slice(0, lastSep);
-    const prevSep = htmlResultsDir.lastIndexOf('/');
-    return prevSep === -1 ? htmlResultsDir : htmlResultsDir.slice(0, prevSep);
-  })();
+  const artifactDir = runDirFromReportPath(reportPath);
 
   function handleCopyDir() {
     navigator.clipboard.writeText(artifactDir);

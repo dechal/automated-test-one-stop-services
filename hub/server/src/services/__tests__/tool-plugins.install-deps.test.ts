@@ -72,6 +72,11 @@ const mockRegistry = {
 
 const mockManifestModule = {
   listProjectDirs: vi.fn(() => [] as string[]),
+  resolveCapabilities: vi.fn(() => ({
+    run: { vars: [], headlessVar: null },
+    reports: { resultGlob: '**/*.html', kind: null },
+    tags: { strategy: 'none' as const },
+  })),
 };
 
 // ─── Module-level mocks ──────────────────────────────────────────────────────

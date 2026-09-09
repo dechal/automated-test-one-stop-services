@@ -10,6 +10,7 @@ import { PageHeader } from '~/components/PageHeader.js';
 import { StatCardsSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
 import { useProjectList } from '~/hooks/useProjectQueries.js';
+import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 
 /**
@@ -39,6 +40,10 @@ export function PerformancePage() {
   // scanned runs yet shows the "no data" empty state until Refresh finds a run.
   const projectsQ = useProjectList('k6', 'performance');
   const projectNames = projectsQ.data ?? [];
+  const toolsQuery = useTools();
+  const k6Installed = (toolsQuery.data ?? []).some(
+    (tv) => tv.id === 'k6' && tv.status === 'enabled',
+  );
 
   const trends = useQuery<K6TrendData>({
     queryKey: ['k6-trends', selectedProject],
@@ -92,7 +97,7 @@ export function PerformancePage() {
       {!selectedProject && (
         <EmptyState
           icon={<TbChartLine size={48} color="var(--mantine-color-dimmed)" />}
-          description={t('performance.selectProject')}
+          description={k6Installed ? t('performance.selectProject') : t('performance.toolMissing')}
         />
       )}
 

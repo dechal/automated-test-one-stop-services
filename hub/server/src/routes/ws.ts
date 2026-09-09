@@ -6,6 +6,8 @@ import { runner } from '../services/runner.js';
  *  half-open connection can't leak its runner 'event' listener forever. */
 const HEARTBEAT_MS = 30_000;
 
+const SEND_BUFFER_LIMIT = 4 * 1024 * 1024;
+
 export async function wsRoutes(app: FastifyInstance): Promise<void> {
   // Each connection adds one runner 'event' listener (removed on close). The UI
   // opens several sockets (one per run session + dashboard), which exceeds the
@@ -35,6 +37,8 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
       }
     }, HEARTBEAT_MS);
 
+    let droppedChunks = 0;
+
     function onEvent(event: WsServerEvent): void {
       // Broadcast schedule-finished to every socket regardless of
       // subscription so a Corner_Toast can show on any page.
@@ -42,9 +46,22 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
       // global run-started announcement.
       if (
         event.kind === 'schedule-finished' ||
+        event.kind === 'schedule-skipped' ||
+        event.kind === 'run-report-missing' ||
         event.kind === 'run-started' ||
         subscriptions.has(event.runId)
       ) {
+        const isOutput = event.kind === 'run-stdout' || event.kind === 'run-stderr';
+        if (isOutput && socket.bufferedAmount > SEND_BUFFER_LIMIT) {
+          droppedChunks++;
+          return;
+        }
+        if (isOutput && droppedChunks > 0) {
+          const notice = `\x1b[33m[Hub] ${droppedChunks} output chunk(s) dropped — the browser could not keep up\x1b[0m\n`;
+          socket.send(JSON.stringify({ ...event, chunk: notice + event.chunk }));
+          droppedChunks = 0;
+          return;
+        }
         socket.send(JSON.stringify(event));
       }
     }

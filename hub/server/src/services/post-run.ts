@@ -1,6 +1,6 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import type { RunRecord, WsServerEvent } from '@hub/shared';
+import { type RunRecord, runDirFromReportPath, type WsServerEvent } from '@hub/shared';
 import { OUTPUTS_DIR } from '../config.js';
 import { isUnder } from './path-guard.js';
 import { invalidateReportsCache } from './reports.js';
@@ -20,7 +20,7 @@ const REPORT_WAIT_STEPS_MS = [0, 2000, 5000];
  * HTML report, `results.json`, traces, videos and screenshots for exactly one run.
  */
 export function reportDirFor(reportPath: string): string {
-  return path.dirname(path.dirname(reportPath));
+  return path.normalize(runDirFromReportPath(reportPath));
 }
 
 /**
@@ -28,9 +28,12 @@ export function reportDirFor(reportPath: string): string {
  * path can never remove anything else, and best-effort: a locked file leaves the
  * directory in place rather than failing the run.
  */
-export async function discardReportDir(reportPath: string): Promise<boolean> {
+export async function discardReportDir(reportPath: string, outputStamp?: string): Promise<boolean> {
   const dir = reportDirFor(reportPath);
   if (!isUnder(OUTPUTS_DIR, dir)) return false;
+  if (outputStamp !== undefined && !dir.replace(/\\/g, '/').endsWith(`/${outputStamp}`)) {
+    return false;
+  }
   try {
     await fsp.rm(dir, { recursive: true, force: true });
     // The reports listing caches its walk; drop it so the deleted run stops
@@ -75,8 +78,16 @@ export async function runPostRunSteps(record: RunRecord): Promise<void> {
   // so every path starts here.
   const reportPath = await waitForReport(record);
 
+  if (!silent && reportPath === undefined && record.status !== 'cancelled') {
+    runner.emitEvent({
+      kind: 'run-report-missing',
+      runId: record.id,
+      label: `${record.request.tool}/${record.request.project}`,
+    });
+  }
+
   if (!silent && reportPath) await syncDocsForRun(record, reportPath);
-  if (discard && reportPath) await discardReportDir(reportPath);
+  if (discard && reportPath) await discardReportDir(reportPath, record.outputStamp);
 }
 
 let started = false;

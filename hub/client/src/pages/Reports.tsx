@@ -851,7 +851,7 @@ export function ReportsPage() {
                         >
                           {t('reports.open')}
                         </Button>
-                        {r.tool === 'playwright' && <ArtifactMenu reportPath={r.reportPath} />}
+                        <ArtifactMenu reportPath={r.reportPath} />
                         {/* Lock and delete stay as their own icons rather than
                             collapsing into a `⋯` menu: ArtifactMenu already owns a
                             `⋯` on this row, so a second identical trigger beside it
