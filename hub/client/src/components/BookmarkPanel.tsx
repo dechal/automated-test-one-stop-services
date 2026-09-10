@@ -22,7 +22,6 @@ import { useMemo, useState } from 'react';
 import {
   TbBookmark,
   TbCheck,
-  TbChevronDown,
   TbChevronRight,
   TbDeviceFloppy,
   TbPencil,
@@ -231,7 +230,6 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
         variant="light"
         color="gray"
         leftSection={<TbBookmark size={14} />}
-        rightSection={<TbChevronDown size={12} />}
         onClick={openModal}
       >
         {t('bookmark.load')}
