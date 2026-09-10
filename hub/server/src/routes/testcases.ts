@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type {
   TestCaseCreateRequest,
+  TestCaseDocGrouped,
   TestCaseEditRequest,
   TestCaseStatusSyncResult,
 } from '@hub/shared';
@@ -11,6 +12,7 @@ import { SAFE_ID } from '../lib/safe-id.js';
 import { getHubUser } from '../services/hub-user.js';
 import { isUnder } from '../services/path-guard.js';
 import { runner } from '../services/runner.js';
+import { listAllProjects } from '../services/scanner.js';
 import {
   projectDirFor,
   resolveReportPath,
@@ -85,6 +87,25 @@ export async function testCaseRoutes(app: FastifyInstance): Promise<void> {
       return listTestCaseDocs(projectDir);
     },
   );
+
+  /**
+   * GET /api/testcases/all — every test-case doc across every enabled tool /
+   * type / project, each tagged with its tool/type/project so the client can
+   * group and filter without one request per project. Reuses the same
+   * project scan the rest of the Hub caches, then the same per-project doc
+   * walk `/api/testcases` uses, so a doc lists here identically.
+   */
+  app.get('/api/testcases/all', async (): Promise<TestCaseDocGrouped[]> => {
+    const projects = await listAllProjects();
+    const grouped: TestCaseDocGrouped[] = [];
+    for (const p of projects) {
+      if (!isUnder(TOOLS_DIR, p.path)) continue;
+      for (const doc of listTestCaseDocs(p.path)) {
+        grouped.push({ ...doc, tool: p.tool, type: p.type, project: p.name });
+      }
+    }
+    return grouped;
+  });
 
   /** GET /api/testcases/modules?tool=&type=&project= — modules + which already own a doc. */
   app.get<{ Querystring: { tool?: string; type?: string; project?: string } }>(

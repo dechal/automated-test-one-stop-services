@@ -204,9 +204,13 @@ export function DashboardPage() {
               height of the scrolling run list and sat ~60% empty. Letting each
               card end where its content ends removes that dead space without
               taking anything off the page. */}
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md" style={{ alignItems: 'start' }}>
+          <SimpleGrid
+            cols={{ base: 1, md: 3 }}
+            spacing="md"
+            style={{ alignItems: 'start', height: '100%' }}
+          >
             {/* Recent Runs */}
-            <Paper p="md" withBorder>
+            <Paper p="md" withBorder h="100%">
               <Group justify="space-between" mb="sm">
                 <Title order={5}>{t('dashboard.recentRuns')}</Title>
                 {recentRuns.length > 0 && (
@@ -298,7 +302,7 @@ export function DashboardPage() {
               )}
             </Paper>
             {/* Project overview */}
-            <Paper p="md" withBorder>
+            <Paper p="md" withBorder h="100%">
               <Group justify="space-between" mb="sm">
                 <Title order={5}>{t('dashboard.projectsOverview')}</Title>
                 <Button size="compact-xs" variant="subtle" onClick={() => onNavigate('projects')}>

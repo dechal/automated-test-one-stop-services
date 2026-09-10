@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TbFolderPlus, TbPlus, TbRocket, TbX } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qProjects } from '~/api/queries.js';
-import { BookmarkLoadMenu, BookmarkPanel } from '~/components/BookmarkPanel.js';
+import { BookmarkLoadModal } from '~/components/BookmarkPanel.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { RunQueuePanel } from '~/components/RunQueuePanel.js';
@@ -295,15 +295,6 @@ export function RunPage() {
     // the command bar, the selected-tags block) can hand a scrollbar to the app
     // frame.
     <Stack gap="sm" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-      {/* Bookmarks — prominent position at top */}
-      <div style={{ flexShrink: 0 }}>
-        <BookmarkPanel
-          getConfig={getActiveConfig}
-          onLoad={handleLoadBookmark}
-          disabled={sessions.find((s) => s.id === activeId)?.status === 'running'}
-        />
-      </div>
-
       {/* Queue & Active Runs — pinned in the fixed top region */}
       <div style={{ flexShrink: 0 }}>
         <RunQueuePanel />
@@ -409,7 +400,7 @@ export function RunPage() {
             </Tooltip>
           </Group>
         </ScrollArea>
-        <BookmarkLoadMenu getConfig={getActiveConfig} onLoad={handleLoadBookmark} />
+        <BookmarkLoadModal getConfig={getActiveConfig} onLoad={handleLoadBookmark} />
       </Group>
 
       {/* Sessions — the only growing child, and the scroll owner for the

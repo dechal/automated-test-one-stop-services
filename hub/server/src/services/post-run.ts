@@ -10,9 +10,23 @@ import { resolveReportPath, syncDocsForRun } from './testcase-status-sync.js';
 /**
  * Delays before each attempt to locate the finished run's report. The report
  * directory is promoted by the task itself, and on Windows that move is retried
- * around file locks, so it can land slightly after the process exits.
+ * around file locks, so it can land slightly after the process exits. A longer
+ * ceiling than the old 0/2/5s (~7s) so a slow promotion behind a Windows file
+ * lock is not read as "no report". Override with `HUB_REPORT_WAIT_STEPS_MS`, a
+ * comma-separated list of millisecond delays; malformed values fall back to the
+ * default.
  */
-const REPORT_WAIT_STEPS_MS = [0, 2000, 5000];
+const DEFAULT_REPORT_WAIT_STEPS_MS = [0, 2000, 5000, 8000];
+function reportWaitSteps(): number[] {
+  const raw = process.env.HUB_REPORT_WAIT_STEPS_MS;
+  if (!raw) return DEFAULT_REPORT_WAIT_STEPS_MS;
+  const parsed = raw
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n >= 0);
+  return parsed.length > 0 ? parsed : DEFAULT_REPORT_WAIT_STEPS_MS;
+}
+const REPORT_WAIT_STEPS_MS = reportWaitSteps();
 
 /**
  * The run's own report directory — `<…>/<date>/<time>/`, the parent of
@@ -102,8 +116,10 @@ export function startPostRunPipeline(): void {
   started = true;
   runner.on('event', (event: WsServerEvent) => {
     if (event.kind !== 'run-finished') return;
-    void runPostRunSteps(event.record).catch(() => {
-      // Advisory: neither a doc write nor a cleanup may fail a run.
+    void runPostRunSteps(event.record).catch((err) => {
+      // Advisory: neither a doc write nor a cleanup may fail a run — but log it
+      // so a post-run failure is diagnosable instead of vanishing.
+      console.error(`[post-run] steps failed for run ${event.record.id}:`, err);
     });
   });
 }

@@ -11,6 +11,7 @@
 
 export * from './domains/api.js';
 export * from './domains/compare.js';
+export * from './domains/coverage.js';
 export * from './domains/dashboard.js';
 export * from './domains/doctor.js';
 export * from './domains/env.js';
@@ -27,4 +28,5 @@ export * from './domains/task-exit-code.js';
 export * from './domains/testcases.js';
 export * from './domains/tool-plugins.js';
 export * from './domains/tools.js';
+export * from './domains/trends.js';
 export * from './domains/webhooks.js';

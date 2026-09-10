@@ -1,3 +1,16 @@
+import type { ToolId } from './tools.js';
+
+/**
+ * A test-case doc plus the tool/type/project axis it was found under, so the
+ * "browse everything" view can group without a per-project request. `open`,
+ * `download` and `preview` all take `path`, so the axis fields are additive.
+ */
+export interface TestCaseDocGrouped extends TestCaseDoc {
+  tool: ToolId;
+  type: string;
+  project: string;
+}
+
 /** A test-case document discovered under a project (xlsx or csv). */
 export interface TestCaseDoc {
   /** File basename, e.g. `ta_test-case.xlsx`. */

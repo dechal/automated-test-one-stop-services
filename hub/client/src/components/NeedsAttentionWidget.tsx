@@ -73,7 +73,7 @@ export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string
 
   if (items.length === 0) {
     return (
-      <Paper p="md" withBorder>
+      <Paper p="md" withBorder h="100%">
         <Group gap="sm">
           <TbCircleCheck size={20} color="var(--mantine-color-green-6)" />
           <Stack gap={0}>
@@ -88,7 +88,7 @@ export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string
   }
 
   return (
-    <Paper p="md" withBorder>
+    <Paper p="md" withBorder h="100%">
       <Title order={5} mb="sm">
         {t('dashboard.needsAttention')}
       </Title>

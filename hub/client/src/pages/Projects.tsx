@@ -448,7 +448,7 @@ export function ProjectsPage() {
               single column on smaller screens. `alignItems: start` stops short
               sections from stretching to match a taller neighbour. */}
           <SimpleGrid
-            cols={{ base: 1, lg: 2 }}
+            cols={{ base: 1 }}
             spacing="md"
             verticalSpacing="md"
             style={{ alignItems: 'start' }}

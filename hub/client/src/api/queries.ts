@@ -1,4 +1,5 @@
 import type {
+  CoverageReport,
   DoctorReport,
   EnvFile,
   HubUser,
@@ -6,8 +7,10 @@ import type {
   RunRecord,
   TagsResponse,
   TestCaseDoc,
+  TestCaseDocGrouped,
   TestCaseGrid,
   TestCaseModule,
+  TestTrendReport,
   ToolId,
 } from '@hub/shared';
 import { queryOptions } from '@tanstack/react-query';
@@ -153,6 +156,58 @@ export const qProjectEnv = (
 // ---------------------------------------------------------------------------
 // Test-case documents
 // ---------------------------------------------------------------------------
+
+/** Coverage for every project with documented cases — grouped client-side. */
+export const qAllCoverage = () =>
+  queryOptions({
+    queryKey: ['coverage-all'] as const,
+    queryFn: () => api.get<CoverageReport[]>('/api/coverage/all'),
+    staleTime: STALE.short,
+  });
+
+/** Documented test-case coverage vs latest run outcome for one project. */
+export const qCoverage = (
+  tool: ToolId | undefined | '',
+  type: string | undefined | '',
+  project: string | undefined | '',
+) =>
+  queryOptions({
+    queryKey: ['coverage', tool, type, project] as const,
+    queryFn: () =>
+      api.get<CoverageReport>(`/api/coverage?tool=${tool}&type=${type}&project=${project}`),
+    enabled: !!tool && !!type && !!project,
+    staleTime: STALE.short,
+  });
+
+/** Per-test trends for every project that has any — grouped client-side. */
+export const qAllTestTrends = () =>
+  queryOptions({
+    queryKey: ['test-trends-all'] as const,
+    queryFn: () => api.get<TestTrendReport[]>('/api/test-trends/all'),
+    staleTime: STALE.short,
+  });
+
+/** Per-test pass-rate + flakiness trend for one Playwright project. */
+export const qTestTrends = (
+  tool: ToolId | undefined | '',
+  type: string | undefined | '',
+  project: string | undefined | '',
+) =>
+  queryOptions({
+    queryKey: ['test-trends', tool, type, project] as const,
+    queryFn: () =>
+      api.get<TestTrendReport>(`/api/test-trends?tool=${tool}&type=${type}&project=${project}`),
+    enabled: !!tool && !!type && !!project,
+    staleTime: STALE.short,
+  });
+
+/** Every test-case doc across all tools/types/projects, tagged with its axis. */
+export const qAllTestCaseDocs = () =>
+  queryOptions({
+    queryKey: ['testcases-all'] as const,
+    queryFn: () => api.get<TestCaseDocGrouped[]>('/api/testcases/all'),
+    staleTime: STALE.short,
+  });
 
 /** Test-case docs (xlsx/csv) discovered under one project. */
 export const qTestCaseDocs = (

@@ -30,7 +30,17 @@ function parseK6Summary(summaryPath: string, runTimestamp: string): Partial<K6Ru
     const httpReqs = metrics.http_reqs ?? {};
     const vus = metrics.vus ?? {};
     const httpReqFailed = metrics.http_req_failed ?? {};
-    const errorRate = httpReqFailed.values?.rate ?? 0;
+    // k6's `http_req_failed.rate` is a FRACTION (0..1); the Hub renders it with a
+    // literal `%`, so store it as a percentage here — the single conversion point.
+    const errorRate = (httpReqFailed.values?.rate ?? 0) * 100;
+    const durVals = httpReqDuration.values ?? {};
+    const failedVals = httpReqFailed.values ?? {};
+    const checks = metrics.checks?.values ?? {};
+    const dataSent = metrics.data_sent?.values ?? {};
+    const dataReceived = metrics.data_received?.values ?? {};
+    const waiting = metrics.http_req_waiting?.values ?? {};
+    const connecting = metrics.http_req_connecting?.values ?? {};
+    const blocked = metrics.http_req_blocked?.values ?? {};
 
     // k6 stores thresholds PER METRIC (data.metrics.<name>.thresholds = { "<expr>":
     // { ok } }), not at the top level — so the previous top-level read always
@@ -72,11 +82,26 @@ function parseK6Summary(summaryPath: string, runTimestamp: string): Partial<K6Ru
           // trend chart.
           timestamp: runTimestamp,
           rps: httpReqs.values?.rate ?? 0,
-          avgResponseTime: httpReqDuration.values?.avg ?? 0,
-          p95ResponseTime: httpReqDuration.values?.['p(95)'] ?? 0,
-          p99ResponseTime: httpReqDuration.values?.['p(99)'] ?? 0,
+          avgResponseTime: durVals.avg ?? 0,
+          p95ResponseTime: durVals['p(95)'] ?? 0,
+          p99ResponseTime: durVals['p(99)'] ?? 0,
           errorRate,
           vus: vus.values?.max ?? 0,
+          medResponseTime: durVals.med ?? 0,
+          p90ResponseTime: durVals['p(90)'] ?? 0,
+          minResponseTime: durVals.min ?? 0,
+          maxResponseTime: durVals.max ?? 0,
+          totalRequests: httpReqs.values?.count ?? 0,
+          failedRequests: failedVals.passes ?? 0,
+          dataSent: dataSent.count ?? 0,
+          dataReceived: dataReceived.count ?? 0,
+          waitingTime: waiting.avg ?? 0,
+          connectingTime: connecting.avg ?? 0,
+          blockedTime: blocked.avg ?? 0,
+          iterations: metrics.iterations?.values?.count ?? 0,
+          checksPassed: checks.passes ?? 0,
+          checksFailed: checks.fails ?? 0,
+          checkRate: checks.rate ?? 0,
         },
       ],
       thresholds,

@@ -16,6 +16,7 @@ import {
   SegmentedControl,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
   Tooltip,
 } from '@mantine/core';
@@ -46,6 +47,7 @@ import { PageHeader } from '~/components/PageHeader.js';
 import { GridSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
 import { useT } from '~/i18n/index.js';
+import { usePreferences } from '~/stores/hub.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -78,6 +80,14 @@ function isFolder(node: ArtifactNode): node is ArtifactFolder {
 
 function isFile(node: ArtifactNode): node is ArtifactFile {
   return 'size' in node && 'type' in node && !('children' in node);
+}
+
+function hasFilesDeep(folder: ArtifactFolder): boolean {
+  for (const child of folder.children ?? []) {
+    if (isFile(child)) return true;
+    if (isFolder(child) && hasFilesDeep(child)) return true;
+  }
+  return false;
 }
 
 function formatSize(bytes?: number): string {
@@ -564,6 +574,8 @@ export function ArtifactsPage() {
   const [typeFilter, setTypeFilter] = useState<FileType | null>(null);
   const [previewFile, setPreviewFile] = useState<ArtifactFile | null>(null);
   const [previewOpened, { open: openPreview, close: closePreview }] = useDisclosure(false);
+  const hideEmpty = usePreferences((s) => s.hideEmptyArtifactFolders);
+  const setHideEmpty = usePreferences((s) => s.setHideEmptyArtifactFolders);
 
   const tree = useQuery<ArtifactFolder>({
     queryKey: ['artifacts'],
@@ -658,13 +670,14 @@ export function ArtifactsPage() {
     const f: ArtifactFolder[] = [];
     const fi: ArtifactFile[] = [];
     for (const child of currentFolder.children) {
-      if (isFolder(child)) f.push(child);
-      else if (isFile(child)) {
+      if (isFolder(child)) {
+        if (!hideEmpty || hasFilesDeep(child)) f.push(child);
+      } else if (isFile(child)) {
         if (!typeFilter || child.type === typeFilter) fi.push(child);
       }
     }
     return { folders: f, files: fi };
-  }, [currentFolder, typeFilter]);
+  }, [currentFolder, typeFilter, hideEmpty]);
 
   const navigateInto = useCallback((folderName: string) => {
     setCurrentPath((prev) => [...prev, folderName]);
@@ -726,15 +739,23 @@ export function ArtifactsPage() {
         title={t('artifacts.title')}
         description={t('nav.artifacts.desc')}
         actions={
-          <SegmentedControl
-            size="xs"
-            value={viewMode}
-            onChange={(v) => setViewMode(v as ViewMode)}
-            data={[
-              { value: 'grid', label: <TbGridDots size={16} /> },
-              { value: 'list', label: <TbList size={16} /> },
-            ]}
-          />
+          <Group gap="md" wrap="nowrap">
+            <Switch
+              size="sm"
+              checked={hideEmpty}
+              onChange={(e) => setHideEmpty(e.currentTarget.checked)}
+              label={t('artifacts.hideEmpty')}
+            />
+            <SegmentedControl
+              size="xs"
+              value={viewMode}
+              onChange={(v) => setViewMode(v as ViewMode)}
+              data={[
+                { value: 'grid', label: <TbGridDots size={16} /> },
+                { value: 'list', label: <TbList size={16} /> },
+              ]}
+            />
+          </Group>
         }
       />
 

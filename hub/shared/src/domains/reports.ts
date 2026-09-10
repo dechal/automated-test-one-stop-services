@@ -110,6 +110,28 @@ export interface K6MetricPoint {
   p99ResponseTime: number;
   errorRate: number;
   vus: number;
+  // Extended metrics (all optional — a summary written before these existed, or
+  // a k6 export that omits one, simply leaves it undefined). Response-time
+  // distribution beyond avg/p95/p99:
+  medResponseTime?: number;
+  p90ResponseTime?: number;
+  minResponseTime?: number;
+  maxResponseTime?: number;
+  // Request volume, as counts (not just the RPS rate):
+  totalRequests?: number;
+  failedRequests?: number;
+  // Bytes over the wire, total for the run:
+  dataSent?: number;
+  dataReceived?: number;
+  // Where the request time went (breakdown of avg http_req_duration):
+  waitingTime?: number; // TTFB — server processing before the first byte
+  connectingTime?: number; // TCP connect
+  blockedTime?: number; // time blocked before the request (incl. TLS handshake)
+  // Iterations of the test function + assertion checks:
+  iterations?: number;
+  checksPassed?: number;
+  checksFailed?: number;
+  checkRate?: number; // fraction of checks that passed (0..1)
 }
 
 export interface K6RunSummary {
