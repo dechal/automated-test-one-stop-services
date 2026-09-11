@@ -6,6 +6,7 @@ import {
   TbCircleX,
   TbDownload,
   TbFolder,
+  TbPackageExport,
   TbPencil,
   TbTrash,
 } from 'react-icons/tb';
@@ -33,6 +34,7 @@ interface ProjectRowProps {
   hasUpdate?: boolean;
   /** When provided, renders a destructive "remove project" action. */
   onRemove?: () => void;
+  onMakeStandalone?: () => void;
 }
 
 /** Convert a git remote URL to its web-viewable equivalent. */
@@ -56,6 +58,7 @@ export function ProjectRow({
   isPulling,
   hasUpdate,
   onRemove,
+  onMakeStandalone,
 }: ProjectRowProps) {
   const t = useT();
 
@@ -163,6 +166,19 @@ export function ProjectRow({
           >
             .env
           </Button>
+          {onMakeStandalone && (
+            <Tooltip label={t('projectRow.makeStandalone')} withArrow>
+              <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="gray"
+                onClick={onMakeStandalone}
+                aria-label={t('projectRow.makeStandalone')}
+              >
+                <TbPackageExport size={14} />
+              </ActionIcon>
+            </Tooltip>
+          )}
           {onRemove && (
             <Tooltip label={t('projectRow.remove')} withArrow>
               <ActionIcon

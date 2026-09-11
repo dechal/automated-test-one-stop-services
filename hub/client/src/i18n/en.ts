@@ -339,6 +339,21 @@ export const en = {
   'projectRow.lastRun': 'Last run:',
   'projectRow.reveal': 'Reveal in file explorer',
   'projectRow.revealFailed': 'Reveal failed',
+  'projectRow.makeStandalone': 'Make it standalone',
+
+  'projects.standaloneTitle': 'Make it standalone',
+  'projects.standaloneDesc':
+    'Export this project to a self-contained folder you can run on its own, outside the workspace.',
+  'projects.standaloneButton': 'Export',
+  'projects.standaloneTargetLabel': 'Target directory',
+  'projects.standaloneTargetDesc':
+    'An absolute path to an empty (or matching) folder outside the workspace. It will be created if needed.',
+  'projects.standaloneTargetPlaceholder': '/path/to/my-standalone-project',
+  'projects.standaloneDone': 'Project exported',
+  'projects.standaloneUpdated': 'Updated existing export',
+  'projects.standaloneInstallWarn':
+    'Exported, but installing dependencies failed. Run "pnpm install" in the target folder manually.',
+  'projects.standaloneFailed': 'Export failed',
 
   // Tool lifecycle
   'tools.enable': 'Enable tool',

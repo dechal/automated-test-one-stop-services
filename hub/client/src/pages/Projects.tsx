@@ -27,6 +27,7 @@ import {
   type EnvModalEditingTarget,
 } from '~/components/projects/EnvModal.js';
 import { ProjectRow } from '~/components/projects/ProjectRow.js';
+import { StandaloneModal } from '~/components/projects/StandaloneModal.js';
 import { ToolSection } from '~/components/projects/ToolSection.js';
 import { ToolSectionActions } from '~/components/projects/ToolSectionActions.js';
 import { UsageLoggingSetup } from '~/components/projects/UsageLoggingSetup.js';
@@ -124,6 +125,7 @@ export function ProjectsPage() {
   const [editingEnv, setEditingEnv] = useState<EditingEnv>(null);
   const [editEntries, setEditEntries] = useState<EnvEntry[]>([]);
   const [removeTarget, setRemoveTarget] = useState<ProjectSummary | null>(null);
+  const [standaloneTarget, setStandaloneTarget] = useState<ProjectSummary | null>(null);
 
   const tools = useTools();
 
@@ -506,6 +508,11 @@ export function ProjectsPage() {
                               isPulling={pullingProject === `${p.tool}/${p.type}/${p.name}`}
                               hasUpdate={updateLookup.get(`${p.tool}/${p.type}/${p.name}`) ?? false}
                               onRemove={() => setRemoveTarget(p)}
+                              onMakeStandalone={
+                                ['playwright', 'k6', 'robot-framework'].includes(p.tool)
+                                  ? () => setStandaloneTarget(p)
+                                  : undefined
+                              }
                             />
                           ))}
                         </Stack>
@@ -558,6 +565,12 @@ export function ProjectsPage() {
           queryClient.invalidateQueries({ queryKey: ['tools'] });
           queryClient.invalidateQueries({ queryKey: ['projects'] });
         }}
+      />
+
+      <StandaloneModal
+        target={standaloneTarget}
+        onClose={() => setStandaloneTarget(null)}
+        onSuccess={() => setStandaloneTarget(null)}
       />
 
       <TypeToConfirmModal

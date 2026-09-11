@@ -335,6 +335,20 @@ export const th: Record<TranslationKey, string> = {
   'projectRow.lastRun': 'รันล่าสุด:',
   'projectRow.reveal': 'เปิดในโฟลเดอร์',
   'projectRow.revealFailed': 'เปิดโฟลเดอร์ไม่สำเร็จ',
+  'projectRow.makeStandalone': 'แยกออกเป็นโปรเจกต์เดี่ยว',
+
+  'projects.standaloneTitle': 'แยกออกเป็นโปรเจกต์เดี่ยว',
+  'projects.standaloneDesc': 'ส่งออกโปรเจกต์นี้เป็นโฟลเดอร์ที่รันได้ด้วยตัวเอง อยู่นอก workspace',
+  'projects.standaloneButton': 'ส่งออก',
+  'projects.standaloneTargetLabel': 'โฟลเดอร์ปลายทาง',
+  'projects.standaloneTargetDesc':
+    'พาธแบบเต็ม (absolute) ไปยังโฟลเดอร์ว่าง (หรือที่ตรงกัน) นอก workspace ระบบจะสร้างให้ถ้ายังไม่มี',
+  'projects.standaloneTargetPlaceholder': '/path/to/my-standalone-project',
+  'projects.standaloneDone': 'ส่งออกโปรเจกต์แล้ว',
+  'projects.standaloneUpdated': 'อัปเดตโปรเจกต์ที่ส่งออกไว้แล้ว',
+  'projects.standaloneInstallWarn':
+    'ส่งออกแล้ว แต่ติดตั้ง dependency ไม่สำเร็จ ให้รัน "pnpm install" ในโฟลเดอร์ปลายทางเอง',
+  'projects.standaloneFailed': 'ส่งออกไม่สำเร็จ',
 
   // Tool lifecycle
   'tools.enable': 'เปิดใช้งานเครื่องมือ',

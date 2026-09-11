@@ -4,7 +4,9 @@ import { BASH_PATH, WORKSPACE_ROOT } from '../config.js';
 import { SAFE_ID } from '../lib/safe-id.js';
 import { runChild } from '../services/exec.js';
 import { getEnabledTools } from '../services/manifest-registry.js';
+import { rejectStandaloneTarget } from '../services/path-guard.js';
 import { type ProjectCleanupResult, removeProjectCascade } from '../services/project-cleanup.js';
+import { exportProjectStandalone, isStandaloneSupported } from '../services/project-standalone.js';
 import {
   invalidateProjectCache,
   listAllProjects,
@@ -242,6 +244,58 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       );
       invalidateProjectCache();
       return result;
+    },
+  );
+
+  app.post<{ Body: { tool: ToolId; type: string; project: string; targetDir: string } }>(
+    '/api/projects/standalone',
+    async (req, reply) => {
+      const { tool, type, project, targetDir } = req.body ?? {};
+      if (!tool || !type || !project || !targetDir) {
+        reply.status(400);
+        return { code: 'BAD_REQUEST', message: 'tool, type, project and targetDir are required' };
+      }
+      const toolErr = await rejectUnknownTool(tool, reply);
+      if (toolErr) return toolErr;
+      if (!isStandaloneSupported(tool)) {
+        reply.status(422);
+        return {
+          success: false,
+          code: 'TOOL_NOT_SUPPORTED',
+          message: `Standalone export is not yet supported for '${tool}'`,
+        };
+      }
+      if (!SAFE_IDENT.test(type) || !SAFE_IDENT.test(project)) {
+        reply.status(400);
+        return { code: 'INVALID_IDENT', message: 'type/project contains unsafe characters' };
+      }
+      const targetErr = rejectStandaloneTarget(targetDir);
+      if (targetErr) {
+        reply.status(400);
+        return {
+          success: false,
+          code: 'INVALID_TARGET',
+          message:
+            targetErr === 'NOT_ABSOLUTE'
+              ? 'targetDir must be an absolute path'
+              : 'targetDir must be outside the workspace',
+        };
+      }
+      const projects = await listProjects(tool, type);
+      if (!projects.includes(project)) {
+        reply.status(404);
+        return {
+          code: 'PROJECT_NOT_FOUND',
+          message: `Project '${tool}/${type}/${project}' not found`,
+        };
+      }
+
+      const result = await exportProjectStandalone({ tool, type, project, targetDir });
+      if ('code' in result) {
+        reply.status(result.code === 'TOOL_NOT_SUPPORTED' ? 422 : 400);
+        return { success: false, code: result.code, message: result.message };
+      }
+      return { success: true, output: result };
     },
   );
 }

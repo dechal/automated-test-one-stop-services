@@ -18,3 +18,13 @@ export function isUnderOutputs(target: string): boolean {
 export function isUnderWorkspace(target: string): boolean {
   return isUnder(WORKSPACE_ROOT, target);
 }
+
+export type StandaloneTargetRejection = 'NOT_ABSOLUTE' | 'INSIDE_WORKSPACE' | 'IS_WORKSPACE_ROOT';
+
+export function rejectStandaloneTarget(target: string): StandaloneTargetRejection | null {
+  if (!path.isAbsolute(target)) return 'NOT_ABSOLUTE';
+  const resolved = path.resolve(target);
+  if (resolved === path.resolve(WORKSPACE_ROOT)) return 'IS_WORKSPACE_ROOT';
+  if (isUnderWorkspace(resolved)) return 'INSIDE_WORKSPACE';
+  return null;
+}
