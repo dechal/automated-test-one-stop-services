@@ -53,6 +53,7 @@ import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
 import { formatAbsolute, formatDurationBetween, formatRelative } from '~/utils/datetime.js';
+import { formatCompactNumber } from '~/utils/format-number.js';
 import { getStatusColor, getStatusIcon, runOutcome } from '~/utils/run-status.js';
 import { buildTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
@@ -678,23 +679,28 @@ export function HistoryPage() {
                       {/* Same outcome vocabulary as Reports: a run whose tests
                           failed and a run that never produced a result are
                           different problems and must not read alike. */}
-                      <Badge
-                        color={runOutcome(r.status, r.summary).color}
-                        variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
-                        size="sm"
-                        leftSection={runOutcome(r.status, r.summary).icon}
-                      >
-                        {t(runOutcome(r.status, r.summary).labelKey)}
-                      </Badge>
+                      <Tooltip label={t(runOutcome(r.status, r.summary).labelKey)} withArrow>
+                        <Badge
+                          color={runOutcome(r.status, r.summary).color}
+                          variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
+                          size="sm"
+                          leftSection={runOutcome(r.status, r.summary).icon}
+                          style={{ maxWidth: '100%' }}
+                        >
+                          {t(runOutcome(r.status, r.summary).labelKey)}
+                        </Badge>
+                      </Tooltip>
                     </Table.Td>
                     {/* Tool / mode / trigger are context, not signals. As pills
                         they gave every row five coloured chips and nothing stood
                         out; as dim text the status badge is the only colour in
                         the row and the eye lands on it. */}
                     <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {toolLabel(r.request.tool, tools)}
-                      </Text>
+                      <Tooltip label={toolLabel(r.request.tool, tools)} withArrow>
+                        <Text size="xs" c="dimmed" truncate maw={90}>
+                          {toolLabel(r.request.tool, tools)}
+                        </Text>
+                      </Tooltip>
                     </Table.Td>
                     {sharedProject === null && (
                       <Table.Td>
@@ -707,17 +713,34 @@ export function HistoryPage() {
                     )}
                     {sharedType === null && (
                       <Table.Td>
-                        <Text size="xs" truncate maw={80}>
-                          {r.request.type}
-                        </Text>
+                        <Tooltip label={r.request.type} withArrow>
+                          <Text size="xs" truncate maw={80}>
+                            {r.request.type}
+                          </Text>
+                        </Tooltip>
                       </Table.Td>
                     )}
                     <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {r.summary
-                          ? `${r.summary.passed + r.summary.failed + (r.summary.skipped ?? 0)}`
-                          : '—'}
-                      </Text>
+                      {r.summary ? (
+                        <Tooltip
+                          label={(
+                            r.summary.passed +
+                            r.summary.failed +
+                            (r.summary.skipped ?? 0)
+                          ).toLocaleString()}
+                          withArrow
+                        >
+                          <Text size="xs" c="dimmed">
+                            {formatCompactNumber(
+                              r.summary.passed + r.summary.failed + (r.summary.skipped ?? 0),
+                            )}
+                          </Text>
+                        </Tooltip>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          —
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       <PassScoreCell summary={r.summary} severity={r.severity} />
@@ -749,19 +772,37 @@ export function HistoryPage() {
                     <Table.Td>
                       {/* Docker is the exception worth marking, local is the
                           norm — so only the exception gets any colour. */}
-                      <Text size="xs" c={r.request.mode === 'docker' ? 'violet.4' : 'dimmed'}>
-                        {r.request.mode}
-                      </Text>
+                      <Tooltip label={r.request.mode} withArrow>
+                        <Text
+                          size="xs"
+                          truncate
+                          maw={80}
+                          c={r.request.mode === 'docker' ? 'violet.4' : 'dimmed'}
+                        >
+                          {r.request.mode}
+                        </Text>
+                      </Tooltip>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {t(`trigger.${r.triggeredBy ?? 'manual'}`)}
-                      </Text>
+                      <Tooltip label={t(`trigger.${r.triggeredBy ?? 'manual'}`)} withArrow>
+                        <Text size="xs" c="dimmed" truncate maw={90}>
+                          {t(`trigger.${r.triggeredBy ?? 'manual'}`)}
+                        </Text>
+                      </Tooltip>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="xs" ff="monospace">
-                        {formatDurationBetween(r.startedAt, r.endedAt)}
-                      </Text>
+                      <Tooltip
+                        label={
+                          r.endedAt
+                            ? `${formatAbsolute(r.startedAt)} → ${formatAbsolute(r.endedAt)}`
+                            : formatAbsolute(r.startedAt)
+                        }
+                        withArrow
+                      >
+                        <Text size="xs" ff="monospace">
+                          {formatDurationBetween(r.startedAt, r.endedAt)}
+                        </Text>
+                      </Tooltip>
                     </Table.Td>
                     <Table.Td>
                       <Tooltip label={formatAbsolute(r.startedAt)}>

@@ -2,6 +2,7 @@ import type { RunSummary, SeverityBreakdown } from '@hub/shared';
 import { SEVERITY_LEVELS, weightedPassPercent } from '@hub/shared';
 import { Group, RingProgress, Text, Tooltip } from '@mantine/core';
 import { useT } from '~/i18n/index.js';
+import { formatCompactNumber } from '~/utils/format-number.js';
 
 /**
  * Ring size matches the `Badge size="sm"` (1.125rem = 18px) that every row of
@@ -69,8 +70,8 @@ export function PassScoreCell({
       tooltipLines.push(
         t('reports.scoreSeverityRow')
           .replace('{level}', level)
-          .replace('{passed}', String(passed))
-          .replace('{failed}', String(failed)),
+          .replace('{passed}', passed.toLocaleString())
+          .replace('{failed}', failed.toLocaleString()),
       );
     }
   } else {
@@ -78,9 +79,9 @@ export function PassScoreCell({
     if (summary) {
       const total = summary.passed + summary.failed + (summary.skipped ?? 0);
       tooltipLines.push(
-        `${summary.passed} ${t('run.passed')} · ${summary.failed} ${t('run.failed')}` +
-          (summary.skipped ? ` · ${summary.skipped} ${t('run.skipped')}` : '') +
-          ` / ${total}`,
+        `${summary.passed.toLocaleString()} ${t('run.passed')} · ${summary.failed.toLocaleString()} ${t('run.failed')}` +
+          (summary.skipped ? ` · ${summary.skipped.toLocaleString()} ${t('run.skipped')}` : '') +
+          ` / ${total.toLocaleString()}`,
       );
     }
   }
@@ -108,7 +109,8 @@ export function PassScoreCell({
         </Text>
         {summary && (
           <Text size="xs" c="dimmed">
-            ({summary.passed}/{summary.passed + summary.failed + (summary.skipped ?? 0)})
+            ({formatCompactNumber(summary.passed)}/
+            {formatCompactNumber(summary.passed + summary.failed + (summary.skipped ?? 0))})
           </Text>
         )}
       </Group>

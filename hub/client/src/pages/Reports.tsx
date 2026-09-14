@@ -49,6 +49,7 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { formatAbsolute, formatDurationMs, formatRelative } from '~/utils/datetime.js';
+import { formatCompactNumber } from '~/utils/format-number.js';
 import { getStatusColor, getStatusIcon, runOutcome } from '~/utils/run-status.js';
 
 const ALL_STATUSES = ['success', 'error'];
@@ -74,18 +75,18 @@ function CaseCountCell({ summary }: { summary?: RunSummary }) {
     );
   }
   const total = summary.passed + summary.failed + (summary.skipped ?? 0);
-  const breakdown = `${summary.passed} ${t('run.passed')} · ${summary.failed} ${t('run.failed')}${
-    summary.skipped ? ` · ${summary.skipped} ${t('run.skipped')}` : ''
+  const breakdown = `${total.toLocaleString()} ${t('reports.cases').toLowerCase()} — ${summary.passed.toLocaleString()} ${t('run.passed')} · ${summary.failed.toLocaleString()} ${t('run.failed')}${
+    summary.skipped ? ` · ${summary.skipped.toLocaleString()} ${t('run.skipped')}` : ''
   }`;
   return (
     <Tooltip label={breakdown} withArrow>
       <Group gap={5} wrap="nowrap">
         <Text size="xs" fw={600}>
-          {total}
+          {formatCompactNumber(total)}
         </Text>
         {summary.failed > 0 && (
           <Badge size="xs" color="red" variant="light">
-            {summary.failed}
+            {formatCompactNumber(summary.failed)}
           </Badge>
         )}
       </Group>
@@ -618,7 +619,7 @@ export function ReportsPage() {
               // +60px over the previous 1100/820: lock and delete are their own
               // icons again, so the Actions column needs the room rather than
               // squeezing the Tag and Timestamp columns.
-              miw={advancedMode ? 1200 : 920}
+              miw={advancedMode ? 1320 : 1040}
             >
               <Table.Thead>
                 <Table.Tr>
@@ -726,20 +727,25 @@ export function ReportsPage() {
                           which directory the runner wrote into, so a run with a
                           few failing tests badged as `ERROR` — indistinguishable
                           from a run that never produced a result. */}
-                      <Badge
-                        color={runOutcome(r.status, r.summary).color}
-                        variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
-                        size="sm"
-                        leftSection={runOutcome(r.status, r.summary).icon}
-                      >
-                        {t(runOutcome(r.status, r.summary).labelKey)}
-                      </Badge>
+                      <Tooltip label={t(runOutcome(r.status, r.summary).labelKey)} withArrow>
+                        <Badge
+                          color={runOutcome(r.status, r.summary).color}
+                          variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
+                          size="sm"
+                          leftSection={runOutcome(r.status, r.summary).icon}
+                          style={{ maxWidth: '100%' }}
+                        >
+                          {t(runOutcome(r.status, r.summary).labelKey)}
+                        </Badge>
+                      </Tooltip>
                     </Table.Td>
                     {advancedMode && (
                       <Table.Td>
-                        <Text size="xs" truncate maw={120}>
-                          {r.tool}
-                        </Text>
+                        <Tooltip label={r.tool} withArrow>
+                          <Text size="xs" truncate maw={120}>
+                            {r.tool}
+                          </Text>
+                        </Tooltip>
                       </Table.Td>
                     )}
                     {sharedProject === null && (
@@ -753,9 +759,11 @@ export function ReportsPage() {
                     )}
                     {sharedType === null && (
                       <Table.Td>
-                        <Text size="xs" truncate maw={80}>
-                          {r.type}
-                        </Text>
+                        <Tooltip label={r.type} withArrow>
+                          <Text size="xs" truncate maw={80}>
+                            {r.type}
+                          </Text>
+                        </Tooltip>
                       </Table.Td>
                     )}
                     <Table.Td>
@@ -766,9 +774,11 @@ export function ReportsPage() {
                     </Table.Td>
                     <Table.Td>
                       {r.durationMs !== undefined ? (
-                        <Text size="xs" ff="monospace">
-                          {formatDurationMs(r.durationMs)}
-                        </Text>
+                        <Tooltip label={`${r.durationMs.toLocaleString()} ms`} withArrow>
+                          <Text size="xs" ff="monospace">
+                            {formatDurationMs(r.durationMs)}
+                          </Text>
+                        </Tooltip>
                       ) : (
                         <Text size="xs" c="dimmed">
                           —
@@ -812,13 +822,16 @@ export function ReportsPage() {
                     {advancedMode && (
                       <Table.Td>
                         {r.runMode ? (
-                          <Badge
-                            size="xs"
-                            variant="light"
-                            color={r.runMode === 'docker' ? 'violet' : 'gray'}
-                          >
-                            {r.runMode}
-                          </Badge>
+                          <Tooltip label={r.runMode} withArrow>
+                            <Badge
+                              size="xs"
+                              variant="light"
+                              color={r.runMode === 'docker' ? 'violet' : 'gray'}
+                              style={{ maxWidth: '100%' }}
+                            >
+                              {r.runMode}
+                            </Badge>
+                          </Tooltip>
                         ) : (
                           <Text size="xs" c="dimmed">
                             —
@@ -834,7 +847,7 @@ export function ReportsPage() {
                       </Tooltip>
                     </Table.Td>
                     <Table.Td>
-                      <Group gap="xs">
+                      <Group gap="xs" wrap="nowrap">
                         <Button
                           size="compact-xs"
                           leftSection={<TbExternalLink size={12} />}
