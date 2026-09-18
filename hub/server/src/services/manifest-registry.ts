@@ -166,24 +166,37 @@ export interface ManifestModule {
 
 // ─── Lazy module loader + cached registry ────────────────────────────────────
 
-let manifestModule: ManifestModule | null = null;
-let registry: ManifestRegistry | null = null;
+// Memoize the in-flight PROMISE, not the resolved value: several services
+// (scheduler, run route, scanner, tools route) touch these on the same tick at
+// boot, and a check-then-await on a resolved-value cache lets two callers both
+// pass the guard and build/refresh the registry twice. Mirrors scanner.ts.
+let manifestModule: Promise<ManifestModule> | null = null;
+let registry: Promise<ManifestRegistry> | null = null;
 
 /** Dynamically import `scripts/manifests/index.ts` (cached). */
-export async function getManifestModule(): Promise<ManifestModule> {
+export function getManifestModule(): Promise<ManifestModule> {
   if (manifestModule) return manifestModule;
   const modulePath = path.resolve(WORKSPACE_ROOT, 'scripts', 'manifests', 'index.ts');
   const moduleUrl = pathToFileURL(modulePath).href;
-  manifestModule = (await import(moduleUrl)) as ManifestModule;
+  manifestModule = (import(moduleUrl) as Promise<ManifestModule>).catch((err) => {
+    manifestModule = null; // let the next caller retry a failed import
+    throw err;
+  });
   return manifestModule;
 }
 
 /** Build (once) and return the cached, refreshed registry. */
-export async function getRegistry(): Promise<ManifestRegistry> {
+export function getRegistry(): Promise<ManifestRegistry> {
   if (registry) return registry;
-  const mod = await getManifestModule();
-  registry = mod.createManifestRegistry(WORKSPACE_ROOT);
-  await registry.refresh();
+  registry = (async () => {
+    const mod = await getManifestModule();
+    const reg = mod.createManifestRegistry(WORKSPACE_ROOT);
+    await reg.refresh();
+    return reg;
+  })().catch((err) => {
+    registry = null; // don't cache a failed build
+    throw err;
+  });
   return registry;
 }
 

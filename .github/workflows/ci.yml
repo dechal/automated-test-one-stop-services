@@ -11,7 +11,7 @@
 # own separate repos, so this pipeline never references them.
 # No uv/Python, no Playwright browsers, no Docker, no secrets needed.
 #
-# Node + pnpm match package.json `volta` (node 26.x, pnpm 11.10.0).
+# Node + pnpm match package.json `volta` (node 26.x, pnpm 11.23.0).
 # =============================================================================
 
 name: CI

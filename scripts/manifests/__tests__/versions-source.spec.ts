@@ -1,10 +1,12 @@
 // scripts/manifests/__tests__/versions-source.spec.ts
 //
-// Example test for the single tool-version source of truth.
-// Asserts scripts/setup/versions.env is the only place the Node/Python version
-// literals live: both platform installers reference versions.env and neither
-// re-declares a NODE_VERSION/PYTHON_VERSION literal. Also guards drift against
-// the Volta pin in package.json (the Node runtime authority).
+// Single source of truth for node + pnpm is scripts/setup/versions.env. The
+// Volta pins in package.json (volta.node / volta.pnpm / packageManager) and every
+// tools/* packageManager are kept in sync with it (the tools/* pins by
+// `tsx scripts/sync-projects.ts`). A mise migration was attempted and reverted —
+// Trellix (org AV) blocks mise/pnpm-12 installs on the dev machines; see the brain
+// note pnpm12-volta-and-windows-install. The setup scripts read versions.env and
+// must not re-declare a version literal.
 //
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -29,17 +31,22 @@ describe('single tool-version source of truth (versions.env)', () => {
   const env = read(VERSIONS_ENV);
   const nodeVersion = readVersion(env, 'NODE_VERSION') ?? '';
   const pythonVersion = readVersion(env, 'PYTHON_VERSION') ?? '';
+  const pnpmVersion = readVersion(env, 'PNPM_VERSION') ?? '';
 
-  it('versions.env declares NODE_VERSION and PYTHON_VERSION values', () => {
+  it('versions.env declares NODE_VERSION, PYTHON_VERSION and PNPM_VERSION values', () => {
     expect(nodeVersion).toMatch(/^\d+\.\d+/);
     expect(pythonVersion).toMatch(/^\d+\.\d+/);
+    expect(pnpmVersion).toMatch(/^\d+\.\d+/);
   });
 
-  it('NODE_VERSION stays in sync with the Volta pin in package.json', () => {
+  it('NODE_VERSION and PNPM_VERSION stay in sync with the Volta pins in package.json', () => {
     const pkg = JSON.parse(read(path.join(REPO_ROOT, 'package.json'))) as {
-      volta?: { node?: string };
+      volta?: { node?: string; pnpm?: string };
+      packageManager?: string;
     };
     expect(pkg.volta?.node).toBe(nodeVersion);
+    expect(pkg.volta?.pnpm).toBe(pnpmVersion);
+    expect(pkg.packageManager).toBe(`pnpm@${pnpmVersion}`);
   });
 
   for (const [label, file] of [

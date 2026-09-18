@@ -62,6 +62,7 @@ const ENV_NAMING = {
 export interface PipelineStaticParts {
   readonly routing: unknown;
   readonly id_conventions: unknown;
+  readonly test_case_vocab: unknown;
 }
 
 /**
@@ -77,6 +78,7 @@ export interface PipelineProjection {
   readonly run_commands: Readonly<Record<string, Readonly<Record<string, string>>>>;
   readonly env_injection: Readonly<Record<string, string>> & { readonly naming: unknown };
   readonly id_conventions: unknown;
+  readonly test_case_vocab: unknown;
   readonly artifact_paths: Readonly<Record<string, readonly string[]>>;
   readonly docker_base_images: Readonly<Record<string, string>>;
 }
@@ -139,15 +141,26 @@ export function projectPipeline(
 
 /**
  * Read `config/pipeline.static.json` from `workspaceRoot`. Returns
- * empty `routing` / `id_conventions` objects when the file is absent so callers
- * can still generate a (partial) pipeline.json rather than crashing.
+ * empty `routing` / `id_conventions` / `test_case_vocab` objects when the file
+ * is absent OR unparseable, so callers can still generate a (partial)
+ * pipeline.json rather than crashing.
  */
 export function loadPipelineStatic(workspaceRoot: string): PipelineStaticParts {
+  const empty = { routing: {}, id_conventions: {}, test_case_vocab: {} };
   const staticPath = path.join(workspaceRoot, PIPELINE_STATIC_PATH);
   if (!fs.existsSync(staticPath)) {
-    return { routing: {}, id_conventions: {} };
+    return empty;
   }
-  const raw = fs.readFileSync(staticPath, 'utf8');
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  return { routing: parsed.routing ?? {}, id_conventions: parsed.id_conventions ?? {} };
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(fs.readFileSync(staticPath, 'utf8')) as Record<string, unknown>;
+  } catch {
+    console.warn(`⚠ ${PIPELINE_STATIC_PATH}: invalid JSON — using empty static parts`);
+    return empty;
+  }
+  return {
+    routing: parsed.routing ?? {},
+    id_conventions: parsed.id_conventions ?? {},
+    test_case_vocab: parsed.test_case_vocab ?? {},
+  };
 }

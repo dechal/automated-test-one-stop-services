@@ -2,7 +2,7 @@
   "name": "my-tool",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@11.10.0",
+  "packageManager": "pnpm@11.23.0",
   "type": "module",
   "description": "My Tool — portable tool plugin template",
   "scripts": {

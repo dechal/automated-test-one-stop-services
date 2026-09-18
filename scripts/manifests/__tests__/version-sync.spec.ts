@@ -3,7 +3,12 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolManifest } from '../types.js';
-import { readToolVersionPin, syncToolVersion } from '../version-sync.js';
+import {
+  readPnpmVersion,
+  readToolVersionPin,
+  syncToolPackageManager,
+  syncToolVersion,
+} from '../version-sync.js';
 
 interface ToolFixture {
   readonly root: string;
@@ -98,6 +103,81 @@ describe('syncToolVersion — manifest.version is derived from the tool own pin'
     );
     expect(syncToolVersion(t.root, t.manifest)).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('found 2'));
+  });
+});
+
+function makePnpmTool(
+  id: string,
+  pkgPackageManager: string,
+  packageManager: 'pnpm' | 'uv' | 'none' = 'pnpm',
+): { root: string; pkgPath: string; manifest: ToolManifest } {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-sync-'));
+  const toolDir = path.join(root, 'tools', id);
+  fs.mkdirSync(toolDir, { recursive: true });
+  const pkgPath = path.join(toolDir, 'package.json');
+  fs.writeFileSync(
+    pkgPath,
+    `{\n  "name": "${id}",\n  "packageManager": "${pkgPackageManager}",\n  "type": "module"\n}\n`,
+    'utf8',
+  );
+  const manifest = { id, packageManager } as unknown as ToolManifest;
+  return { root, pkgPath, manifest };
+}
+
+describe('syncToolPackageManager — the pnpm pin is derived from versions.env', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('rewrites a stale pnpm pin and reports the path', () => {
+    const t = makePnpmTool('playwright', 'pnpm@11.10.0');
+    expect(syncToolPackageManager(t.root, t.manifest, '11.23.0')).toBe(
+      path.join('tools', 'playwright', 'package.json'),
+    );
+    const after = JSON.parse(fs.readFileSync(t.pkgPath, 'utf8')) as { packageManager: string };
+    expect(after.packageManager).toBe('pnpm@11.23.0');
+  });
+
+  it('touches only the packageManager line', () => {
+    const t = makePnpmTool('k6', 'pnpm@11.10.0');
+    const before = fs.readFileSync(t.pkgPath, 'utf8');
+    syncToolPackageManager(t.root, t.manifest, '11.23.0');
+    expect(fs.readFileSync(t.pkgPath, 'utf8')).toBe(before.replace('11.10.0', '11.23.0'));
+  });
+
+  it('is a no-op when the pin already matches', () => {
+    const t = makePnpmTool('playwright', 'pnpm@11.23.0');
+    expect(syncToolPackageManager(t.root, t.manifest, '11.23.0')).toBeNull();
+  });
+
+  it('skips a non-pnpm tool', () => {
+    const t = makePnpmTool('robot-framework', 'pnpm@11.10.0', 'uv');
+    expect(syncToolPackageManager(t.root, t.manifest, '11.23.0')).toBeNull();
+    expect(fs.readFileSync(t.pkgPath, 'utf8')).toContain('11.10.0');
+  });
+
+  it('skips when versions.env has no PNPM_VERSION', () => {
+    const t = makePnpmTool('playwright', 'pnpm@11.10.0');
+    expect(syncToolPackageManager(t.root, t.manifest, '')).toBeNull();
+  });
+});
+
+describe('readPnpmVersion', () => {
+  it('reads PNPM_VERSION from scripts/setup/versions.env', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-ver-'));
+    const dir = path.join(root, 'scripts', 'setup');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'versions.env'),
+      'NODE_VERSION=26.9.0\nPNPM_VERSION=11.23.0\n',
+      'utf8',
+    );
+    expect(readPnpmVersion(root)).toBe('11.23.0');
+  });
+
+  it('returns an empty string when versions.env is absent', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-ver-'));
+    expect(readPnpmVersion(root)).toBe('');
   });
 });
 

@@ -51,7 +51,7 @@ function writeManifest(ws: string, manifest: ToolManifest): string {
 }
 
 function emptyStaticParts() {
-  return { routing: {}, id_conventions: {} };
+  return { routing: {}, id_conventions: {}, test_case_vocab: {} };
 }
 
 async function buildRegistry(ws: string) {

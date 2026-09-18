@@ -80,7 +80,10 @@ major_of() {
 # pinned version is installed instead of being trusted.
 tool_major_ok() {
   local got
-  got="$(major_of "$("$1" "$2" 2>/dev/null | head -n1)")"
+  # Probe from a dir with no package.json (a Volta-managed pnpm shim otherwise
+  # auto-installs the workspace on `pnpm -v`, a wasteful side effect during a
+  # pure version check — and on Windows that install collides with AV file locks).
+  got="$(cd /tmp 2>/dev/null && major_of "$("$1" "$2" 2>/dev/null | head -n1)")"
   [ -n "$got" ] || return 1
   [ "$got" -ge "$3" ] 2>/dev/null
 }

@@ -1,3 +1,4 @@
+engineStrict: true
 packages:
   - "scripts/third-party/google"
   # `hub` itself, not just its three sub-packages: `@hub/root` owns the e2e
@@ -19,11 +20,6 @@ allowBuilds:
   "@evilmartians/lefthook": true
   esbuild: true
   koffi: false
-minimumReleaseAgeExclude:
-  - esbuild@0.28.1
-  - undici@7.28.0
-  - brace-expansion@2.1.2
-  - p-limit@7.3.1
 overrides:
   basic-ftp@<=5.2.2: ">=5.3.0"
   uuid@<14.0.0: ">=14.0.0"

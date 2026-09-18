@@ -9,14 +9,14 @@
 # =============================================================================
 
 name: Setup Node + pnpm
-description: Install pnpm and Node (node 26.x / pnpm 11.10.0), then pnpm install --frozen-lockfile.
+description: Install pnpm and Node (node 26.x / pnpm 11.23.0), then pnpm install --frozen-lockfile.
 
 runs:
   using: composite
   steps:
     - uses: pnpm/action-setup@v4
       with:
-        version: 11.10.0
+        version: 11.23.0
     - uses: actions/setup-node@v4
       with:
         node-version: '26'

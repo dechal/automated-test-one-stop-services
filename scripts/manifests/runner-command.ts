@@ -143,10 +143,12 @@ export function matchesWhen(when: ToolRunnerWhen, answers: RunnerAnswers): boole
     const actual = answers[key];
     if (typeof expected === 'string') {
       if (actual !== expected) return false;
-    } else if ('$ne' in expected) {
-      if (actual === expected.$ne) return false;
-    } else if ('$in' in expected) {
-      if (actual === undefined || !expected.$in.includes(actual)) return false;
+    } else if (typeof expected === 'object' && expected !== null) {
+      if ('$ne' in expected) {
+        if (actual === expected.$ne) return false;
+      } else if ('$in' in expected) {
+        if (actual === undefined || !expected.$in.includes(actual)) return false;
+      }
     }
   }
   return true;

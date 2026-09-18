@@ -64,20 +64,27 @@ export function parseRunSummary(raw: string): RunSummary | null {
   // ':' was the bug that left every k6 run without counts, which the Hub then
   // badged as "Run error" (reserved for a run that produced no result at all).
   const k6Checks = text.match(
-    /checks(?:_succeeded)?[\s.…]*:?\s*([\d.]+)%(?:\s*✓\s*(\d+)\s+✗\s*(\d+))?/,
+    /checks(?:_succeeded)?[\s.…]*:?\s*([\d.]+)%(?:\s*✓\s*(\d+)\s+✗\s*(\d+)|\s+(\d+)\s+out of\s+(\d+))?/,
   );
   if (k6Checks) {
     matched = true;
     const ok = k6Checks[2];
     const ko = k6Checks[3];
+    const succeeded = k6Checks[4];
+    const total = k6Checks[5];
     if (ok !== undefined && ko !== undefined) {
       // Real check counts. Reporting `{passed:1}`/`{failed:1}` instead rendered a
       // 95.65% run as "0.0% (0/1)" and "1 of 1 checks did not pass", which reads
       // as a total failure and hides that 198 of 207 checks passed.
       passed = Number.parseInt(ok, 10);
       failed = Number.parseInt(ko, 10);
+    } else if (succeeded !== undefined && total !== undefined) {
+      // v1.x prints "X out of Y" on the same line — use the real counts rather
+      // than collapsing every non-100% run to a single synthetic failed case.
+      passed = Number.parseInt(succeeded, 10);
+      failed = Number.parseInt(total, 10) - passed;
     } else {
-      // v1.x prints no ✓/✗ pair; the percentage is all there is.
+      // No counts parsed; the percentage is all there is.
       const pct = Number.parseFloat(k6Checks[1] ?? '0');
       if (pct === 100) passed = 1;
       else failed = 1;

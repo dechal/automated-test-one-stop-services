@@ -67,7 +67,7 @@ export function syncToolVersion(workspaceRoot: string, tool: ToolManifest): stri
     return null;
   }
 
-  const patched = raw.replace(VERSION_ENTRY, `$1"${pin}"`);
+  const patched = raw.replace(VERSION_ENTRY, (_, p1) => `${p1}"${pin}"`);
   try {
     JSON.parse(patched);
   } catch {
@@ -77,4 +77,49 @@ export function syncToolVersion(workspaceRoot: string, tool: ToolManifest): stri
 
   fs.writeFileSync(manifestPath, patched, 'utf8');
   return path.relative(workspaceRoot, manifestPath);
+}
+
+const PACKAGE_MANAGER_ENTRY = /("packageManager"\s*:\s*)"pnpm@[^"]*"/g;
+
+export function readPnpmVersion(workspaceRoot: string): string {
+  const abs = path.join(workspaceRoot, 'scripts', 'setup', 'versions.env');
+  if (!fs.existsSync(abs)) return '';
+  const match = /^PNPM_VERSION=(.+)$/m.exec(fs.readFileSync(abs, 'utf8'));
+  return match?.[1]?.trim() ?? '';
+}
+
+export function syncToolPackageManager(
+  workspaceRoot: string,
+  tool: ToolManifest,
+  pnpmVersion: string,
+): string | null {
+  if (pnpmVersion === '' || tool.packageManager !== 'pnpm') return null;
+
+  const pkgPath = path.join(workspaceRoot, 'tools', tool.id, 'package.json');
+  if (!fs.existsSync(pkgPath)) return null;
+
+  const raw = fs.readFileSync(pkgPath, 'utf8');
+  const hits = raw.match(PACKAGE_MANAGER_ENTRY) ?? [];
+  if (hits.length !== 1) {
+    if (hits.length > 1) {
+      console.warn(
+        `⚠ ${tool.id}: expected exactly 1 pnpm "packageManager" entry in package.json, found ${hits.length} — leaving it alone`,
+      );
+    }
+    return null;
+  }
+
+  const desired = `pnpm@${pnpmVersion}`;
+  if (hits[0]?.includes(`"${desired}"`)) return null;
+
+  const patched = raw.replace(PACKAGE_MANAGER_ENTRY, (_, p1) => `${p1}"${desired}"`);
+  try {
+    JSON.parse(patched);
+  } catch {
+    console.warn(`⚠ ${tool.id}: patching packageManager would produce invalid JSON — skipped`);
+    return null;
+  }
+
+  fs.writeFileSync(pkgPath, patched, 'utf8');
+  return path.relative(workspaceRoot, pkgPath);
 }

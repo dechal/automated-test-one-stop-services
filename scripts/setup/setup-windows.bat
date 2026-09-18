@@ -471,7 +471,13 @@ REM Leaves the raw version in _got so the caller can print it.
 REM ---------------------------------------------------------------------------
 :toolMajorOk
 set "_got="
+REM Probe the version from %TEMP% (no package.json there) so a Volta-managed pnpm
+REM shim reports its version WITHOUT triggering a workspace `pnpm install` — that
+REM auto-install collides with Windows AV locking pnpm's hard-links and makes a
+REM successful install look like a failure.
+pushd "%TEMP%" 2>nul
 for /f "usebackq delims=" %%v in (`%~1 2^>nul`) do if not defined _got set "_got=%%v"
+popd 2>nul
 if not defined _got exit /b 1
 call :majorOf "!_got!"
 if not defined _MAJOR exit /b 1

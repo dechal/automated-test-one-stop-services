@@ -30,6 +30,7 @@ class AppiumServerService {
   private child: ChildProcess | null = null;
   private logs: string[] = [];
   private startedAt: string | null = null;
+  private busy = false;
 
   get running(): boolean {
     return this.child !== null && this.child.exitCode === null && !this.child.killed;
@@ -53,6 +54,7 @@ class AppiumServerService {
 
   start(): { ok: boolean; message: string } {
     if (this.running) return { ok: true, message: 'Appium already running' };
+    if (this.busy) return { ok: false, message: 'Appium is busy (install or stop in progress)' };
     this.logs = [];
     const child = spawn(
       'appium',
@@ -89,33 +91,43 @@ class AppiumServerService {
     this.child = null;
     this.startedAt = null;
     if (!pid) return { ok: true };
-    if (process.platform === 'win32') {
-      await new Promise<void>((resolve) => {
-        execFile('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true }, () =>
-          resolve(),
-        );
-      });
-    } else {
-      try {
-        process.kill(pid);
-      } catch {
-        /* already gone */
+    this.busy = true;
+    try {
+      if (process.platform === 'win32') {
+        await new Promise<void>((resolve) => {
+          execFile('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true }, () =>
+            resolve(),
+          );
+        });
+      } else {
+        try {
+          process.kill(pid);
+        } catch {
+          /* already gone */
+        }
       }
+    } finally {
+      this.busy = false;
     }
     return { ok: true };
   }
 
   /** One-time host provisioning: install Appium + the uiautomator2 driver. */
   async install(): Promise<RunChildResult> {
-    const npmInstall = await runChild('npm', ['i', '-g', 'appium'], {
-      timeoutMs: 300_000,
-      shell: USE_SHELL,
-    });
-    if (!npmInstall.ok) return npmInstall;
-    return runChild('appium', ['driver', 'install', 'uiautomator2'], {
-      timeoutMs: 300_000,
-      shell: USE_SHELL,
-    });
+    this.busy = true;
+    try {
+      const npmInstall = await runChild('npm', ['i', '-g', 'appium'], {
+        timeoutMs: 300_000,
+        shell: USE_SHELL,
+      });
+      if (!npmInstall.ok) return npmInstall;
+      return await runChild('appium', ['driver', 'install', 'uiautomator2'], {
+        timeoutMs: 300_000,
+        shell: USE_SHELL,
+      });
+    } finally {
+      this.busy = false;
+    }
   }
 }
 

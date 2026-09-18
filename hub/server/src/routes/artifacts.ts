@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import nodePath from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import { OUTPUTS_DIR } from '../config.js';
 import { artifactService } from '../services/artifacts.js';
 import { getEnabledToolIds } from '../services/manifest-registry.js';
+import { isUnderOutputs } from '../services/path-guard.js';
 
 export async function artifactRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/artifacts', async () => {
@@ -86,9 +86,8 @@ export async function artifactRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { path: string } }>('/api/artifacts/download-zip', async (req, reply) => {
     const dirPath = req.query.path;
     const resolved = nodePath.resolve(dirPath);
-    const outputsResolved = nodePath.resolve(OUTPUTS_DIR);
 
-    if (!resolved.startsWith(outputsResolved)) {
+    if (!isUnderOutputs(resolved)) {
       reply.status(403);
       return { code: 'FORBIDDEN', message: 'Path outside outputs directory' };
     }
@@ -132,9 +131,8 @@ export async function artifactRoutes(app: FastifyInstance): Promise<void> {
   app.delete<{ Querystring: { path: string } }>('/api/artifacts', async (req, reply) => {
     const targetPath = req.query.path;
     const resolved = nodePath.resolve(targetPath);
-    const outputsResolved = nodePath.resolve(OUTPUTS_DIR);
 
-    if (!resolved.startsWith(outputsResolved)) {
+    if (!isUnderOutputs(resolved)) {
       reply.status(403);
       return { code: 'FORBIDDEN', message: 'Path outside outputs directory' };
     }

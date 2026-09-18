@@ -18,7 +18,11 @@ import { createManifestRegistry, loadPipelineStatic, projectPipeline } from './m
 import { generateTsConfig } from './manifests/tsconfig-gen.js';
 import type { ToolManifest } from './manifests/types.js';
 import { syncUvWorkspaceMembers } from './manifests/uv-workspace-sync.js';
-import { syncToolVersion } from './manifests/version-sync.js';
+import {
+  readPnpmVersion,
+  syncToolPackageManager,
+  syncToolVersion,
+} from './manifests/version-sync.js';
 
 const currentDir =
   typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
@@ -100,11 +104,18 @@ async function runManifestSync(workspaceRoot: string): Promise<string[]> {
   }
 
   // Generate per-tool artefacts for enabled tools
+  const pnpmVersion = readPnpmVersion(workspaceRoot);
   for (const tool of registry.enabled()) {
     const versionFile = syncToolVersion(workspaceRoot, tool);
     if (versionFile !== null) {
       regeneratedFiles.push(versionFile);
       console.log(`✅ ${tool.id} version ← its own pin → ${versionFile}`);
+    }
+
+    const pmFile = syncToolPackageManager(workspaceRoot, tool, pnpmVersion);
+    if (pmFile !== null) {
+      regeneratedFiles.push(pmFile);
+      console.log(`✅ ${tool.id} packageManager ← versions.env PNPM_VERSION → ${pmFile}`);
     }
 
     generateDockerCompose(workspaceRoot, tool);

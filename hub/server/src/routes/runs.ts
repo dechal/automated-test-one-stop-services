@@ -151,6 +151,7 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
   /** GET /api/runs/case-history?project=x&tag=@TA-C001 — last 10 runs for a case */
   app.get<{ Querystring: { project: string; tag: string } }>(
     '/api/runs/case-history',
+    { schema: { querystring: z.object({ project: z.string().min(1), tag: z.string().min(1) }) } },
     async (req) => {
       const { project, tag } = req.query;
       // Match a tag literal anywhere in the run's tag expression. Using a

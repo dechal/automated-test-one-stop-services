@@ -18,7 +18,7 @@ import {
   type ToolSetupOutcome,
 } from '../manifests/setup-planner.js';
 import type { ToolPackageManager } from './invocation.js';
-import { isSafeGitUrl, isSafeToolId } from './validation.js';
+import { isSafeGitRef, isSafeGitUrl, isSafeToolId } from './validation.js';
 
 /** The stage a CLI/hook install reached; set as `failedStage` on failure. */
 export type InstallStage = 'validate' | 'clone' | 'deps' | 'setup';
@@ -85,6 +85,9 @@ export function runInstallPipeline(
   }
   if (source.kind === 'registry' && !isSafeGitUrl(source.gitUrl)) {
     return { ok: false, failedStage: 'validate', message: `invalid git URL for tool '${id}'` };
+  }
+  if (source.kind === 'registry' && !isSafeGitRef(source.ref)) {
+    return { ok: false, failedStage: 'validate', message: `invalid git ref for tool '${id}'` };
   }
 
   // ── Stage 'clone' (registry source only) ───────────────────────────────────

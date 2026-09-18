@@ -92,6 +92,10 @@ export function useScheduleToasts(): void {
         // Keep the app-level toast channel alive across transient drops.
         reconnectTimer = setTimeout(connect, 2000);
       };
+      // A socket that errors while CONNECTING fires only `error`, never `close`,
+      // so force-close to drive the reconnect via onclose — otherwise the
+      // channel dies silently. Mirrors useRunFinishedNotifier.
+      ws.onerror = () => ws.close();
     }
 
     connect();

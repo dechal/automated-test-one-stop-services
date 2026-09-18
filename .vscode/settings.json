@@ -25,7 +25,8 @@
     "**/.cache": true,
     "**/.venv": true,
     "**/node_modules": true,
-    "**/.setup-state.json": true
+    "**/.setup-state.json": true,
+    "**/.pnpm-store": true
   },
   "search.exclude": {
     "**/__pycache__": true,
@@ -68,7 +69,8 @@
     "**/.venv": true,
     "**/node_modules": true,
     "**/selectorshub": true,
-    "**/.setup-state.json": true
+    "**/.setup-state.json": true,
+    "**/.pnpm-store": true
   },
   "files.watcherExclude": {
     "**/.git/**": true,
@@ -105,7 +107,8 @@
     "**/.playwright-cli": true,
     "**/.cache": true,
     "**/selectorshub": true,
-    "**/.setup-state.json": true
+    "**/.setup-state.json": true,
+    "**/.pnpm-store": true
   },
   "workbench.localHistory.exclude": {
     "**/__pycache__": true,
@@ -130,7 +133,8 @@
     "**/.playwright-mcp": true,
     "**/.playwright-cli": true,
     "**/.cache": true,
-    "**/.setup-state.json": true
+    "**/.setup-state.json": true,
+    "**/.pnpm-store": true
   },
   "git.repositoryScanIgnoredFolders": [
     "node_modules",
@@ -158,7 +162,8 @@
     ".idea",
     ".playwright-mcp",
     ".playwright-cli",
-    ".cache"
+    ".cache",
+    ".pnpm-store"
   ],
   "npm.exclude": [
     "**/node_modules",
@@ -212,11 +217,13 @@
     "scripts/",
     ".playwright-mcp",
     ".playwright-cli",
-    ".cache"
+    ".cache",
+    ".pnpm-store"
   ],
   "robotcode.analysis.cache.ignoredLibraries": [
     "**/.venv",
-    "**/node_modules"
+    "**/node_modules",
+    "**/.pnpm-store"
   ],
   "robotcode.analysis.cache.ignoreArgumentsForLibrary": [
     "**/.venv",
@@ -295,12 +302,6 @@
   "git.confirmSync": false,
   "git.autofetchPeriod": 600,
 
-  // `openEditors`, not `subFolders`: this workspace is ~12 independent git repos
-  // (root + one per tool + one per tool sub-project), and `subFolders` makes VS Code
-  // scan and track every one of them at startup — the dominant startup cost here,
-  // ahead of raw file count. Tradeoff to know about: the SCM panel then lists only
-  // repos that have a file open, so open a file from a repo before acting on it.
-  // Never use `git.autofetch: "all"` alongside this — that fetches every repo on a timer.
   "git.autoRepositoryDetection": "subFolders",
   "ruff.lineLength": 100,
   "ruff.configuration": "${workspaceFolder}/pyproject.toml",
@@ -314,13 +315,12 @@
 
   // Forward slashes: VS Code accepts them on every OS, backslashes break the
   // setting on macOS/Linux (steering `portability-and-config`).
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.tsserver.log": "off",
-  "typescript.tsserver.maxTsServerMemory": 3072,
-  "typescript.disableAutomaticTypeAcquisition": true,
-  "typescript.validate.enable": true,
-  "javascript.validate.enable": true,
-  "typescript.autoClosingTags": false,
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsserver.log": "off",
+  "js/ts.tsserver.maxMemory": 3072,
+  "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
+  "js/ts.validate.enabled": true,
+  "js/ts.autoClosingTags.enabled": false,
 
   "telemetry.feedback.enabled": false,
   "telemetry.editStats.enabled": false,
