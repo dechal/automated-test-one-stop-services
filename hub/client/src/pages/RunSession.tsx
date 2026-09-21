@@ -326,11 +326,19 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   }, [installedTools, tool]);
   const toolView = (toolsQuery.data ?? []).find((t) => t.id === tool);
   const sectionAxis = toolView?.projects.sectionAxis ?? false;
-  /** Fields actually rendered in the options row — drives its column count. */
-  const optionFieldCount =
-    (advancedMode ? 1 : 0) + (sectionAxis ? 0 : 1) + (!sectionAxis && supportsRunFlags ? 2 : 0);
   const typeAxis = toolView?.projects.typeAxis ?? true;
   const fixedType = toolView?.projects.fixedType ?? null;
+  const effectiveType = typeAxis ? type : (fixedType ?? '');
+  // Display (headless/headed) only applies to project types that drive a
+  // browser. A manifest `display` map marks each type; a missing key means the
+  // type keeps the Select (older manifests behave exactly as before).
+  const display = toolView?.projects.display;
+  const hasDisplay = display?.[effectiveType] !== false;
+  /** Fields actually rendered in the options row — drives its column count. */
+  const optionFieldCount =
+    (advancedMode ? 1 : 0) +
+    (!sectionAxis && hasDisplay ? 1 : 0) +
+    (!sectionAxis && supportsRunFlags ? 2 : 0);
 
   // Run-requirement gate: doctor checks this tool needs but that are missing
   // (e.g. Robot → uv, python). Blocks Run up-front and lists exactly what to
@@ -338,7 +346,6 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const missingReqs =
     toolView && doctorQ.data ? missingChecksForTool(toolView, doctorQ.data.checks) : [];
 
-  const effectiveType = typeAxis ? type : (fixedType ?? '');
   const types = useProjectTypes(tool);
   const projectsQ = useProjectList(tool, effectiveType);
   const sectionsQ = useProjectSections(project, sectionAxis, tool);
@@ -359,7 +366,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     toolLabel(tool, toolsQuery.data ?? []),
     sectionAxis ? section : effectiveType,
     project || t('run.selectProjectFirst'),
-    sectionAxis ? '' : headless === 'headed' ? t('run.headed') : t('run.headless'),
+    !sectionAxis && hasDisplay ? (headless === 'headed' ? t('run.headed') : t('run.headless')) : '',
   ]
     .filter(Boolean)
     .join(' · ');
@@ -518,7 +525,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       project,
       mode: effectiveMode,
       tag: buildTagQuery(tool, selectedTags, excludedTags),
-      headless: !sectionAxis ? headless : undefined,
+      headless: !sectionAxis && hasDisplay ? headless : undefined,
       extraArgs: effectiveExtraArgs,
       noTrack,
       silent,
@@ -568,7 +575,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       project,
       mode: effectiveMode,
       tag: tagExpr,
-      headless: !sectionAxis ? headless : undefined,
+      headless: !sectionAxis && hasDisplay ? headless : undefined,
       extraArgs: effectiveExtraArgs,
       noTrack: effectiveNoTrack,
       silent,
@@ -805,7 +812,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                     allowDeselect={false}
                   />
                 )}
-                {!sectionAxis && (
+                {!sectionAxis && hasDisplay && (
                   <Select
                     label={t('run.display')}
                     size="xs"

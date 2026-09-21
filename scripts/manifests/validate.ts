@@ -116,6 +116,7 @@ export const ToolManifestSchema = z.object({
       typeAxis: z.boolean(),
       fixedType: z.string().nullable(),
       templates: z.record(z.string(), z.string()),
+      display: z.record(z.string(), z.boolean()).optional(),
       specsSubdir: z.string().default('automations/specs'),
       sectionAxis: z.boolean(),
     })

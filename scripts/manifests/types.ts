@@ -42,6 +42,7 @@ export interface ToolProjectsConfig {
    * Values are paths relative to tools/<id>/.
    */
   readonly templates: Readonly<Record<string, string>>;
+  readonly display?: Readonly<Record<string, boolean>>;
   /** Subpath inside a project where specs live. Default: 'automations/specs'. */
   readonly specsSubdir: string;
   /** When true, projects expose a SECTION axis under specsSubdir (k6). */

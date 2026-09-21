@@ -259,10 +259,14 @@ export function ScheduleForm({
     typeAxis: true,
     fixedType: null,
     root: 'projects',
+    display: {},
     sectionAxis: false,
   };
   const sectionAxis = projectsCfg.sectionAxis;
   const effectiveType = projectsCfg.typeAxis ? type : (projectsCfg.fixedType ?? '');
+  // Display (headless/headed) only applies to browser-driving project types; a
+  // manifest `display` map marks each type, a missing key keeps the Select.
+  const hasDisplay = projectsCfg.display?.[effectiveType] !== false;
   const projectsQ = useProjectList(tool, effectiveType);
   const sectionsQ = useProjectSections(project, sectionAxis, tool);
   // Project .env drives the live VU counts in the perf-type labels (PEAK_VUS →
@@ -289,7 +293,7 @@ export function ScheduleForm({
         project,
         mode: runMode,
         tag: tagExpr,
-        headless: !sectionAxis ? headless : undefined,
+        headless: !sectionAxis && hasDisplay ? headless : undefined,
         // Sent even while the field is hidden: a saved schedule's flags must
         // survive an edit made from the simple view.
         extraArgs: extraArgs || undefined,
@@ -523,16 +527,18 @@ export function ScheduleForm({
               />
             )}
 
-            {!sectionAxis && (
-              <SimpleGrid cols={advancedMode ? 2 : 1} spacing="xs">
-                <Select
-                  label={t('run.display')}
-                  size="xs"
-                  value={headless}
-                  onChange={(v) => v && setHeadless(v as HeadlessMode)}
-                  data={headlessOptions}
-                  allowDeselect={false}
-                />
+            {!sectionAxis && (hasDisplay || advancedMode) && (
+              <SimpleGrid cols={hasDisplay && advancedMode ? 2 : 1} spacing="xs">
+                {hasDisplay && (
+                  <Select
+                    label={t('run.display')}
+                    size="xs"
+                    value={headless}
+                    onChange={(v) => v && setHeadless(v as HeadlessMode)}
+                    data={headlessOptions}
+                    allowDeselect={false}
+                  />
+                )}
                 {advancedMode && (
                   <TextInput
                     label={t('run.extraArgs')}

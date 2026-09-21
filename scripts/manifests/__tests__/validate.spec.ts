@@ -51,6 +51,26 @@ describe('validateManifest — accepts well-formed manifests', () => {
     const res = validateManifest(readFixture('invalid-duplicate-alias-a.json'));
     expect(res.ok).toBe(true);
   });
+
+  it('accepts a manifest with NO projects.display (backward compatible)', () => {
+    const m = baseManifest();
+    expect((m.projects as Record<string, unknown>).display).toBeUndefined();
+    const res = validateManifest(m);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.manifest.projects.display).toBeUndefined();
+    }
+  });
+
+  it('accepts and preserves a valid projects.display map', () => {
+    const m = baseManifest();
+    (m.projects as Record<string, unknown>).display = { web: true, api: false };
+    const res = validateManifest(m);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.manifest.projects.display).toEqual({ web: true, api: false });
+    }
+  });
 });
 
 describe('validateManifest — schema rejection paths', () => {
@@ -97,6 +117,12 @@ describe('validateManifest — schema rejection paths', () => {
       name: 'projects.depth not 1 or 2 (1.12)',
       mutate: (m) => {
         (m.projects as Record<string, unknown>).depth = 3;
+      },
+    },
+    {
+      name: 'projects.display value not a boolean',
+      mutate: (m) => {
+        (m.projects as Record<string, unknown>).display = { web: 'yes' };
       },
     },
     {

@@ -19,6 +19,7 @@ export interface ToolProjectsConfig {
   readonly typeAxis: boolean;
   readonly fixedType: string | null;
   readonly templates: Readonly<Record<string, string>>;
+  readonly display?: Readonly<Record<string, boolean>>;
   readonly specsSubdir: string;
   readonly sectionAxis: boolean;
 }

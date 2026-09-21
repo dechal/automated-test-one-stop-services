@@ -69,6 +69,7 @@ interface ToolProjectsConfig {
   readonly typeAxis: boolean;
   readonly fixedType: string | null;
   readonly templates: Readonly<Record<string, string>>;
+  readonly display?: Readonly<Record<string, boolean>>;
   readonly specsSubdir: string;
   readonly sectionAxis: boolean;
 }
@@ -178,6 +179,7 @@ function createTestServices(tmpDir: string, mod: ManifestModule, sync: SyncModul
             typeAxis: false,
             fixedType: null,
             root: 'projects',
+            display: {},
             sectionAxis: false,
           },
           capabilities: {
@@ -211,6 +213,7 @@ function createTestServices(tmpDir: string, mod: ManifestModule, sync: SyncModul
           typeAxis: manifest.projects.typeAxis,
           fixedType: manifest.projects.fixedType,
           root: manifest.projects.root,
+          display: manifest.projects.display ?? { web: true, api: false },
           sectionAxis: manifest.projects.sectionAxis,
         },
         capabilities: {

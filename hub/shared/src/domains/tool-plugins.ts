@@ -30,6 +30,7 @@ export interface ToolView {
     readonly typeAxis: boolean;
     readonly fixedType: string | null;
     readonly root: string;
+    readonly display: Readonly<Record<string, boolean>>;
     readonly sectionAxis: boolean;
   };
   readonly capabilities: ToolCapabilitiesView;
