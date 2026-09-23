@@ -223,12 +223,21 @@
   "robotcode.analysis.cache.ignoredLibraries": [
     "**/.venv",
     "**/node_modules",
-    "**/.pnpm-store"
+    "**/.pnpm-store",
+    "**/outputs",
+    "**/hub"
   ],
+  "robotcode.analysis.progressMode": "detailed",
+  "robotcode.languageServer.mode": "stdio",
   "robotcode.analysis.cache.ignoreArgumentsForLibrary": [
     "**/.venv",
     "**/node_modules"
   ],
+  "robotcode.robocop.enabled": true,
+  "robotcode.robocop.ignoreGitDir": true,
+  "robotcode.robocop.configFile": "tools/robot-framework/robot.toml",
+  "robotcode.testExplorer.enabled": true,
+  "robotcode.debug.outputLog": false,
   "python.analysis.exclude": [
     "**/.venv",
     "**/node_modules",
@@ -306,12 +315,6 @@
   "ruff.lineLength": 100,
   "ruff.configuration": "${workspaceFolder}/pyproject.toml",
   "ty.configurationFile": "${workspaceFolder}/pyproject.toml",
-
-  "robotcode.robocop.enabled": true,
-  "robotcode.robocop.ignoreGitDir": true,
-  "robotcode.robocop.configFile": "tools/robot-framework/robot.toml",
-  "robotcode.testExplorer.enabled": false,
-  "robotcode.debug.outputLog": false,
 
   // Forward slashes: VS Code accepts them on every OS, backslashes break the
   // setting on macOS/Linux (steering `portability-and-config`).
