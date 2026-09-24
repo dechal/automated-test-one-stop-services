@@ -23,8 +23,6 @@
     "**/.playwright-mcp": true,
     "**/.playwright-cli": true,
     "**/.cache": true,
-    "**/.venv": true,
-    "**/node_modules": true,
     "**/.setup-state.json": true,
     "**/.pnpm-store": true
   },
@@ -70,7 +68,8 @@
     "**/node_modules": true,
     "**/selectorshub": true,
     "**/.setup-state.json": true,
-    "**/.pnpm-store": true
+    "**/.pnpm-store": true,
+    "**/.runtime": true
   },
   "files.watcherExclude": {
     "**/.git/**": true,
@@ -108,7 +107,8 @@
     "**/.cache": true,
     "**/selectorshub": true,
     "**/.setup-state.json": true,
-    "**/.pnpm-store": true
+    "**/.pnpm-store": true,
+    "**/.runtime": true
   },
   "workbench.localHistory.exclude": {
     "**/__pycache__": true,
@@ -134,7 +134,8 @@
     "**/.playwright-cli": true,
     "**/.cache": true,
     "**/.setup-state.json": true,
-    "**/.pnpm-store": true
+    "**/.pnpm-store": true,
+    "**/.runtime": true
   },
   "git.repositoryScanIgnoredFolders": [
     "node_modules",
@@ -163,7 +164,8 @@
     ".playwright-mcp",
     ".playwright-cli",
     ".cache",
-    ".pnpm-store"
+    ".pnpm-store",
+    ".runtime"
   ],
   "npm.exclude": [
     "**/node_modules",
@@ -182,7 +184,8 @@
     "**/.robotcode_cache",
     "**/.playwright-mcp",
     "**/.playwright-cli",
-    "**/.cache"
+    "**/.cache",
+    "**/.runtime"
   ],
   "npm.scriptExplorerExclude": [
     "**/node_modules",
@@ -198,7 +201,8 @@
     "**/.robotcode_cache",
     "**/.playwright-mcp",
     "**/.playwright-cli",
-    "**/.cache"
+    "**/.cache",
+    "**/.runtime"
   ],
   "robotcode.workspace.excludePatterns": [
     ".hatch/",
@@ -218,14 +222,16 @@
     ".playwright-mcp",
     ".playwright-cli",
     ".cache",
-    ".pnpm-store"
+    ".pnpm-store",
+    ".runtime"
   ],
   "robotcode.analysis.cache.ignoredLibraries": [
     "**/.venv",
     "**/node_modules",
     "**/.pnpm-store",
     "**/outputs",
-    "**/hub"
+    "**/hub",
+    "**/.runtime"
   ],
   "robotcode.analysis.progressMode": "detailed",
   "robotcode.languageServer.mode": "stdio",
