@@ -46,12 +46,14 @@ import {
   TbChevronUp,
   TbCopy,
   TbDeviceMobile,
+  TbExternalLink,
   TbPlayerPlay,
   TbPlayerStop,
   TbRefresh,
   TbSearch,
   TbTextDecrease,
   TbTextIncrease,
+  TbTrash,
   TbX,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
@@ -139,9 +141,17 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const [workers, setWorkers] = useState<number | null>(initialArgs.workers ?? null);
   const [repeatEach, setRepeatEach] = useState<number | null>(initialArgs.repeatEach ?? null);
 
-  const [noTrack, setNoTrack] = useState(initialConfig?.noTrack ?? false);
+  // Skip usage logging defaults ON: the Google Sheet log is opt-in for most runs,
+  // so a fresh session should not write to it unless the user asks. A saved
+  // config still wins, so bookmarks/reconnect keep their captured intent.
+  const [noTrack, setNoTrack] = useState(initialConfig?.noTrack ?? true);
   const [silent, setSilent] = useState(initialConfig?.silent ?? false);
   const [discardReport, setDiscardReport] = useState(initialConfig?.discardReport ?? false);
+  // Open the HTML report automatically once the run finishes, so the user does
+  // not switch to the Reports page. A form-only preference (not part of
+  // RunRequest), meaningful only when a report survives the run — i.e. not
+  // silent and not discardReport.
+  const [autoOpenReport, setAutoOpenReport] = useState(false);
   const [section, setSection] = useState(initialConfig?.section ?? '');
   const [perfType, setPerfType] = useState<PerformanceType>(
     initialConfig?.performanceType ?? 'LOAD',
@@ -612,6 +622,64 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     }
   }
 
+  // A report survives the run only when it is neither silent nor discarded, so
+  // the "open after finish" option is offered only then; it is force-off in the
+  // other cases so a stale check cannot fire an open on a report that is gone.
+  const reportSurvives = !silent && !(discardReport && !silent);
+  const reportRunId = runMutation.data?.id ?? activeRunId;
+
+  // Resolve the finished run's report path (and favourite flag) on demand. The
+  // runner never writes RunRecord.reportPath, so the server matches it from the
+  // reports listing — see GET /api/runs/:id/report. Only queried once the run
+  // has finished and could have left a report.
+  const reportQuery = useQuery<{ reportPath: string; favorite: boolean }>({
+    queryKey: ['run-report', reportRunId],
+    queryFn: () => api.get(`/api/runs/${reportRunId}/report`),
+    enabled: isFinished && reportSurvives && !!reportRunId,
+    retry: false,
+  });
+  const reportPath = reportQuery.data?.reportPath;
+
+  async function handleSeeReport(): Promise<void> {
+    if (!reportPath) return;
+    try {
+      await api.post('/api/reports/open-file', { path: reportPath });
+    } catch {
+      toast.error(t('runlog.openReportFailed'));
+    }
+  }
+
+  async function handleDeleteReport(): Promise<void> {
+    if (!reportPath) return;
+    const ok = await confirmDialog({
+      title: t('reports.deleteTitle'),
+      message: t('reports.cannotUndo'),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/api/reports?path=${encodeURIComponent(reportPath)}`);
+      toast.success(t('reports.reportDeleted'));
+      queryClient.invalidateQueries({ queryKey: ['run-report', reportRunId] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    } catch {
+      toast.error(t('reports.deleteFailed'));
+    }
+  }
+
+  // Open the report once per finished run when the user asked for it. Keyed on
+  // the run id so a rerun (new id) can open again, and guarded by a ref so a
+  // query refetch does not reopen the same report.
+  const autoOpenedRunRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoOpenReport || !reportPath || !reportRunId) return;
+    if (autoOpenedRunRef.current === reportRunId) return;
+    autoOpenedRunRef.current = reportRunId;
+    void handleSeeReport();
+  }, [autoOpenReport, reportPath, reportRunId]);
+
   function clampSplit(percent: number): number {
     return Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, Math.round(percent)));
   }
@@ -946,6 +1014,19 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                     onChange={(e) => setDiscardReport(e.currentTarget.checked)}
                   />
                 </Tooltip>
+
+                {/* Only useful when a report survives the run; disabled (and
+                    force-read as off) under silent / discard so it never
+                    promises to open a report that will not exist. */}
+                <Tooltip label={t('run.openReportAfterHint')} withArrow multiline w={280}>
+                  <Checkbox
+                    size="xs"
+                    label={t('run.openReportAfter')}
+                    disabled={isRunning || !reportSurvives}
+                    checked={autoOpenReport && reportSurvives}
+                    onChange={(e) => setAutoOpenReport(e.currentTarget.checked)}
+                  />
+                </Tooltip>
               </Group>
             </Stack>
           )}
@@ -1265,6 +1346,35 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                 <Text size="xs" c="dimmed">
                   {t('run.duration')}: {elapsed}
                 </Text>
+              )}
+              {!isRunning && reportPath && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="subtle"
+                    color="blue"
+                    onClick={handleSeeReport}
+                    leftSection={<TbExternalLink size={16} />}
+                  >
+                    {t('runlog.openReport')}
+                  </Button>
+                  <Tooltip
+                    label={t('reports.favoriteLockedHint')}
+                    withArrow
+                    disabled={!reportQuery.data?.favorite}
+                  >
+                    <Button
+                      size="sm"
+                      variant="subtle"
+                      color="red"
+                      onClick={handleDeleteReport}
+                      disabled={reportQuery.data?.favorite}
+                      leftSection={<TbTrash size={16} />}
+                    >
+                      {t('run.deleteReport')}
+                    </Button>
+                  </Tooltip>
+                </>
               )}
               {!isRunning && (
                 <Button

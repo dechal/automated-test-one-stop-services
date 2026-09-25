@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { buildTaskCommand } from '../services/command-builder.js';
 import { getEnabledToolIds } from '../services/manifest-registry.js';
-import { severityByRun } from '../services/reports.js';
+import { reportEntryByRun, severityByRun } from '../services/reports.js';
 import { compareRuns, failedSelectionFromReport } from '../services/run-compare.js';
 import { checkRunPreconditions } from '../services/run-preconditions.js';
 import { runner } from '../services/runner.js';
@@ -207,6 +207,31 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
       request: record.request,
       ...selection,
     } satisfies FailedRunSelection;
+  });
+
+  /**
+   * GET /api/runs/:id/report — resolve the report a finished run produced, so
+   * the Run page can offer "see report" / "delete report" without the user
+   * switching to the Reports page. `RunRecord.reportPath` is never written by
+   * the runner, so the path is resolved from the reports listing via
+   * `reportEntryByRun` (exact `outputStamp` match when present). A just-finished
+   * run may still be in `active`, so both sources are searched. `favorite` is
+   * returned so the client can disable delete on an undeletable report.
+   */
+  app.get<{ Params: { id: string } }>('/api/runs/:id/report', async (req, reply) => {
+    const record =
+      runner.getActive().find((r) => r.id === req.params.id) ??
+      runner.getHistory().find((r) => r.id === req.params.id);
+    if (!record) {
+      reply.status(404);
+      return { code: 'RUN_NOT_FOUND', message: 'Run is not in history' };
+    }
+    const entry = (await reportEntryByRun([record])).get(record.id);
+    if (!entry) {
+      reply.status(404);
+      return { code: 'REPORT_NOT_FOUND', message: 'No report found for this run' };
+    }
+    return { reportPath: entry.reportPath, favorite: entry.favorite };
   });
 
   /** GET /api/runs/compare?a=<id>&b=<id> — per-test diff of two runs (Playwright). */

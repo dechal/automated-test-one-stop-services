@@ -4,6 +4,7 @@ import path from 'node:path';
 import { runDirFromReportPath, type ToolId } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { SERVER_PKG_DIR } from '../config.js';
+import { removeDirWithRetry } from '../services/fs-remove.js';
 import { isUnderOutputs } from '../services/path-guard.js';
 import {
   favoriteReport,
@@ -186,7 +187,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     // We delete the TIME folder (parent of html-results), not the day folder.
     const htmlResultsDir = path.dirname(reportPath);
     const timeDir = path.dirname(htmlResultsDir);
-    fs.rmSync(timeDir, { recursive: true, force: true });
+    removeDirWithRetry(timeDir);
     invalidateReportsCache();
 
     return { success: true };

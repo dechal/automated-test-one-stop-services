@@ -199,6 +199,10 @@ export const en = {
   'run.discardReport': 'Discard report after the run',
   'run.discardReportHint':
     'Keeps the history record and updates test-case Status, then deletes the HTML report, traces and videos. For a job that repeats often, so outputs/ stays small.',
+  'run.openReportAfter': 'Open report when the run finishes',
+  'run.openReportAfterHint':
+    'When the run finishes, open its HTML report automatically. Only available when a report survives the run (not silent, not discarded).',
+  'run.deleteReport': 'Delete report',
   'run.credentialsMissing': 'Google credentials not found — usage logging will fail.',
   'run.uploadCredentials': 'Upload credentials.json',
   'run.credentialsUploaded': 'Credentials uploaded',
@@ -735,6 +739,7 @@ export const en = {
   'schedule.deleteAria': 'Delete schedule',
 
   // Reports toasts/dialogs
+  'reports.favoriteLockedHint': 'This report is a favourite — remove the mark before deleting.',
   'reports.reportDeleted': 'Report deleted',
   'reports.reportsDeleted': 'Reports deleted',
   'reports.deleteFailed': 'Failed to delete report',

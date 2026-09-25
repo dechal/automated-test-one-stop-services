@@ -197,6 +197,10 @@ export const th: Record<TranslationKey, string> = {
   'run.discardReport': 'ลบ report หลังรันเสร็จ',
   'run.discardReportHint':
     'ยังเก็บประวัติและอัปเดต Status ในเทสเคสให้ แล้วค่อยลบ HTML report, trace, วิดีโอ เหมาะกับงานที่รันซ้ำบ่อยเพื่อไม่ให้ outputs/ บวม',
+  'run.openReportAfter': 'เปิด report เมื่อรันเสร็จ',
+  'run.openReportAfterHint':
+    'พอรันเสร็จจะเปิด HTML report ให้อัตโนมัติ ใช้ได้เฉพาะเมื่อ report ยังอยู่หลังรัน (ไม่ใช่โหมดเงียบ และไม่ได้ลบ report)',
+  'run.deleteReport': 'ลบ report',
   'run.credentialsMissing': 'ไม่พบ Google credentials — การบันทึกการใช้งานจะล้มเหลว',
   'run.uploadCredentials': 'อัปโหลด credentials.json',
   'run.credentialsUploaded': 'อัปโหลด credentials แล้ว',
@@ -724,6 +728,7 @@ export const th: Record<TranslationKey, string> = {
   'schedule.deleteAria': 'ลบตารางเวลา',
 
   // Reports toasts/dialogs
+  'reports.favoriteLockedHint': 'report นี้ถูกทำเป็นรายการโปรด — เอาเครื่องหมายออกก่อนถึงจะลบได้',
   'reports.reportDeleted': 'ลบรายงานแล้ว',
   'reports.reportsDeleted': 'ลบรายงานแล้ว',
   'reports.deleteFailed': 'ลบรายงานไม่สำเร็จ',
