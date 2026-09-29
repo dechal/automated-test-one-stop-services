@@ -215,6 +215,10 @@ call volta install kill-port >nul 2>nul || echo   [warn] kill-port install skipp
 call :refreshPath
 
 echo.
+echo [aux] Installing tesseract OCR (best-effort; robot-framework IIA desktop tests read error dialogs)
+call :installTesseract || echo   [warn] tesseract install skipped ^(non-fatal^) - IIA error-dialog OCR will fail until it is on PATH
+
+echo.
 echo [aux] Android is opt-in and NOT part of core setup. Run "task setup-android" to install the Android SDK + emulator.
 
 echo.
@@ -535,6 +539,26 @@ call :refreshPath
 where %_cmd% >nul 2>nul && goto :eof
 if %_try% LSS 3 ( echo   [retry %_try%/3] %_pkg% install failed - retrying & goto :scoopInstall_retry )
 exit /b 1
+
+REM ---------------------------------------------------------------------------
+REM :installTesseract -- OCR engine used by the robot-framework IIA desktop tests
+REM (Get Request Approve Error Message shells out to `tesseract ... --psm 3`).
+REM scoop's `tesseract` ships English data only; the IIA dialogs mix Thai+English,
+REM so fetch tha.traineddata into the install's tessdata dir. Best-effort: the
+REM caller treats a non-zero return as a warning, never a fatal setup step.
+REM ---------------------------------------------------------------------------
+:installTesseract
+where tesseract >nul 2>nul && goto :installTesseract_lang
+call :scoopInstall tesseract tesseract || exit /b 1
+:installTesseract_lang
+REM scoop's tesseract keeps its trainddata in the PERSIST dir (survives updates),
+REM not apps\...\current\tessdata. `tesseract --list-langs` confirms the real path.
+set "_tessdata=%USERPROFILE%\scoop\persist\tesseract\tessdata"
+if not exist "%_tessdata%" goto :eof
+if exist "%_tessdata%\tha.traineddata" goto :eof
+echo   Fetching Thai language data (tha.traineddata)...
+curl.exe -L --retry 3 --max-time 60 -o "%_tessdata%\tha.traineddata" "https://github.com/tesseract-ocr/tessdata_fast/raw/main/tha.traineddata" || echo   [warn] tha.traineddata download failed ^(non-fatal^) - Thai OCR will be degraded
+goto :eof
 
 REM ---------------------------------------------------------------------------
 REM :ensureVolta -- node/pnpm come from Volta; install it via scoop first.
