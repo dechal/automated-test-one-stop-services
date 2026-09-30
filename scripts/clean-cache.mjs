@@ -39,6 +39,8 @@ const PROTECTED = new Set([
 
 const CATEGORY_DIRS = ['deletable', 'regenerable'];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /** Repo root = parent of scripts/. `.cache` lives directly under it. */
 export function cacheRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.cache');
@@ -77,12 +79,75 @@ export function selectTargets(root, list, flags) {
   return [...new Set(targets)].filter((t) => isInside(root, t));
 }
 
+/**
+ * @param {string} root
+ * @param {(dir: string) => string[]} list
+ * @param {(target: string) => number} newestMtime
+ * @param {number} days
+ * @param {number} now
+ * @returns {string[]}
+ */
+export function selectStaleTargets(root, list, newestMtime, days, now) {
+  const dir = path.join(root, 'deletable');
+  const cutoff = now - days * DAY_MS;
+  return list(dir)
+    .map((name) => path.join(dir, name))
+    .filter((target) => isInside(root, target) && newestMtime(target) < cutoff);
+}
+
 /** readdir that returns [] for a missing/unreadable dir. */
 function safeList(dir) {
   try {
     return readdirSync(dir);
   } catch {
     return [];
+  }
+}
+
+/**
+ * @param {string} target
+ * @returns {number}
+ */
+function newestMtime(target) {
+  try {
+    const stat = statSync(target);
+    if (!stat.isDirectory()) return stat.mtimeMs;
+    let newest = stat.mtimeMs;
+    for (const name of safeList(target))
+      newest = Math.max(newest, statSync(path.join(target, name)).mtimeMs);
+    return newest;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+/**
+ * @param {string} root
+ * @param {number} days
+ * @param {boolean} dryRun
+ * @returns {void}
+ */
+function pruneStale(root, days, dryRun) {
+  if (process.env.CACHE_TIDY === 'off') return;
+  let removed = 0;
+  for (const target of selectStaleTargets(root, safeList, newestMtime, days, Date.now())) {
+    if (dryRun) {
+      console.log(`  [would prune] ${path.relative(root, target)}`);
+      continue;
+    }
+    try {
+      rmSync(target, { recursive: true, force: true });
+      removed += 1;
+    } catch (error) {
+      console.log(
+        `clean-cache: could not prune ${path.relative(root, target)} (${error instanceof Error ? error.message : error})`,
+      );
+    }
+  }
+  if (removed > 0) {
+    console.log(
+      `clean-cache --prune-days=${days}: removed ${removed} deletable/ entr${removed === 1 ? 'y' : 'ies'} older than ${days} days.`,
+    );
   }
 }
 
@@ -128,10 +193,21 @@ function main() {
     dryRun: argv.includes('--dry-run'),
     tidy: argv.includes('--tidy'),
   };
+  const pruneArg = argv.find((a) => a.startsWith('--prune-days='));
   const root = cacheRoot();
 
   // Ensure the category folders always exist so the convention self-heals.
   for (const cat of CATEGORY_DIRS) mkdirSync(path.join(root, cat), { recursive: true });
+
+  if (pruneArg) {
+    const days = Number(pruneArg.slice('--prune-days='.length));
+    if (Number.isInteger(days) && days >= 1) pruneStale(root, days, flags.dryRun);
+    else
+      console.log(
+        `clean-cache: --prune-days needs a whole number >= 1, got "${pruneArg}" — nothing pruned.`,
+      );
+    if (!flags.tidy) return;
+  }
 
   // --tidy (Stop hook): sweep root strays into deletable/, then stop. Never deletes.
   if (flags.tidy) {
