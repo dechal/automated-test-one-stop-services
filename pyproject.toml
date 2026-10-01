@@ -6,13 +6,13 @@ authors = [{ name = "Decha_L", email = "Decha.L2543@gmail.com" }]
 license = "MIT"
 requires-python = ">=3.14"
 
-dependencies = ["python-dotenv>=1.2.2"]
+dependencies = ["python-dotenv>=1.2.4"]
 
 [dependency-groups]
 # ty is a pre-1.0 beta (Astral) — breaking changes land even in 0.0.x, so cap the
 # ceiling (<0.1) to prevent an unattended jump to 0.1/1.0 from breaking the gate.
 # Bump the floor deliberately when adopting a newer beta / the eventual 1.0.
-dev = ["ruff>=0.15.12", "ty>=0.0.35,<0.1"]
+dev = ["ruff>=0.16.9", "ty>=0.0.84,<0.1"]
 
 [tool.uv.workspace]
 members = ["tools/robot-framework"]

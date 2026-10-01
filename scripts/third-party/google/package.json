@@ -10,7 +10,7 @@
   "private": true,
   "devDependencies": {
     "@google-cloud/local-auth": "^3.0.1",
-    "google-auth-library": "^11.0.2",
-    "googleapis": "^176.0.0"
+    "google-auth-library": "^11.1.0",
+    "googleapis": "^182.0.0"
   }
 }
