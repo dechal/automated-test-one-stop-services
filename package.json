@@ -10,6 +10,7 @@
   "private": true,
   "scripts": {
     "updater": "pnpm up -i -L -r",
+    "audit:fix": "pnpm audit --fix=update",
     "check": "biome check --write .",
     "lint": "biome lint .",
     "md:check": "markdownlint-cli2 \"**/*.md\"",
