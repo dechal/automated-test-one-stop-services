@@ -15,6 +15,8 @@ describe('classifyTag', () => {
     expect(classifyTag('Severity.critical')).toBe('severity');
     expect(classifyTag('@e2e')).toBe('test-type');
     expect(classifyTag('@positive')).toBe('flow-type');
+    expect(classifyTag('@edge')).toBe('flow-type');
+    expect(classifyTag('@Edge')).toBe('flow-type');
     expect(classifyTag('@desktop')).toBe('device');
   });
 

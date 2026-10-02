@@ -89,7 +89,7 @@ export const TAG_TAXONOMY: readonly TagCategory[] = [
     kind: 'flow-type',
     label: 'Flow Type',
     description: 'Happy path vs. error handling',
-    match: facetMatcher('TestFlowType', ['positive', 'negative']),
+    match: facetMatcher('TestFlowType', ['positive', 'negative', 'edge']),
   },
   {
     kind: 'device',

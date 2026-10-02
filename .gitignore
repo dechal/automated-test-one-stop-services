@@ -70,6 +70,7 @@ hub/server/data/*.json
 # =============================================================================
 .kiro/
 brain/
+.agents/
 
 # =============================================================================
 # Workspace-generated config (per-developer / generated projections)

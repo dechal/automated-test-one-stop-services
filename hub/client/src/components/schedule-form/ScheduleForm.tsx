@@ -1,4 +1,5 @@
 import type {
+  Bookmark,
   CustomCommand,
   HeadlessMode,
   PerformanceType,
@@ -27,6 +28,7 @@ import { CronExpressionParser } from 'cron-parser';
 import cronstrue from 'cronstrue';
 import dayjs from 'dayjs';
 import { useState } from 'react';
+import { TbBookmark } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qProjectEnv } from '~/api/queries.js';
 import { SectionSelect } from '~/components/SectionSelect.js';
@@ -277,6 +279,33 @@ export function ScheduleForm({
   const perfTypeData = buildPerfTypeData(projectEnvQ.data?.entries);
   const tags = useProjectTags(sectionAxis ? '' : tool, effectiveType, project);
 
+  const bookmarksQ = useQuery<Bookmark[]>({
+    queryKey: ['bookmarks'],
+    queryFn: () => api.get('/api/bookmarks'),
+    enabled: kind === 'tool',
+  });
+  const bookmarkData = (bookmarksQ.data ?? []).map((b) => ({ value: b.id, label: b.name }));
+
+  function applyBookmark(id: string | null): void {
+    const bookmark = bookmarksQ.data?.find((b) => b.id === id);
+    if (!bookmark) return;
+    const config = bookmark.config;
+    setTool(config.tool);
+    setType(config.type);
+    setProject(config.project);
+    setRunMode(config.mode);
+    setHeadless(config.headless ?? 'headless');
+    setExtraArgs(config.extraArgs ?? '');
+    setNoTrack(config.noTrack ?? false);
+    setSilent(fromConfigSilent(config));
+    setDiscardReport(config.discardReport ?? false);
+    setSection(config.section ?? '');
+    setPerfType(config.performanceType ?? 'LOAD');
+    const selection = parseTagExpression(config.tool, config.tag);
+    setSelectedTags(selection.include);
+    setExcludedTags(selection.exclude);
+  }
+
   const tagExpr = buildTagQuery(tool, selectedTags, excludedTags);
   // Human reading of the current cron plus its next fire time. Shown as the raw
   // input's description in advanced view, and standalone under the presets in
@@ -465,6 +494,21 @@ export function ScheduleForm({
                 allowDeselect={false}
               />
             </SimpleGrid>
+
+            {kind === 'tool' && (
+              <Select
+                label={t('bookmark.load')}
+                size="xs"
+                value={null}
+                onChange={applyBookmark}
+                data={bookmarkData}
+                placeholder={t('bookmark.load')}
+                nothingFoundMessage={t('bookmark.empty')}
+                searchable
+                clearable
+                leftSection={<TbBookmark size={14} />}
+              />
+            )}
 
             <SimpleGrid cols={projectsCfg.typeAxis ? 2 : 1} spacing="xs">
               {projectsCfg.typeAxis && (
