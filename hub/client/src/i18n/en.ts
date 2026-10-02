@@ -447,6 +447,10 @@ export const en = {
   'bookmark.noFormConfig': 'Select a project in the run form first.',
   'bookmark.expandAll': 'Expand all',
   'bookmark.collapseAll': 'Collapse all',
+  'bookmark.staleTooltip': 'Tags no longer in this project:',
+  'bookmark.migrate': 'Clean up stale tags',
+  'bookmark.migrated': 'Stale tags removed from this bookmark',
+  'bookmark.scanUnavailable': "Could not check this project's tags right now",
 
   // Webhooks (list rows + form)
   'webhook.scopedTooltip': 'Webhook is scoped to this run target only',

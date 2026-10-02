@@ -108,6 +108,17 @@ export interface Bookmark {
 }
 
 /**
+ * A bookmark plus its live tag-health status. Response-only projection — the
+ * stored {@link Bookmark} shape is unchanged, nothing new is persisted.
+ */
+export interface BookmarkWithStatus extends Bookmark {
+  /** Tags in `config.tag` no longer in the target project. Empty = healthy (when scanned). */
+  staleTags: string[];
+  /** True when the project tag scan failed; staleTags is then [] and UNKNOWN, not confirmed-clean. */
+  scanFailed: boolean;
+}
+
+/**
  * Snapshot of the run queue (`GET /api/queue`): what is executing now and what
  * is waiting. `queued` is in queue order, so the array index is the position.
  */

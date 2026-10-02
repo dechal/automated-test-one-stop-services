@@ -442,6 +442,10 @@ export const th: Record<TranslationKey, string> = {
   'bookmark.noFormConfig': 'เลือกโปรเจกต์ในฟอร์มรันก่อน',
   'bookmark.expandAll': 'กางทั้งหมด',
   'bookmark.collapseAll': 'ยุบทั้งหมด',
+  'bookmark.staleTooltip': 'tag ที่ไม่มีใน project นี้แล้ว:',
+  'bookmark.migrate': 'ล้าง tag ที่ไม่มีแล้ว',
+  'bookmark.migrated': 'ลบ tag ที่ไม่มีออกจาก bookmark นี้แล้ว',
+  'bookmark.scanUnavailable': 'ตอนนี้เช็ก tag ของ project นี้ไม่ได้',
 
   // Webhooks (list rows + form)
   'webhook.scopedTooltip': 'webhook นี้จำกัดเฉพาะเป้าหมายการรันนี้',

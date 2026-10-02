@@ -13,6 +13,16 @@ vi.mock('@server/services/manifest-registry.js', () => ({
   getEnabledToolIds: async () => new Set(['playwright']),
 }));
 
+// The annotate + migrate paths scan a project's real tags via resolveProjectTags
+// (which shells out). Mock it so HTTP + persistence + error-mapping is tested
+// without a child process; `mockResolveProjectTags` is set per test.
+import type { ProjectTagsResult } from '@server/services/project-tags.js';
+
+const mockResolveProjectTags = vi.fn<() => Promise<ProjectTagsResult>>();
+vi.mock('@server/services/project-tags.js', () => ({
+  resolveProjectTags: () => mockResolveProjectTags(),
+}));
+
 /**
  * Bookmark route tests: a bookmark is a plain macro — `{ id, name, config,
  * createdAt }`. No promoted fields, no usage tracking.
@@ -40,6 +50,12 @@ let app: FastifyInstance;
 
 beforeEach(async () => {
   setDb(openLocalDb(':memory:'));
+  // Default: scan succeeds and the project emits exactly the tags used below, so
+  // untouched CRUD tests see healthy bookmarks (staleTags: []).
+  mockResolveProjectTags.mockResolvedValue({
+    ok: true,
+    tags: new Set(['@smoke', '@t', '@regression']),
+  });
   app = await buildApp();
 });
 
@@ -171,6 +187,122 @@ describe('DELETE /api/bookmarks/:id', () => {
 
   it('returns 404 for an unknown bookmark id', async () => {
     const res = await app.inject({ method: 'DELETE', url: '/api/bookmarks/does-not-exist' });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+async function createBookmark(name: string, config: RunRequest): Promise<Bookmark> {
+  return (
+    await app.inject({ method: 'POST', url: '/api/bookmarks', payload: { name, config } })
+  ).json<Bookmark>();
+}
+
+interface StatusBookmark extends Bookmark {
+  staleTags: string[];
+  scanFailed: boolean;
+}
+
+describe('GET /api/bookmarks — stale-tag annotation', () => {
+  it('marks a bookmark stale when its tag is absent from the project', async () => {
+    mockResolveProjectTags.mockResolvedValue({ ok: true, tags: new Set(['@critical']) });
+    await createBookmark('stale', { ...baseConfig, tag: '(?=.*@gone)' });
+
+    const list = (await app.inject({ method: 'GET', url: '/api/bookmarks' })).json<
+      StatusBookmark[]
+    >();
+    expect(list[0]?.staleTags).toEqual(['@gone']);
+    expect(list[0]?.scanFailed).toBe(false);
+  });
+
+  it('leaves a healthy bookmark with no stale tags', async () => {
+    mockResolveProjectTags.mockResolvedValue({ ok: true, tags: new Set(['@smoke']) });
+    await createBookmark('healthy', { ...baseConfig, tag: '(?=.*@smoke)' });
+
+    const list = (await app.inject({ method: 'GET', url: '/api/bookmarks' })).json<
+      StatusBookmark[]
+    >();
+    expect(list[0]?.staleTags).toEqual([]);
+    expect(list[0]?.scanFailed).toBe(false);
+  });
+
+  it('sets scanFailed with empty staleTags when the scan fails', async () => {
+    mockResolveProjectTags.mockResolvedValue({ ok: false });
+    await createBookmark('unknown', { ...baseConfig, tag: '(?=.*@smoke)' });
+
+    const list = (await app.inject({ method: 'GET', url: '/api/bookmarks' })).json<
+      StatusBookmark[]
+    >();
+    expect(list[0]?.scanFailed).toBe(true);
+    expect(list[0]?.staleTags).toEqual([]);
+  });
+});
+
+describe('POST /api/bookmarks/:id/migrate', () => {
+  it('strips stale tags and persists only config.tag', async () => {
+    mockResolveProjectTags.mockResolvedValue({ ok: true, tags: new Set(['@keep']) });
+    const created = await createBookmark('to-migrate', {
+      ...baseConfig,
+      tag: '(?=.*@keep)(?=.*@gone)',
+      extraArgs: '--workers=2',
+      silent: true,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/bookmarks/${created.id}/migrate`,
+    });
+    expect(res.statusCode).toBe(200);
+    const migrated = res.json<StatusBookmark>();
+    expect(migrated.staleTags).toEqual([]);
+    expect(migrated.config.tag).toBe('(?=.*@keep)');
+    // Only config.tag changed — everything else is intact.
+    expect(migrated.id).toBe(created.id);
+    expect(migrated.name).toBe(created.name);
+    expect(migrated.createdAt).toBe(created.createdAt);
+    expect(migrated.config.extraArgs).toBe('--workers=2');
+    expect(migrated.config.silent).toBe(true);
+
+    // Re-GET confirms the edit was persisted.
+    const list = (await app.inject({ method: 'GET', url: '/api/bookmarks' })).json<
+      StatusBookmark[]
+    >();
+    expect(list[0]?.config.tag).toBe('(?=.*@keep)');
+  });
+
+  it('is a 200 no-op on an already-healthy bookmark', async () => {
+    mockResolveProjectTags.mockResolvedValue({ ok: true, tags: new Set(['@smoke']) });
+    const created = await createBookmark('healthy', { ...baseConfig, tag: '(?=.*@smoke)' });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/bookmarks/${created.id}/migrate`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<StatusBookmark>().config.tag).toBe('(?=.*@smoke)');
+  });
+
+  it('returns 503 and does not change the file when the scan fails', async () => {
+    mockResolveProjectTags.mockResolvedValue({ ok: true, tags: new Set(['@keep']) });
+    const created = await createBookmark('scan-fail', { ...baseConfig, tag: '(?=.*@keep)' });
+
+    mockResolveProjectTags.mockResolvedValue({ ok: false });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/bookmarks/${created.id}/migrate`,
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.json<{ code: string }>().code).toBe('TAG_SCAN_FAILED');
+
+    // The stored config.tag is untouched.
+    mockResolveProjectTags.mockResolvedValue({ ok: true, tags: new Set(['@keep']) });
+    const list = (await app.inject({ method: 'GET', url: '/api/bookmarks' })).json<
+      StatusBookmark[]
+    >();
+    expect(list[0]?.config.tag).toBe('(?=.*@keep)');
+  });
+
+  it('returns 404 for an unknown bookmark id', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/bookmarks/nope/migrate' });
     expect(res.statusCode).toBe(404);
   });
 });

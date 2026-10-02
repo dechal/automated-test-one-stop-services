@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import {
   buildTagGroups,
   classifyTag,
@@ -9,110 +7,20 @@ import {
   type ToolId,
 } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
-import { BASH_PATH, WORKSPACE_ROOT } from '../config.js';
-import { buildPlaywrightListCommand, buildTagsCommand } from '../services/command-builder.js';
-import { runChild } from '../services/exec.js';
-import { getToolCapabilities } from '../services/manifest-registry.js';
+import { resolveProjectTags } from '../services/project-tags.js';
 
 // ---------------------------------------------------------------------------
 // Classification is owned ENTIRELY by `@hub/shared` (`classifyTag` /
 // `buildTagGroups`). This route never re-implements category rules — it only
-// gathers raw test data (from the reporter sentinel block, or a legacy text
-// fallback) and hands it to the shared taxonomy. That single source of truth
-// is why the Hub UI is always internally consistent.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Sentinel-block parsing — primary path. Reporters emit a single JSON blob
-// between `__TAG_DATA_BEGIN__` / `__TAG_DATA_END__` carrying the raw per-test
-// tag lists. Both the Playwright and Robot reporters use the same shape.
+// gathers raw test data (via `resolveProjectTags`, which parses the reporter
+// sentinel block or a legacy fallback) and hands it to the shared taxonomy.
+// That single source of truth is why the Hub UI is always internally
+// consistent.
 // ---------------------------------------------------------------------------
 
 interface ReporterPayload {
   tool?: ToolId;
   tests?: TestSummary[];
-}
-
-function parseReporterPayload(output: string): ReporterPayload | null {
-  const begin = output.indexOf('__TAG_DATA_BEGIN__');
-  const end = output.indexOf('__TAG_DATA_END__');
-  if (begin === -1 || end === -1 || end < begin) return null;
-  const slice = output.slice(begin + '__TAG_DATA_BEGIN__'.length, end).trim();
-  try {
-    const parsed = JSON.parse(slice) as ReporterPayload;
-    return Array.isArray(parsed.tests) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Legacy text fallbacks — used only when the sentinel block is absent (e.g. a
-// tool failure left only the legacy text format). These yield a flat tag list
-// with no per-test data, so groups fall back to alphabetical order.
-// ---------------------------------------------------------------------------
-
-function parsePlaywrightListTags(output: string): string[] {
-  const tags = new Set<string>();
-  for (const m of output.matchAll(/@[\w-]+/g)) {
-    if (m[0]) tags.add(m[0]);
-  }
-  return [...tags];
-}
-
-function parseRobotTagsFromFiles(type: string, project: string): string[] {
-  const specsDir = path.join(
-    WORKSPACE_ROOT,
-    'tools',
-    'robot-framework',
-    'projects',
-    type,
-    project,
-    'automations',
-    'specs',
-  );
-  if (!fs.existsSync(specsDir)) return [];
-  const tags = new Set<string>();
-  function walk(dir: string): void {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-      } else if (entry.name.endsWith('.robot')) {
-        const content = fs.readFileSync(full, 'utf8');
-        for (const line of content.split('\n')) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith('[Tags]')) continue;
-          for (const t of trimmed
-            .slice('[Tags]'.length)
-            .trim()
-            .split(/\s{2,}|\t+/)) {
-            const clean = t.trim();
-            if (clean && !clean.startsWith('$') && !clean.startsWith('%')) tags.add(clean);
-          }
-        }
-      }
-    }
-  }
-  walk(specsDir);
-  return [...tags];
-}
-
-// ---------------------------------------------------------------------------
-// Route helpers
-// ---------------------------------------------------------------------------
-
-async function execCapture(cmd: string): Promise<string> {
-  const result = await runChild(cmd, [], {
-    cwd: WORKSPACE_ROOT,
-    timeoutMs: 60_000,
-    shell: BASH_PATH,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-  });
-  // Reporters may exit non-zero (e.g. a tool failure) while still having emitted
-  // the sentinel block on stdout; on failure include stderr too so the caller
-  // can fall back to the legacy text parsers.
-  return result.ok ? result.stdout : result.stdout + result.stderr;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,43 +118,20 @@ export async function tagRoutes(app: FastifyInstance): Promise<void> {
   /** GET /api/tags?tool=playwright|robot-framework&type=web&project=example */
   app.get<{ Querystring: { tool: ToolId; type: string; project: string } }>(
     '/api/tags',
-    async (req, reply) => {
+    async (req) => {
       const { tool, type, project } = req.query;
-      const cmd = await buildTagsCommand(tool, type, project);
+      const result = await resolveProjectTags(tool, type, project);
 
-      try {
-        const output = await execCapture(cmd);
-        let payload = parseReporterPayload(output);
-        let fallbackTags: string[] = [];
+      // A failed/empty scan maps to the SAME empty response an empty scan
+      // produced before this refactor — only the bookmark callers act on the
+      // `ok: false` signal, so `/api/tags` behaviour is unchanged.
+      if (!result.ok) return buildResponse(tool, type, project, null, []);
 
-        // The sentinel-block parse above is tool-agnostic and always runs. The
-        // manifest's `tags.strategy` only governs the FALLBACK when the reporter
-        // emitted no structured payload. Unknown / absent strategy resolves to
-        // `'none'` (never throws) → empty response.
-        const caps = await getToolCapabilities(tool);
-        const strategy = caps?.tags.strategy ?? 'none';
-
-        if (!payload && strategy === 'playwright-list') {
-          // Playwright fallback: re-run with `--list` and scrape @tags.
-          const listOutput = await execCapture(
-            await buildPlaywrightListCommand(tool, type, project),
-          );
-          payload = parseReporterPayload(listOutput);
-          if (!payload) fallbackTags = parsePlaywrightListTags(listOutput);
-        } else if (!payload && strategy === 'robot-files') {
-          // Robot fallback: scan .robot files for [Tags] lines.
-          fallbackTags = parseRobotTagsFromFiles(type, project);
-        }
-
-        return buildResponse(tool, type, project, payload, fallbackTags);
-      } catch (err) {
-        reply.status(500);
-        const e = err as { message?: string };
-        return {
-          code: 'TAG_FETCH_FAILED',
-          message: `Failed to fetch tags: ${e.message ?? String(err)}`,
-        };
-      }
+      // The sentinel path carries per-test data (`tests`); the fallback paths
+      // carry only a flat tag set. Reconstruct the inputs `buildResponse` wants.
+      const payload = result.tests ? { tool, tests: result.tests } : null;
+      const fallbackTags = result.tests ? [] : [...result.tags];
+      return buildResponse(tool, type, project, payload, fallbackTags);
     },
   );
 }

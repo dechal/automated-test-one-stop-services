@@ -1,6 +1,12 @@
 import type { TestSummary } from '@hub/shared';
 import { describe, expect, it } from 'vitest';
-import { buildTagExpr, matchTests, parseTagExpr } from '../tag-selection.js';
+import {
+  buildTagExpr,
+  buildTagQuery,
+  matchTests,
+  parseTagExpr,
+  parseTagQuery,
+} from '../tag-selection.js';
 
 describe('buildTagExpr', () => {
   it('returns undefined for no selection', () => {
@@ -80,5 +86,51 @@ describe('regression: a re-opened multi-case-id bookmark matches tests', () => {
     const selected = parseTagExpr(expr);
     const matched = matchTests(tests, selected);
     expect(matched.map((t) => t.id).sort()).toEqual(['DAIRY_CATTLE-C001', 'DAIRY_CATTLE-C002']);
+  });
+});
+
+describe('migrate round-trip: parse → drop stale → rebuild', () => {
+  it('drops a stale tag from a Playwright expression and keeps the rest', () => {
+    const { include, exclude } = parseTagQuery('playwright', '(?=.*@critical)(?=.*@gone)');
+    const stale = new Set(['@gone']);
+    const rebuilt = buildTagQuery(
+      'playwright',
+      include.filter((t) => !stale.has(t)),
+      exclude.filter((t) => !stale.has(t)),
+    );
+    expect(parseTagQuery('playwright', rebuilt).include).toEqual(['@critical']);
+  });
+
+  it('collapses a Playwright expression to undefined when every tag is stale', () => {
+    const { include, exclude } = parseTagQuery('playwright', '(?=.*@gone)(?=.*@older)');
+    const stale = new Set(['@gone', '@older']);
+    const rebuilt = buildTagQuery(
+      'playwright',
+      include.filter((t) => !stale.has(t)),
+      exclude.filter((t) => !stale.has(t)),
+    );
+    expect(rebuilt).toBeUndefined();
+  });
+
+  it('drops a stale tag from a Robot pattern and keeps the rest', () => {
+    const { include, exclude } = parseTagQuery('robot-framework', '@smokeAND@gone');
+    const stale = new Set(['@gone']);
+    const rebuilt = buildTagQuery(
+      'robot-framework',
+      include.filter((t) => !stale.has(t)),
+      exclude.filter((t) => !stale.has(t)),
+    );
+    expect(rebuilt).toBe('@smoke');
+  });
+
+  it('collapses a Robot pattern to undefined when every tag is stale', () => {
+    const { include, exclude } = parseTagQuery('robot-framework', '@goneAND@older');
+    const stale = new Set(['@gone', '@older']);
+    const rebuilt = buildTagQuery(
+      'robot-framework',
+      include.filter((t) => !stale.has(t)),
+      exclude.filter((t) => !stale.has(t)),
+    );
+    expect(rebuilt).toBeUndefined();
   });
 });

@@ -1,4 +1,4 @@
-import type { Bookmark, RunRequest } from '@hub/shared';
+import type { Bookmark, BookmarkWithStatus, RunRequest } from '@hub/shared';
 import {
   ActionIcon,
   Badge,
@@ -20,10 +20,13 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
+  TbAlertTriangle,
   TbBookmark,
   TbCheck,
   TbChevronRight,
+  TbCloudOff,
   TbDeviceFloppy,
+  TbEraser,
   TbPencil,
   TbSearch,
   TbTrash,
@@ -104,12 +107,12 @@ interface TreeGroup {
   tool: string;
   type: string;
   project: string;
-  items: Bookmark[];
+  items: BookmarkWithStatus[];
 }
 
 /** tool → type · project groups, sorted by label then type then project. */
 function groupBookmarks(
-  list: Bookmark[],
+  list: BookmarkWithStatus[],
   query: string,
   tools: ReturnType<typeof useTools>['data'],
 ): {
@@ -159,7 +162,7 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const bookmarks = useQuery<Bookmark[]>({
+  const bookmarks = useQuery<BookmarkWithStatus[]>({
     queryKey: ['bookmarks'],
     queryFn: () => api.get('/api/bookmarks'),
     enabled: opened,
@@ -168,6 +171,15 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/bookmarks/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bookmarks'] }),
+  });
+
+  const migrateMutation = useMutation({
+    mutationFn: (id: string) => api.post<BookmarkWithStatus>(`/api/bookmarks/${id}/migrate`),
+    onSuccess: () => {
+      toast.success(t('bookmark.migrated'));
+      queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
+    },
+    onError: () => toast.error(t('bookmark.scanUnavailable')),
   });
 
   const list = bookmarks.data ?? [];
@@ -344,6 +356,10 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                             onApply={() => load(bm.config)}
                             onEdit={() => setEditingId(bm.id)}
                             onDelete={() => handleDelete(bm.id)}
+                            onMigrate={() => migrateMutation.mutate(bm.id)}
+                            migrating={
+                              migrateMutation.isPending && migrateMutation.variables === bm.id
+                            }
                           />
                         ),
                       )}
@@ -369,14 +385,19 @@ function BookmarkChip({
   onApply,
   onEdit,
   onDelete,
+  onMigrate,
+  migrating,
 }: {
-  bookmark: Bookmark;
+  bookmark: BookmarkWithStatus;
   onApply: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onMigrate: () => void;
+  migrating: boolean;
 }) {
   const t = useT();
   const digest = leafDigest(bookmark.config);
+  const hasStale = bookmark.staleTags.length > 0 && !bookmark.scanFailed;
   return (
     <Paper withBorder radius="sm" px={8} py={6} h="100%">
       <Group gap={4} wrap="nowrap" h="100%" align="flex-start">
@@ -395,6 +416,37 @@ function BookmarkChip({
           </UnstyledButton>
         </Tooltip>
         <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
+          {hasStale && (
+            <>
+              <Tooltip
+                label={`${t('bookmark.staleTooltip')} ${bookmark.staleTags.join(', ')}`}
+                withArrow
+                multiline
+              >
+                <Text component="span" c="yellow" style={{ display: 'inline-flex' }}>
+                  <TbAlertTriangle size={13} />
+                </Text>
+              </Tooltip>
+              <ActionIcon
+                variant="subtle"
+                color="yellow"
+                size="xs"
+                onClick={onMigrate}
+                loading={migrating}
+                disabled={migrating}
+                aria-label={t('bookmark.migrate')}
+              >
+                <TbEraser size={12} />
+              </ActionIcon>
+            </>
+          )}
+          {bookmark.scanFailed && (
+            <Tooltip label={t('bookmark.scanUnavailable')} withArrow multiline>
+              <Text component="span" c="dimmed" style={{ display: 'inline-flex' }}>
+                <TbCloudOff size={13} />
+              </Text>
+            </Tooltip>
+          )}
           <ActionIcon
             variant="subtle"
             color="gray"
