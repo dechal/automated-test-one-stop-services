@@ -24,7 +24,8 @@
     "**/.playwright-cli": true,
     "**/.cache": true,
     "**/.setup-state.json": true,
-    "**/.pnpm-store": true
+    "**/.pnpm-store": true,
+    "**/.agents": true
   },
   "search.exclude": {
     "**/__pycache__": true,
@@ -69,7 +70,8 @@
     "**/selectorshub": true,
     "**/.setup-state.json": true,
     "**/.pnpm-store": true,
-    "**/.runtime": true
+    "**/.runtime": true,
+    "**/.agents": true
   },
   "files.watcherExclude": {
     "**/.git/**": true,
@@ -108,7 +110,8 @@
     "**/selectorshub": true,
     "**/.setup-state.json": true,
     "**/.pnpm-store": true,
-    "**/.runtime": true
+    "**/.runtime": true,
+    "**/.agents": true
   },
   "workbench.localHistory.exclude": {
     "**/__pycache__": true,
@@ -135,7 +138,8 @@
     "**/.cache": true,
     "**/.setup-state.json": true,
     "**/.pnpm-store": true,
-    "**/.runtime": true
+    "**/.runtime": true,
+    "**/.agents": true
   },
   "git.repositoryScanIgnoredFolders": [
     "node_modules",
@@ -165,7 +169,8 @@
     ".playwright-cli",
     ".cache",
     ".pnpm-store",
-    ".runtime"
+    ".runtime",
+    ".agents",
   ],
   "npm.exclude": [
     "**/node_modules",
@@ -174,8 +179,9 @@
     "**/robot_output",
     "**/dist",
     "**/.venv",
-    "**/.kiro/",
-    "**/brain/",
+    "**/.agents",
+    "**/.kiro",
+    "**/brain",
     "**/outputs/",
     "**/.mypy_cache",
     "**/.pytest_cache",
@@ -191,8 +197,9 @@
     "**/node_modules",
     "**/.venv",
     "**/__pycache__",
-    "**/.kiro/",
-    "**/brain/",
+    "**/.agents",
+    "**/.kiro",
+    "**/brain",
     "**/outputs/",
     "**/.mypy_cache",
     "**/.pytest_cache",
@@ -205,39 +212,47 @@
     "**/.runtime"
   ],
   "robotcode.workspace.excludePatterns": [
-    ".hatch/",
-    ".venv/",
-    "node_modules/",
-    "__pycache__/",
-    ".mypy_cache/",
-    ".pytest_cache/",
-    ".ruff_cache/",
-    ".robocop_cache/",
-    ".robotcode_cache/",
-    ".kiro/",
-    "brain/",
-    "hub/",
-    "outputs/",
-    "scripts/",
-    ".playwright-mcp",
-    ".playwright-cli",
-    ".cache",
-    ".pnpm-store",
-    ".runtime"
+    "**/.hatch/**",
+    "**/.venv/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.mypy_cache/**",
+    "**/.pytest_cache/**",
+    "**/.ruff_cache/**",
+    "**/.robocop_cache/**",
+    "**/.robotcode_cache/**",
+    "**/.agents/**",
+    "**/.kiro/**",
+    "**/brain/**",
+    "**/hub/**",
+    "**/outputs/**",
+    "**/scripts/**",
+    "**/.playwright-mcp/**",
+    "**/.playwright-cli/**",
+    "**/.cache/**",
+    "**/.pnpm-store/**",
+    "**/.runtime/**"
   ],
   "robotcode.analysis.cache.ignoredLibraries": [
-    "**/.venv",
-    "**/node_modules",
-    "**/.pnpm-store",
-    "**/outputs",
-    "**/hub",
-    "**/.runtime"
+    "**/.venv/**",
+    "**/node_modules/**",
+    "**/.pnpm-store/**",
+    "**/outputs/**",
+    "**/hub/**",
+    "**/.runtime/**",
+    "**/.agents/**",
+    "**/.kiro/**",
+    "**/brain/**",
   ],
   "robotcode.analysis.progressMode": "detailed",
   "robotcode.languageServer.mode": "stdio",
   "robotcode.analysis.cache.ignoreArgumentsForLibrary": [
-    "**/.venv",
-    "**/node_modules"
+    "**/.venv/**",
+    "**/node_modules/**",
+    "**/.agents/**",
+    "**/.kiro/**",
+    "**/brain/**",
+    "**/outputs/**",
   ],
   "robotcode.robocop.enabled": true,
   "robotcode.robocop.ignoreGitDir": true,
@@ -245,15 +260,19 @@
   "robotcode.testExplorer.enabled": true,
   "robotcode.debug.outputLog": false,
   "python.analysis.exclude": [
-    "**/.venv",
-    "**/node_modules",
-    "**/outputs",
-    "**/playwright-report",
-    "**/test-results",
-    "**/robot_output",
-    "**/.kiro",
-    "**/brain",
-    "**/.cache"
+    "**/.agents/**",
+    "**/.kiro/**",
+    "**/brain/**",
+    "**/.venv/**",
+    "**/node_modules/**",
+    "**/outputs/**",
+    "**/playwright-report/**",
+    "**/test-results/**",
+    "**/robot_output/**",
+    "**/.kiro/**",
+    "**/brain/**",
+    "**/.cache/**",
+    "**/outputs/**",
   ],
 
   "search.followSymlinks": false,
@@ -390,14 +409,6 @@
   "[markdown]": {
     "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
   },
-
-  // Registers the workspace ignore files with the agent. Without this array the
-  // root `.kiroignore` is read by nothing and its secret patterns are inert.
-  // Docs: https://kiro.dev/docs/editor/kiroignore/
-  //
-  // Deliberately `.kiroignore` ONLY — do NOT add ".gitignore" here. This repo
-  // gitignores `.kiro/`, `brain/`, `config/pipeline.json` and `tools/*/` (nested
-  // repos and generated files), so honouring .gitignore would hide the AI layer,
-  // the brain vault and every tool project from the agent.
-  "kiroAgent.agentIgnoreFiles": [".kiroignore"]
+  "kiroAgent.agentIgnoreFiles": [".kiroignore"],
+  "stringManipulation.telemetry": false,
 }
