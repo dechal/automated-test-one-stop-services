@@ -2,6 +2,8 @@ import type {
   CoverageReport,
   DoctorReport,
   EnvFile,
+  EnvProfile,
+  EnvProfileValidation,
   HubUser,
   ProjectSummary,
   RunRecord,
@@ -248,6 +250,55 @@ export const qTestCaseGrid = (docPath: string) =>
   queryOptions({
     queryKey: ['tc-grid', docPath] as const,
     queryFn: () => api.get<TestCaseGrid>(`/api/testcases/grid?path=${encodeURIComponent(docPath)}`),
+  });
+
+// ---------------------------------------------------------------------------
+// Env profiles (tool / type / project)
+// ---------------------------------------------------------------------------
+
+/**
+ * Env profiles for one project. The key `['env-profiles', tool, type, project]`
+ * matches the inline query `EnvProfiles.tsx` used before this factory existed,
+ * so the page and the run-page Drawer read the SAME cache entry.
+ */
+export const qEnvProfilesByProject = (
+  tool: ToolId | undefined | '',
+  type: string | undefined | '',
+  project: string | undefined | '',
+) =>
+  queryOptions({
+    queryKey: ['env-profiles', tool, type, project] as const,
+    queryFn: () =>
+      api.get<EnvProfile[]>(
+        `/api/env-profiles/by-project?tool=${tool}&type=${type}&project=${project}`,
+      ),
+    enabled: !!tool && !!type && !!project,
+    staleTime: STALE.moderate,
+  });
+
+/** Id of the project's default profile (or `null`) — drives the Select pre-select. */
+export const qEnvDefault = (
+  tool: ToolId | undefined | '',
+  type: string | undefined | '',
+  project: string | undefined | '',
+) =>
+  queryOptions({
+    queryKey: ['env-profiles-default', tool, type, project] as const,
+    queryFn: () =>
+      api.get<{ defaultId: string | null }>(
+        `/api/env-profiles/default?tool=${tool}&type=${type}&project=${project}`,
+      ),
+    enabled: !!tool && !!type && !!project,
+    staleTime: STALE.moderate,
+  });
+
+/** Key-sync validation of one profile against its `.env.template`. */
+export const qEnvValidate = (id: string | undefined | '') =>
+  queryOptions({
+    queryKey: ['env-profiles-validate', id] as const,
+    queryFn: () => api.get<EnvProfileValidation>(`/api/env-profiles/validate?id=${id}`),
+    enabled: !!id,
+    staleTime: STALE.short,
   });
 
 /** The Hub's local user identity (`user: null` until a name has been set). */

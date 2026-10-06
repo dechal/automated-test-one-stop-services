@@ -79,6 +79,7 @@ export interface PersistedSchedule {
   lastRunId?: string;
   nextRunAt?: string;
   noOverlap?: boolean;
+  envProfileId?: string;
 }
 
 /** Persisted retention settings (see routes/system.ts). */
@@ -176,6 +177,7 @@ export const schedulesRepo: CollectionRepo<PersistedSchedule> = {
         lastRunId: readStr(row.last_run_id),
         nextRunAt: readStr(row.next_run_at),
         noOverlap: readBool(row.no_overlap),
+        envProfileId: readStr(row.env_profile_id),
       };
       return s;
     });
@@ -184,8 +186,8 @@ export const schedulesRepo: CollectionRepo<PersistedSchedule> = {
     db.exec('DELETE FROM schedules');
     const insert = db.prepare(
       `INSERT INTO schedules
-        (id, name, cron, enabled, created_at, last_run_at, last_status, last_run_id, next_run_at, no_overlap, ${REQ_COLS})
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`,
+        (id, name, cron, enabled, created_at, last_run_at, last_status, last_run_id, next_run_at, no_overlap, env_profile_id, ${REQ_COLS})
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`,
     );
     for (const s of rows) {
       insert.run(
@@ -199,6 +201,7 @@ export const schedulesRepo: CollectionRepo<PersistedSchedule> = {
         strCol(s.lastRunId),
         strCol(s.nextRunAt),
         boolCol(s.noOverlap),
+        strCol(s.envProfileId),
         ...runRequestValues(s.config),
       );
     }
@@ -327,6 +330,8 @@ export const envProfilesRepo: CollectionRepo<EnvProfile> = {
         entries,
         createdAt: readReqStr(row.created_at),
         updatedAt: readReqStr(row.updated_at),
+        isDefault: readBool(row.is_default),
+        allowOutsideTemplate: readBool(row.allow_outside_template),
       };
     });
   },
@@ -334,8 +339,8 @@ export const envProfilesRepo: CollectionRepo<EnvProfile> = {
     db.exec('DELETE FROM env_profile_entries');
     db.exec('DELETE FROM env_profiles');
     const insert = db.prepare(
-      `INSERT INTO env_profiles (id, name, environment, tool, type, project, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO env_profiles (id, name, environment, tool, type, project, created_at, updated_at, is_default, allow_outside_template)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const insertEntry = db.prepare(
       'INSERT INTO env_profile_entries (profile_id, key, value) VALUES (?, ?, ?)',
@@ -350,6 +355,8 @@ export const envProfilesRepo: CollectionRepo<EnvProfile> = {
         strCol(p.project),
         strCol(p.createdAt),
         strCol(p.updatedAt),
+        boolCol(p.isDefault),
+        boolCol(p.allowOutsideTemplate),
       );
       for (const [key, value] of Object.entries(p.entries ?? {})) {
         insertEntry.run(strCol(p.id), strCol(key), strCol(value));

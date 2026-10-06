@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import cron from 'node-cron';
 import { buildTaskCommand } from './command-builder.js';
 import { buildCustomCommand } from './custom-command-builder.js';
+import { envProfileService } from './env-profiles.js';
 import { getEnabledToolIds } from './manifest-registry.js';
 import { loadJson, saveJson } from './persistence.js';
 import { checkRunPreconditions } from './run-preconditions.js';
@@ -54,7 +55,15 @@ export interface Schedule {
    * but not yet exposed in the create form (always seeded `true`).
    */
   noOverlap?: boolean;
+  /**
+   * Env profile applied before the cron tick fires. Absent / `__current__` ⇒
+   * run with the project's `.env` on disk. Only meaningful for a tool schedule.
+   */
+  envProfileId?: string;
 }
+
+/** Sentinel for "use the project's .env on disk, apply no profile". */
+const CURRENT_ENV = '__current__';
 
 class SchedulerService {
   private schedules: Schedule[] = [];
@@ -123,7 +132,13 @@ class SchedulerService {
     return this.schedules.find((s) => s.id === id);
   }
 
-  create(name: string, cronExpr: string, config: RunRequest, command?: CustomCommand): Schedule {
+  create(
+    name: string,
+    cronExpr: string,
+    config: RunRequest,
+    command?: CustomCommand,
+    envProfileId?: string,
+  ): Schedule {
     if (!cron.validate(cronExpr)) {
       throw new Error(`Invalid cron expression: ${cronExpr}`);
     }
@@ -136,6 +151,9 @@ class SchedulerService {
       // Spread so a tool schedule keeps NO `command` key at all, rather than an
       // explicit `undefined` that would be persisted as `"command": null`.
       ...(command ? { command } : {}),
+      // Same spread: never store the `__current__` sentinel — an absent field
+      // means "use the project's .env on disk".
+      ...(envProfileId && envProfileId !== CURRENT_ENV ? { envProfileId } : {}),
       enabled: true,
       createdAt: new Date().toISOString(),
       noOverlap: true,
@@ -150,7 +168,10 @@ class SchedulerService {
   update(
     id: string,
     updates: Partial<
-      Pick<Schedule, 'name' | 'cron' | 'config' | 'command' | 'enabled' | 'noOverlap'>
+      Pick<
+        Schedule,
+        'name' | 'cron' | 'config' | 'command' | 'enabled' | 'noOverlap' | 'envProfileId'
+      >
     >,
   ): Schedule | null {
     const idx = this.schedules.findIndex((s) => s.id === id);
@@ -248,6 +269,29 @@ class SchedulerService {
           this.announceSkip(schedule, blockers.map((b) => b.message).join(' | '));
           this.persist();
           return;
+        }
+        // Apply the chosen env profile before building the command. Branch on
+        // the ApplyResult code: a missing profile is fail-soft (run with the
+        // current .env), but wrong keys / a write error SKIP this round —
+        // running with the wrong .env is worse than not running.
+        if (schedule.envProfileId && schedule.envProfileId !== CURRENT_ENV) {
+          const result = envProfileService.apply(schedule.envProfileId);
+          if (!result.success) {
+            if (result.code === 'NOT_FOUND') {
+              this.announceSkip(
+                schedule,
+                `env profile "${schedule.envProfileId}" was deleted — running with current .env`,
+              );
+            } else {
+              const detail =
+                result.code === 'OUTSIDE_TEMPLATE_KEYS'
+                  ? `keys outside template: ${result.extraKeys.join(', ')}`
+                  : result.error;
+              this.announceSkip(schedule, `env profile apply failed (${detail}) — skipped`);
+              this.persist();
+              return;
+            }
+          }
         }
       }
       const command = schedule.command

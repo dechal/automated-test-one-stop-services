@@ -1,12 +1,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { EnvProfile, ToolId } from '@hub/shared';
+import type { EnvProfile, EnvProfileValidation, ToolId } from '@hub/shared';
 import { nanoid } from 'nanoid';
 import { TOOLS_DIR } from '../config.js';
 import { parseEnvToRecord } from './env-parser.js';
 import { loadJson, saveJson } from './persistence.js';
 
 const PROFILES_FILE = 'env-profiles.json';
+
+/**
+ * Discriminated outcome of {@link EnvProfileService.apply}. Callers branch on
+ * `code` — the scheduler must NOT collapse this to `!success`, since
+ * `OUTSIDE_TEMPLATE_KEYS` and `NOT_FOUND` need different fire-time handling.
+ */
+export type ApplyResult =
+  | { success: true }
+  | { success: false; code: 'NOT_FOUND' }
+  | { success: false; code: 'OUTSIDE_TEMPLATE_KEYS'; extraKeys: string[] }
+  | { success: false; code: 'APPLY_FAILED'; error: string };
 
 function load(): EnvProfile[] {
   return loadJson<EnvProfile[]>(PROFILES_FILE, []);
@@ -62,6 +73,51 @@ class EnvProfileService {
     return updated;
   }
 
+  /**
+   * Compare a FULL profile's entry keys against its `.env.template` keys.
+   * `missingKeys` is a non-blocking warning; `extraKeys` is the gate the
+   * caller enforces against `allowOutsideTemplate`. Pass a resolved profile —
+   * on the update path, merge the patch over the stored record first, or
+   * `getTemplate` resolves the wrong project and reports every key as extra.
+   */
+  validate(profile: EnvProfile): EnvProfileValidation {
+    const template = this.getTemplate(profile.tool, profile.type, profile.project);
+    const templateKeys = Object.keys(template);
+    const hasTemplate = templateKeys.length > 0;
+    if (!hasTemplate) return { missingKeys: [], extraKeys: [], hasTemplate: false };
+    const profileKeys = new Set(Object.keys(profile.entries ?? {}));
+    const templateKeySet = new Set(templateKeys);
+    const missingKeys = templateKeys.filter((k) => !profileKeys.has(k));
+    const extraKeys = [...profileKeys].filter((k) => !templateKeySet.has(k));
+    return { missingKeys, extraKeys, hasTemplate: true };
+  }
+
+  /**
+   * Mark one profile the default for its (tool,type,project), clearing the flag
+   * on every sibling in a single `save` (one `writeCollection` transaction), so
+   * the "at most one default per project" invariant holds even under racing
+   * calls — each call rewrites the whole collection.
+   */
+  setDefault(id: string): EnvProfile | null {
+    const profiles = load();
+    const target = profiles.find((p) => p.id === id);
+    if (!target) return null;
+    const next = profiles.map((p) => {
+      if (p.tool === target.tool && p.type === target.type && p.project === target.project) {
+        return { ...p, isDefault: p.id === id };
+      }
+      return p;
+    });
+    save(next);
+    return next.find((p) => p.id === id) ?? null;
+  }
+
+  /** Id of the default profile for a (tool,type,project), or null when none. */
+  getDefault(tool: ToolId, type: string, project: string): string | null {
+    const match = this.getByProject(tool, type, project).find((p) => p.isDefault === true);
+    return match ? match.id : null;
+  }
+
   delete(id: string): boolean {
     const profiles = load();
     const idx = profiles.findIndex((p) => p.id === id);
@@ -76,13 +132,24 @@ class EnvProfileService {
    * Preserves comments, blank lines, and unrelated keys; only substitutes the
    * keys defined in the profile (or appends them at the bottom).
    */
-  apply(id: string): { success: boolean; error?: string } {
+  apply(id: string): ApplyResult {
     const profile = this.getById(id);
-    if (!profile) return { success: false, error: 'Profile not found' };
+    if (!profile) return { success: false, code: 'NOT_FOUND' };
+
+    // Gate keys outside the template unless this profile opts in. Checked
+    // before writing, so a rejected apply leaves `.env` untouched.
+    if (profile.allowOutsideTemplate !== true) {
+      const { extraKeys } = this.validate(profile);
+      if (extraKeys.length > 0) {
+        return { success: false, code: 'OUTSIDE_TEMPLATE_KEYS', extraKeys };
+      }
+    }
 
     const envPath = getProjectEnvPath(profile.tool, profile.type, profile.project);
     const dir = path.dirname(envPath);
-    if (!fs.existsSync(dir)) return { success: false, error: 'Project directory not found' };
+    if (!fs.existsSync(dir)) {
+      return { success: false, code: 'APPLY_FAILED', error: 'Project directory not found' };
+    }
 
     let existingLines: string[] = [];
     if (fs.existsSync(envPath)) {
@@ -119,7 +186,11 @@ class EnvProfileService {
       }
     }
 
-    fs.writeFileSync(envPath, newLines.join('\n'), 'utf8');
+    try {
+      fs.writeFileSync(envPath, newLines.join('\n'), 'utf8');
+    } catch (err) {
+      return { success: false, code: 'APPLY_FAILED', error: (err as Error).message };
+    }
     return { success: true };
   }
 

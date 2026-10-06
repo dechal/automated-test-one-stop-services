@@ -84,6 +84,7 @@ export const SCHEMA_DDL = `
     last_run_id  TEXT,
     next_run_at  TEXT,
     no_overlap   INTEGER,
+    env_profile_id TEXT,
     ${RUN_REQUEST_DDL}
   );
 
@@ -126,7 +127,9 @@ export const SCHEMA_DDL = `
     type        TEXT NOT NULL,
     project     TEXT NOT NULL,
     created_at  TEXT NOT NULL,
-    updated_at  TEXT NOT NULL
+    updated_at  TEXT NOT NULL,
+    is_default              INTEGER,
+    allow_outside_template  INTEGER
   );
   CREATE TABLE IF NOT EXISTS env_profile_entries (
     profile_id TEXT NOT NULL,

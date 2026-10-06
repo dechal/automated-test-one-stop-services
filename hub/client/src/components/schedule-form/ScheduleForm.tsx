@@ -27,10 +27,10 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { CronExpressionParser } from 'cron-parser';
 import cronstrue from 'cronstrue';
 import dayjs from 'dayjs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TbBookmark } from 'react-icons/tb';
 import { api } from '~/api/client.js';
-import { qProjectEnv } from '~/api/queries.js';
+import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
 import { SectionSelect } from '~/components/SectionSelect.js';
 import { TagSelector } from '~/components/TagSelector.js';
 import { toast } from '~/components/Toast.js';
@@ -43,6 +43,7 @@ import {
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
+import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
 import { buildTagQuery, parseTagQuery, type TagSelection } from '~/utils/tag-selection.js';
 import { toolSelectData } from '~/utils/tool-label.js';
@@ -93,6 +94,8 @@ export interface Schedule {
   config: RunRequest;
   /** Present ⇒ a CUSTOM schedule (a plain shell command); absent ⇒ a tool run. */
   command?: CustomCommand;
+  /** Env profile applied before each cron fire; `__current__`/absent ⇒ .env on disk. */
+  envProfileId?: string;
   enabled: boolean;
   createdAt: string;
   lastRunAt?: string;
@@ -169,6 +172,7 @@ export function ScheduleForm({
     script: '',
     args: '',
     cwd: '',
+    envProfileId: ENV_CURRENT,
   };
 
   const [name, setName] = useState(defaults.name);
@@ -190,6 +194,7 @@ export function ScheduleForm({
   const [script, setScript] = useState(defaults.script);
   const [args, setArgs] = useState(defaults.args);
   const [cwd, setCwd] = useState(defaults.cwd);
+  const [envProfileId, setEnvProfileId] = useState(defaults.envProfileId);
   const [initializedFor, setInitializedFor] = useState<string | null>(null);
 
   // Populate state when an edit-target schedule arrives (or changes id).
@@ -214,6 +219,7 @@ export function ScheduleForm({
     setScript(schedule.command?.script ?? defaults.script);
     setArgs(schedule.command?.args ?? defaults.args);
     setCwd(schedule.command?.cwd ?? defaults.cwd);
+    setEnvProfileId(schedule.envProfileId ?? ENV_CURRENT);
     setInitializedFor(schedule.id);
   }
 
@@ -237,6 +243,7 @@ export function ScheduleForm({
     setScript(defaults.script);
     setArgs(defaults.args);
     setCwd(defaults.cwd);
+    setEnvProfileId(defaults.envProfileId);
     setInitializedFor(null);
   }
 
@@ -278,6 +285,21 @@ export function ScheduleForm({
   );
   const perfTypeData = buildPerfTypeData(projectEnvQ.data?.entries);
   const tags = useProjectTags(sectionAxis ? '' : tool, effectiveType, project);
+
+  // Env profiles for the Select + the project's default for pre-selection.
+  const envProfilesQ = useQuery(qEnvProfilesByProject(tool, effectiveType, project));
+  const envDefaultQ = useQuery(qEnvDefault(tool, effectiveType, project));
+  const envOptions = buildEnvOptions(envProfilesQ.data, t('run.envCurrent'));
+
+  // Pre-select the project's default on a fresh (create) form once the data
+  // resolves. Edit populates from the stored schedule in the init block above,
+  // so only touch create (initializedFor stays null there).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: depend on the resolved data, not every field — mirrors the project effects.
+  useEffect(() => {
+    if (isEdit || !project) return;
+    if (envDefaultQ.data === undefined || envProfilesQ.data === undefined) return;
+    setEnvProfileId(resolveDefaultEnv(envDefaultQ.data.defaultId, envProfilesQ.data));
+  }, [isEdit, project, effectiveType, tool, envDefaultQ.data, envProfilesQ.data]);
 
   const bookmarksQ = useQuery<Bookmark[]>({
     queryKey: ['bookmarks'],
@@ -338,7 +360,13 @@ export function ScheduleForm({
       // list and history render. For a custom schedule the command is what runs.
       const command: CustomCommand | undefined =
         kind === 'custom' ? { script, args: args || undefined, cwd: cwd || undefined } : undefined;
-      const body = { name, cron: cronExpr, config, ...(command ? { command } : {}) };
+      const body = {
+        name,
+        cron: cronExpr,
+        config,
+        envProfileId,
+        ...(command ? { command } : {}),
+      };
       return isEdit
         ? api.put(`/api/schedules/${schedule?.id}`, body)
         : api.post('/api/schedules', body);
@@ -539,6 +567,17 @@ export function ScheduleForm({
                 searchable
               />
             </SimpleGrid>
+
+            {kind === 'tool' && project && (
+              <Select
+                label={t('run.environment')}
+                size="xs"
+                value={envProfileId}
+                onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
+                data={envOptions}
+                allowDeselect={false}
+              />
+            )}
 
             {sectionAxis && project && (
               <SimpleGrid cols={2} spacing="xs">

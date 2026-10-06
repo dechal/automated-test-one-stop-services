@@ -35,4 +35,9 @@ export interface ScheduleEntry {
   /** Outcome of the most recent run; 'pending' while a run is in flight. */
   lastStatus?: RunStatus | 'pending';
   nextRunAt?: string;
+  /**
+   * Env profile applied before the cron tick fires. Absent / `__current__` ⇒
+   * run with the project's `.env` on disk, as before.
+   */
+  envProfileId?: string;
 }

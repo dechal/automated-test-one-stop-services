@@ -16,30 +16,36 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** POST /api/schedules — create a new schedule (tool run, or custom command) */
-  app.post<{ Body: { name: string; cron: string; config: RunRequest; command?: CustomCommand } }>(
-    '/api/schedules',
-    async (req, reply) => {
-      // Validate a custom command HERE, at create time, so the user sees the
-      // rejection — a cron tick would only bury it in a log.
-      const invalid = req.body.command && validateCustomCommand(req.body.command);
-      if (invalid) {
-        reply.status(400);
-        return invalid;
-      }
-      try {
-        const schedule = scheduler.create(
-          req.body.name,
-          req.body.cron,
-          req.body.config,
-          req.body.command,
-        );
-        return schedule;
-      } catch (err) {
-        reply.status(400);
-        return { code: 'INVALID_CRON', message: (err as Error).message };
-      }
-    },
-  );
+  app.post<{
+    Body: {
+      name: string;
+      cron: string;
+      config: RunRequest;
+      command?: CustomCommand;
+      envProfileId?: string;
+    };
+  }>('/api/schedules', async (req, reply) => {
+    // Validate a custom command HERE, at create time, so the user sees the
+    // rejection — a cron tick would only bury it in a log.
+    const invalid = req.body.command && validateCustomCommand(req.body.command);
+    if (invalid) {
+      reply.status(400);
+      return invalid;
+    }
+    try {
+      const schedule = scheduler.create(
+        req.body.name,
+        req.body.cron,
+        req.body.config,
+        req.body.command,
+        req.body.envProfileId,
+      );
+      return schedule;
+    } catch (err) {
+      reply.status(400);
+      return { code: 'INVALID_CRON', message: (err as Error).message };
+    }
+  });
 
   /** PUT /api/schedules/:id — update a schedule */
   app.put<{
@@ -50,6 +56,7 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       config?: RunRequest;
       command?: CustomCommand;
       enabled?: boolean;
+      envProfileId?: string;
     };
   }>('/api/schedules/:id', async (req, reply) => {
     const invalid = req.body.command && validateCustomCommand(req.body.command);

@@ -36,7 +36,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useHotkeys } from '@mantine/hooks';
+import { useDisclosure, useHotkeys } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
@@ -51,15 +51,17 @@ import {
   TbPlayerStop,
   TbRefresh,
   TbSearch,
+  TbSettings,
   TbTextDecrease,
   TbTextIncrease,
   TbTrash,
   TbX,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
-import { qProjectEnv } from '~/api/queries.js';
+import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
 import { useSaveBookmark } from '~/components/BookmarkPanel.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
+import { EnvDrawer } from '~/components/env-profiles/EnvDrawer.js';
 import { FormModal } from '~/components/FormModal.js';
 import { InlineAlert } from '~/components/InlineAlert.js';
 import { SectionSelect } from '~/components/SectionSelect.js';
@@ -76,6 +78,7 @@ import { useRunTerminal } from '~/hooks/useRunTerminal.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
+import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
 import { mergeExtraArgs, parseRunArgs, SUPPORTS_RUN_FLAGS } from '~/utils/run-flags.js';
 import { getStatusColor } from '~/utils/run-status.js';
@@ -128,6 +131,12 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const [mode, setMode] = useState<RunMode>(initialConfig?.mode ?? prefs.defaultMode);
   const [type, setType] = useState(initialConfig?.type ?? '');
   const [project, setProject] = useState(initialConfig?.project ?? '');
+  // Env is session form state, NOT part of RunRequest/currentConfig: a manual
+  // run applies the profile before spawn and stores nothing (a deleted profile
+  // id must never land in a permanent record — same reason as the schedule
+  // column). `__current__` means "run with the project's .env on disk".
+  const [envProfileId, setEnvProfileId] = useState<string>(ENV_CURRENT);
+  const [envDrawerOpen, { open: openEnvDrawer, close: closeEnvDrawer }] = useDisclosure(false);
   const initialSelection = parseTagQuery(initialConfig?.tool ?? '', initialConfig?.tag);
   const [selectedTags, setSelectedTags] = useState<string[]>(initialSelection.include);
   const [excludedTags, setExcludedTags] = useState<string[]>(initialSelection.exclude);
@@ -369,6 +378,22 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const supportsTags = (toolView?.capabilities.tagsStrategy ?? 'none') !== 'none';
   const tags = useProjectTags(supportsTags ? tool : '', effectiveType, project);
 
+  // Env profiles + the project's default, for the Select and its pre-selection.
+  const envProfilesQ = useQuery(qEnvProfilesByProject(tool, effectiveType, project));
+  const envDefaultQ = useQuery(qEnvDefault(tool, effectiveType, project));
+  const envOptions = buildEnvOptions(envProfilesQ.data, t('run.envCurrent'));
+
+  // Pre-select the project's default profile once the list + default resolve.
+  // Parallel to the last-used-project effect; falls back to __current__.
+  useEffect(() => {
+    if (!project) {
+      setEnvProfileId(ENV_CURRENT);
+      return;
+    }
+    if (envDefaultQ.data === undefined || envProfilesQ.data === undefined) return;
+    setEnvProfileId(resolveDefaultEnv(envDefaultQ.data.defaultId, envProfilesQ.data));
+  }, [project, effectiveType, tool, envDefaultQ.data, envProfilesQ.data]);
+
   // One line of what a run will use, read from the same live state
   // `currentConfig()` submits: the axes that decide a run's identity, in the
   // order their fields appear in the expanded form.
@@ -576,7 +601,18 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     );
   }
 
-  function handleRun() {
+  async function handleRun() {
+    // Apply the chosen env profile to the project's .env BEFORE spawning. The
+    // runner only ever reads .env, so this is how "pick an env then run" takes
+    // effect. On failure (e.g. keys outside template) do NOT run.
+    if (envProfileId !== ENV_CURRENT) {
+      try {
+        await api.post(`/api/env-profiles/${envProfileId}/apply`);
+      } catch (err) {
+        toast.error((err as Error).message || t('run.applyBeforeRunFailed'));
+        return;
+      }
+    }
     const tagExpr = buildTagQuery(tool, selectedTags, excludedTags);
     const effectiveNoTrack = config.data?.forceTrack ? false : noTrack;
     runMutation.mutate({
@@ -803,7 +839,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                   rides at the end instead of costing its own row. */}
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <SimpleGrid
-                  cols={{ base: 1, xs: typeAxis ? 3 : 2 }}
+                  cols={{ base: 1, xs: typeAxis ? 4 : 3 }}
                   spacing="xs"
                   style={{ flex: 1, minWidth: 0 }}
                 >
@@ -851,7 +887,28 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                     data={projectsQ.data ?? []}
                     searchable
                   />
+                  <Select
+                    label={t('run.environment')}
+                    size="xs"
+                    disabled={isRunning || !project}
+                    value={envProfileId}
+                    onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
+                    data={envOptions}
+                    allowDeselect={false}
+                  />
                 </SimpleGrid>
+                <Tooltip label={t('run.manageEnv')} withArrow>
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    disabled={isRunning || !project}
+                    onClick={openEnvDrawer}
+                    aria-label={t('run.manageEnv')}
+                    style={{ flex: 'none' }}
+                  >
+                    <TbSettings size={18} />
+                  </ActionIcon>
+                </Tooltip>
                 {collapseToggle}
               </Group>
 
@@ -1423,6 +1480,14 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           data-autofocus
         />
       </FormModal>
+
+      <EnvDrawer
+        opened={envDrawerOpen}
+        onClose={closeEnvDrawer}
+        tool={tool}
+        type={effectiveType}
+        project={project}
+      />
     </div>
   );
 });

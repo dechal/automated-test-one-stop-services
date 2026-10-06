@@ -288,6 +288,18 @@ function ensureHistorySummaryColumns(db: DatabaseSync): void {
       db.exec(`ALTER TABLE ${table} ADD COLUMN req_discard_report INTEGER`);
     }
   }
+  // Env-profile default + per-config switch, and the schedule's chosen env
+  // profile, all arrived after the normalized schema shipped, so back-fill
+  // their columns on an older DB (guarded, so a no-op on a fresh/current DB).
+  if (tableExists(db, 'env_profiles') && !hasColumn(db, 'env_profiles', 'is_default')) {
+    db.exec('ALTER TABLE env_profiles ADD COLUMN is_default INTEGER');
+  }
+  if (tableExists(db, 'env_profiles') && !hasColumn(db, 'env_profiles', 'allow_outside_template')) {
+    db.exec('ALTER TABLE env_profiles ADD COLUMN allow_outside_template INTEGER');
+  }
+  if (tableExists(db, 'schedules') && !hasColumn(db, 'schedules', 'env_profile_id')) {
+    db.exec('ALTER TABLE schedules ADD COLUMN env_profile_id TEXT');
+  }
 }
 
 /**
