@@ -83,7 +83,15 @@ export const TAG_TAXONOMY: readonly TagCategory[] = [
     kind: 'test-type',
     label: 'Test Type',
     description: 'Category of testing being performed',
-    match: facetMatcher('TestType', ['functional', 'e2e', 'regression', 'api', 'security', 'rpa']),
+    match: facetMatcher('TestType', [
+      'functional',
+      'e2e',
+      'regression',
+      'api',
+      'security',
+      'rpa',
+      'loop',
+    ]),
   },
   {
     kind: 'flow-type',
