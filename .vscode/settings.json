@@ -311,13 +311,13 @@
   "errorLens.delay": 500,
   "diffEditor.ignoreTrimWhitespace": false,
   "editor.codeActionsOnSave": {
-    "source.removeUnusedImports": "explicit",
-    "source.action.useSortedKeys.biome": "explicit",
-    "source.organizeImports.biome": "explicit",
-    "source.fixAll.biome": "explicit",
     "source.organizeImports.ruff": "explicit",
     "source.fixAll.ruff": "explicit"
   },
+
+  "biome.requireConfiguration": true,
+  "biome.runFromTemporaryLocation": false,
+  "biome.suggestInstallingGlobally": false,
 
   "terminal.integrated.defaultProfile.windows": "Git Bash",
   "terminal.integrated.profiles.windows": {
