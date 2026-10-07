@@ -235,7 +235,15 @@ export type TagLevel = 'severity' | 'device' | 'flow' | 'test-type' | 'loop' | '
 const SEVERITY_TAGS = new Set(['@critical', '@high', '@medium', '@low']);
 const DEVICE_TAGS = new Set(['@desktop', '@tablet', '@mobile']);
 const FLOW_TAGS = new Set(['@positive', '@negative', '@edge']);
-const TEST_TYPE_TAGS = new Set(['@functional', '@e2e', '@regression', '@api', '@security', '@rpa']);
+const TEST_TYPE_TAGS = new Set([
+  '@functional',
+  '@e2e',
+  '@regression',
+  '@api',
+  '@security',
+  '@rpa',
+  '@loop',
+]);
 
 /**
  * A loop tag carries LOOP as a whole `_`/`-` delimited segment — the two shapes
