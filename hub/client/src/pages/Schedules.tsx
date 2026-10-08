@@ -24,6 +24,7 @@ import {
   TbCalendar,
   TbCalendarPlus,
   TbClock,
+  TbCopy,
   TbList,
   TbPencil,
   TbTerminal2,
@@ -84,6 +85,7 @@ export function SchedulesPage() {
   const queryClient = useQueryClient();
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+  const [duplicateFrom, setDuplicateFrom] = useState<Schedule | null>(null);
 
   /**
    * Which KIND of schedule the list shows. A custom schedule carries `command`;
@@ -399,6 +401,17 @@ export function SchedulesPage() {
                           </ActionIcon>
                           <ActionIcon
                             variant="subtle"
+                            color="gray"
+                            onClick={() => {
+                              setDuplicateFrom(s);
+                              openCreate();
+                            }}
+                            aria-label={t('schedule.duplicateAria')}
+                          >
+                            <TbCopy size={16} />
+                          </ActionIcon>
+                          <ActionIcon
+                            variant="subtle"
                             color="red"
                             onClick={() => handleDelete(s.id)}
                             aria-label={t('schedule.deleteAria')}
@@ -423,9 +436,14 @@ export function SchedulesPage() {
       <ScheduleForm
         mode="create"
         opened={createOpen}
-        onClose={closeCreate}
+        duplicateFrom={duplicateFrom}
+        onClose={() => {
+          closeCreate();
+          setDuplicateFrom(null);
+        }}
         onSuccess={() => {
           closeCreate();
+          setDuplicateFrom(null);
           queryClient.invalidateQueries({ queryKey: ['schedules'] });
         }}
       />

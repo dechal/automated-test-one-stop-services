@@ -1,5 +1,4 @@
 import type {
-  Bookmark,
   CustomCommand,
   HeadlessMode,
   PerformanceType,
@@ -28,9 +27,9 @@ import { CronExpressionParser } from 'cron-parser';
 import cronstrue from 'cronstrue';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { TbBookmark } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
+import { BookmarkLoadModal } from '~/components/BookmarkPanel.js';
 import { SectionSelect } from '~/components/SectionSelect.js';
 import { TagSelector } from '~/components/TagSelector.js';
 import { toast } from '~/components/Toast.js';
@@ -107,6 +106,7 @@ export interface ScheduleFormProps {
   mode: 'create' | 'edit';
   /** Required for edit mode; modal stays closed when null in edit mode. */
   schedule?: Schedule | null;
+  duplicateFrom?: Schedule | null;
   /** External `opened` flag for create mode (edit derives from `schedule != null`). */
   opened?: boolean;
   onClose: () => void;
@@ -126,12 +126,13 @@ export interface ScheduleFormProps {
 export function ScheduleForm({
   mode,
   schedule = null,
+  duplicateFrom = null,
   opened = false,
   onClose,
   onSuccess,
 }: ScheduleFormProps) {
   const isEdit = mode === 'edit';
-  const isOpen = isEdit ? !!schedule : opened;
+  const isOpen = isEdit ? !!schedule : opened || !!duplicateFrom;
   const t = useT();
   const advancedMode = usePreferences((s) => s.advancedMode);
   const cronPresets = [
@@ -196,6 +197,7 @@ export function ScheduleForm({
   const [cwd, setCwd] = useState(defaults.cwd);
   const [envProfileId, setEnvProfileId] = useState(defaults.envProfileId);
   const [initializedFor, setInitializedFor] = useState<string | null>(null);
+  const [duplicatedFrom, setDuplicatedFrom] = useState<string | null>(null);
 
   // Populate state when an edit-target schedule arrives (or changes id).
   if (isEdit && schedule && initializedFor !== schedule.id) {
@@ -223,6 +225,31 @@ export function ScheduleForm({
     setInitializedFor(schedule.id);
   }
 
+  if (!isEdit && duplicateFrom && duplicatedFrom !== duplicateFrom.id) {
+    setName(`${duplicateFrom.name} (copy)`);
+    setCronExpr(duplicateFrom.cron);
+    setTool(duplicateFrom.config.tool);
+    setType(duplicateFrom.config.type);
+    setProject(duplicateFrom.config.project);
+    setRunMode(duplicateFrom.config.mode);
+    setHeadless(duplicateFrom.config.headless ?? 'headless');
+    setExtraArgs(duplicateFrom.config.extraArgs ?? '');
+    setNoTrack(duplicateFrom.config.noTrack ?? false);
+    setSilent(fromConfigSilent(duplicateFrom.config));
+    setDiscardReport(duplicateFrom.config.discardReport ?? false);
+    setSection(duplicateFrom.config.section ?? '');
+    setPerfType(duplicateFrom.config.performanceType ?? 'LOAD');
+    const selection = parseTagExpression(duplicateFrom.config.tool, duplicateFrom.config.tag);
+    setSelectedTags(selection.include);
+    setExcludedTags(selection.exclude);
+    setKind(duplicateFrom.command ? 'custom' : 'tool');
+    setScript(duplicateFrom.command?.script ?? defaults.script);
+    setArgs(duplicateFrom.command?.args ?? defaults.args);
+    setCwd(duplicateFrom.command?.cwd ?? defaults.cwd);
+    setEnvProfileId(duplicateFrom.envProfileId ?? ENV_CURRENT);
+    setDuplicatedFrom(duplicateFrom.id);
+  }
+
   function resetForm(): void {
     setName(defaults.name);
     setCronExpr(defaults.cronExpr);
@@ -245,6 +272,7 @@ export function ScheduleForm({
     setCwd(defaults.cwd);
     setEnvProfileId(defaults.envProfileId);
     setInitializedFor(null);
+    setDuplicatedFrom(null);
   }
 
   function handleClose() {
@@ -296,22 +324,12 @@ export function ScheduleForm({
   // so only touch create (initializedFor stays null there).
   // biome-ignore lint/correctness/useExhaustiveDependencies: depend on the resolved data, not every field — mirrors the project effects.
   useEffect(() => {
-    if (isEdit || !project) return;
+    if (isEdit || duplicateFrom || !project) return;
     if (envDefaultQ.data === undefined || envProfilesQ.data === undefined) return;
     setEnvProfileId(resolveDefaultEnv(envDefaultQ.data.defaultId, envProfilesQ.data));
-  }, [isEdit, project, effectiveType, tool, envDefaultQ.data, envProfilesQ.data]);
+  }, [isEdit, duplicateFrom, project, effectiveType, tool, envDefaultQ.data, envProfilesQ.data]);
 
-  const bookmarksQ = useQuery<Bookmark[]>({
-    queryKey: ['bookmarks'],
-    queryFn: () => api.get('/api/bookmarks'),
-    enabled: kind === 'tool',
-  });
-  const bookmarkData = (bookmarksQ.data ?? []).map((b) => ({ value: b.id, label: b.name }));
-
-  function applyBookmark(id: string | null): void {
-    const bookmark = bookmarksQ.data?.find((b) => b.id === id);
-    if (!bookmark) return;
-    const config = bookmark.config;
+  function applyBookmarkConfig(config: RunRequest): void {
     setTool(config.tool);
     setType(config.type);
     setProject(config.project);
@@ -524,17 +542,22 @@ export function ScheduleForm({
             </SimpleGrid>
 
             {kind === 'tool' && (
-              <Select
-                label={t('bookmark.load')}
-                size="xs"
-                value={null}
-                onChange={applyBookmark}
-                data={bookmarkData}
-                placeholder={t('bookmark.load')}
-                nothingFoundMessage={t('bookmark.empty')}
-                searchable
-                clearable
-                leftSection={<TbBookmark size={14} />}
+              <BookmarkLoadModal
+                getConfig={() => ({
+                  tool,
+                  type: effectiveType,
+                  project,
+                  mode: runMode,
+                  tag: tagExpr,
+                  headless: !sectionAxis && hasDisplay ? headless : undefined,
+                  extraArgs: extraArgs || undefined,
+                  noTrack: noTrack || undefined,
+                  silent: toConfigSilent(silent),
+                  discardReport: discardReport && !silent ? true : undefined,
+                  section: sectionAxis ? section || undefined : undefined,
+                  performanceType: sectionAxis ? perfType : undefined,
+                })}
+                onLoad={(config) => applyBookmarkConfig(config)}
               />
             )}
 

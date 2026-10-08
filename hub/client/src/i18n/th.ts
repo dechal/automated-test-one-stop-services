@@ -182,6 +182,7 @@ export const th: Record<TranslationKey, string> = {
   'tagSelector.clickToExclude': 'คลิกเพื่อกันออก',
   'tagSelector.clickToClear': 'คลิกเพื่อล้าง',
   'tagSelector.rightClickBack': 'คลิกขวาเพื่อย้อนกลับ',
+  'tagSelector.clearGroup': 'ล้างเฉพาะหมวดนี้',
   'tagSelector.state.off': 'ยังไม่เลือก',
   'tagSelector.state.include': 'เลือกรัน',
   'tagSelector.state.exclude': 'กันออก',
@@ -739,6 +740,7 @@ export const th: Record<TranslationKey, string> = {
   'schedule.deleteTitle': 'ลบตารางเวลา?',
   'schedule.deleteConfirm': 'จะลบตารางเวลานี้อย่างถาวร และการรันตามเวลาจะหยุดลง',
   'schedule.editAria': 'แก้ไขตารางเวลา',
+  'schedule.duplicateAria': 'ทำสำเนาตารางเวลา',
   'schedule.deleteAria': 'ลบตารางเวลา',
 
   // Reports toasts/dialogs

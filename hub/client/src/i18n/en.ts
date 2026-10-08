@@ -184,6 +184,7 @@ export const en = {
   'tagSelector.clickToExclude': 'click to exclude',
   'tagSelector.clickToClear': 'click to clear',
   'tagSelector.rightClickBack': 'right-click to step back',
+  'tagSelector.clearGroup': 'Clear this section',
   'tagSelector.state.off': 'not selected',
   'tagSelector.state.include': 'included',
   'tagSelector.state.exclude': 'excluded',
@@ -750,6 +751,7 @@ export const en = {
   'schedule.deleteTitle': 'Delete schedule?',
   'schedule.deleteConfirm': 'This will permanently remove the schedule. Scheduled runs will stop.',
   'schedule.editAria': 'Edit schedule',
+  'schedule.duplicateAria': 'Duplicate schedule',
   'schedule.deleteAria': 'Delete schedule',
 
   // Reports toasts/dialogs

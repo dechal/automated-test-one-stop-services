@@ -1,5 +1,6 @@
 import { TAG_KIND_ORDER, type TagGroup, type TagsResponse, type TestSummary } from '@hub/shared';
 import {
+  ActionIcon,
   Badge,
   Button,
   Collapse,
@@ -467,6 +468,31 @@ export function TagSelector({
                       <Badge size="xs" color="red" circle>
                         {excludedInGroup}
                       </Badge>
+                    )}
+                    {selectedInGroup + excludedInGroup > 0 && (
+                      <ActionIcon
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        aria-label={t('tagSelector.clearGroup')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const groupTags = new Set(group.tags);
+                          onChange(selectedTags.filter((tag) => !groupTags.has(tag)));
+                          onExcludeChange?.(excluded.filter((tag) => !groupTags.has(tag)));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const groupTags = new Set(group.tags);
+                            onChange(selectedTags.filter((tag) => !groupTags.has(tag)));
+                            onExcludeChange?.(excluded.filter((tag) => !groupTags.has(tag)));
+                          }
+                        }}
+                      >
+                        <TbX size={12} />
+                      </ActionIcon>
                     )}
                   </Group>
                 </UnstyledButton>
