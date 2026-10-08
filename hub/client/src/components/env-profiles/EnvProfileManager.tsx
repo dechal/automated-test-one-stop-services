@@ -90,7 +90,7 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
   const applyMutation = useMutation({
     mutationFn: (id: string) => api.post(`/api/env-profiles/${id}/apply`),
     onSuccess: (_data, id: string) => {
-      toast.success(t('envProfiles.applied'));
+      toast.success(t('envProfiles.applied'), { id: `env-apply-${id}-${Date.now()}` });
       setAppliedId(id);
       setTimeout(() => setAppliedId((cur) => (cur === id ? null : cur)), 4000);
       queryClient.invalidateQueries({ queryKey: ['env-profiles-active', tool, type, project] });
