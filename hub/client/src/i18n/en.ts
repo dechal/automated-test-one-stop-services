@@ -650,6 +650,7 @@ export const en = {
   'envProfiles.deleteTitle': 'Delete profile?',
   'envProfiles.deleteConfirm': 'This will permanently remove the environment profile.',
   'envProfiles.editProfile': 'Edit profile',
+  'envProfiles.duplicate': 'Duplicate',
   'envProfiles.deleteProfile': 'Delete profile',
   'envProfiles.apply': 'Apply',
   'envProfiles.applyTooltip':

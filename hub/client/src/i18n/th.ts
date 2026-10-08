@@ -639,6 +639,7 @@ export const th: Record<TranslationKey, string> = {
   'envProfiles.deleteTitle': 'ลบโปรไฟล์?',
   'envProfiles.deleteConfirm': 'จะลบโปรไฟล์ environment นี้อย่างถาวร',
   'envProfiles.editProfile': 'แก้ไขโปรไฟล์',
+  'envProfiles.duplicate': 'ทำสำเนา',
   'envProfiles.deleteProfile': 'ลบโปรไฟล์',
   'envProfiles.apply': 'ใช้งาน',
   'envProfiles.applyTooltip': 'เขียนค่าของโปรไฟล์นี้ลงไฟล์ .env ของโปรเจกต์ (ทับค่าปัจจุบัน)',

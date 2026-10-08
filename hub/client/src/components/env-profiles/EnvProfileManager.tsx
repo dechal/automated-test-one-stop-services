@@ -18,6 +18,7 @@ import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import {
   TbCheck,
+  TbCopy,
   TbDownload,
   TbKey,
   TbPencil,
@@ -55,6 +56,7 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
   const queryClient = useQueryClient();
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [editing, setEditing] = useState<EnvProfile | null>(null);
+  const [duplicateFrom, setDuplicateFrom] = useState<EnvProfile | null>(null);
   const [captureOpen, { open: openCapture, close: closeCapture }] = useDisclosure(false);
   const [appliedId, setAppliedId] = useState<string | null>(null);
 
@@ -228,6 +230,19 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
                     >
                       <TbPencil size={16} />
                     </ActionIcon>
+                    <Tooltip label={t('envProfiles.duplicate')}>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        onClick={() => {
+                          setDuplicateFrom(p);
+                          openCreate();
+                        }}
+                        aria-label={t('envProfiles.duplicate')}
+                      >
+                        <TbCopy size={16} />
+                      </ActionIcon>
+                    </Tooltip>
                     <ActionIcon
                       variant="subtle"
                       color="red"
@@ -246,12 +261,17 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
 
       <ProfileFormModal
         opened={createOpen}
-        onClose={closeCreate}
+        duplicateFrom={duplicateFrom}
+        onClose={() => {
+          closeCreate();
+          setDuplicateFrom(null);
+        }}
         tool={tool}
         type={type}
         project={project}
         onSuccess={() => {
           closeCreate();
+          setDuplicateFrom(null);
           invalidateAll();
         }}
       />
@@ -285,9 +305,33 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
   );
 }
 
+function seedSource(
+  profile?: EnvProfile | null,
+  duplicateFrom?: EnvProfile | null,
+): EnvProfile | null {
+  return profile ?? duplicateFrom ?? null;
+}
+
+function seedName(profile?: EnvProfile | null, duplicateFrom?: EnvProfile | null): string {
+  if (profile) return profile.name;
+  if (duplicateFrom) return `${duplicateFrom.name} (copy)`;
+  return '';
+}
+
+function seedRows(
+  profile?: EnvProfile | null,
+  duplicateFrom?: EnvProfile | null,
+): Array<{ key: string; value: string }> {
+  const source = seedSource(profile, duplicateFrom);
+  return source
+    ? Object.entries(source.entries).map(([key, value]) => ({ key, value }))
+    : [{ key: '', value: '' }];
+}
+
 function ProfileFormModal({
   opened,
   profile,
+  duplicateFrom,
   tool,
   type,
   project,
@@ -296,6 +340,7 @@ function ProfileFormModal({
 }: {
   opened: boolean;
   profile?: EnvProfile | null;
+  duplicateFrom?: EnvProfile | null;
   tool: string;
   type: string;
   project: string;
@@ -304,25 +349,23 @@ function ProfileFormModal({
 }) {
   const isEdit = !!profile;
   const t = useT();
-  const [name, setName] = useState(profile?.name ?? '');
-  const [environment, setEnvironment] = useState(profile?.environment ?? 'dev');
-  const [allowOutside, setAllowOutside] = useState(profile?.allowOutsideTemplate ?? false);
+  const [name, setName] = useState(seedName(profile, duplicateFrom));
+  const [environment, setEnvironment] = useState(
+    seedSource(profile, duplicateFrom)?.environment ?? 'dev',
+  );
+  const [allowOutside, setAllowOutside] = useState(
+    seedSource(profile, duplicateFrom)?.allowOutsideTemplate ?? false,
+  );
   const [rows, setRows] = useState<Array<{ key: string; value: string }>>(
-    profile
-      ? Object.entries(profile.entries).map(([key, value]) => ({ key, value }))
-      : [{ key: '', value: '' }],
+    seedRows(profile, duplicateFrom),
   );
 
   useEffect(() => {
-    setName(profile?.name ?? '');
-    setEnvironment(profile?.environment ?? 'dev');
-    setAllowOutside(profile?.allowOutsideTemplate ?? false);
-    setRows(
-      profile
-        ? Object.entries(profile.entries).map(([key, value]) => ({ key, value }))
-        : [{ key: '', value: '' }],
-    );
-  }, [profile]);
+    setName(seedName(profile, duplicateFrom));
+    setEnvironment(seedSource(profile, duplicateFrom)?.environment ?? 'dev');
+    setAllowOutside(seedSource(profile, duplicateFrom)?.allowOutsideTemplate ?? false);
+    setRows(seedRows(profile, duplicateFrom));
+  }, [profile, duplicateFrom]);
 
   // Template drives both the pre-fill button and the live key-sync feedback, so
   // it is fetched whenever the modal is open (not only for create).
