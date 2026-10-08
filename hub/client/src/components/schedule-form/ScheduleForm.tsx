@@ -7,6 +7,7 @@ import type {
   ToolId,
 } from '@hub/shared';
 import {
+  ActionIcon,
   Badge,
   Button,
   Checkbox,
@@ -22,14 +23,17 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CronExpressionParser } from 'cron-parser';
 import cronstrue from 'cronstrue';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
+import { TbSettings } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
 import { BookmarkLoadModal } from '~/components/BookmarkPanel.js';
+import { EnvProfileManager } from '~/components/env-profiles/EnvProfileManager.js';
 import { SectionSelect } from '~/components/SectionSelect.js';
 import { TagSelector } from '~/components/TagSelector.js';
 import { toast } from '~/components/Toast.js';
@@ -198,6 +202,7 @@ export function ScheduleForm({
   const [envProfileId, setEnvProfileId] = useState(defaults.envProfileId);
   const [initializedFor, setInitializedFor] = useState<string | null>(null);
   const [duplicatedFrom, setDuplicatedFrom] = useState<string | null>(null);
+  const [envManagerOpen, { open: openEnvManager, close: closeEnvManager }] = useDisclosure(false);
 
   // Populate state when an edit-target schedule arrives (or changes id).
   if (isEdit && schedule && initializedFor !== schedule.id) {
@@ -592,14 +597,28 @@ export function ScheduleForm({
             </SimpleGrid>
 
             {kind === 'tool' && project && (
-              <Select
-                label={t('run.environment')}
-                size="xs"
-                value={envProfileId}
-                onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
-                data={envOptions}
-                allowDeselect={false}
-              />
+              <Group gap="xs" align="flex-end" wrap="nowrap">
+                <Select
+                  label={t('run.environment')}
+                  size="xs"
+                  value={envProfileId}
+                  onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
+                  data={envOptions}
+                  allowDeselect={false}
+                  style={{ flex: 1 }}
+                />
+                <Tooltip label={t('run.manageEnv')} withArrow>
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    onClick={openEnvManager}
+                    aria-label={t('run.manageEnv')}
+                    style={{ flex: 'none' }}
+                  >
+                    <TbSettings size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             )}
 
             {sectionAxis && project && (
@@ -710,6 +729,19 @@ export function ScheduleForm({
             {isEdit ? t('schedule.saveSchedule') : t('schedule.createSchedule')}
           </Button>
         </Group>
+
+        {kind === 'tool' && project && (
+          <Modal
+            opened={envManagerOpen}
+            onClose={closeEnvManager}
+            title={t('envProfiles.title')}
+            size="lg"
+            centered
+            scrollAreaComponent={ScrollArea.Autosize}
+          >
+            <EnvProfileManager tool={tool} type={effectiveType} project={project} />
+          </Modal>
+        )}
       </Stack>
     </Modal>
   );
