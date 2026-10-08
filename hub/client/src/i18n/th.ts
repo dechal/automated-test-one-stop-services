@@ -635,14 +635,14 @@ export const th: Record<TranslationKey, string> = {
   'schedule.cronMon7': 'ทุกวันจันทร์ 7 โมงเช้า',
 
   // Env profiles (list + modals)
-  'envProfiles.applied': 'ใช้โปรไฟล์แล้ว',
   'envProfiles.deleted': 'ลบโปรไฟล์แล้ว',
   'envProfiles.deleteTitle': 'ลบโปรไฟล์?',
   'envProfiles.deleteConfirm': 'จะลบโปรไฟล์ environment นี้อย่างถาวร',
-  'envProfiles.applyTooltip': 'ใช้โปรไฟล์นี้',
-  'envProfiles.apply': 'ใช้งาน',
   'envProfiles.editProfile': 'แก้ไขโปรไฟล์',
   'envProfiles.deleteProfile': 'ลบโปรไฟล์',
+  'envProfiles.apply': 'ใช้งาน',
+  'envProfiles.applyTooltip': 'เขียนค่าของโปรไฟล์นี้ลงไฟล์ .env ของโปรเจกต์ (ทับค่าปัจจุบัน)',
+  'envProfiles.applied': 'ใช้โปรไฟล์แล้ว',
   'envProfiles.templateEmpty': 'เทมเพลตว่างเปล่า',
   'envProfiles.keysFromTemplate': 'คีย์ที่โหลดจากเทมเพลต',
   'envProfiles.profileUpdated': 'อัปเดตโปรไฟล์แล้ว',

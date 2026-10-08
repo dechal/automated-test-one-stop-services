@@ -605,6 +605,7 @@ export function ScheduleForm({
                   onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
                   data={envOptions}
                   allowDeselect={false}
+                  searchable
                   style={{ flex: 1 }}
                 />
                 <Tooltip label={t('run.manageEnv')} withArrow>

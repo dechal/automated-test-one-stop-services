@@ -21,7 +21,7 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark">
       <ModalsProvider>
-        <Notifications position="bottom-right" />
+        <Notifications position="bottom-right" zIndex={1000} />
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />
         </QueryClientProvider>

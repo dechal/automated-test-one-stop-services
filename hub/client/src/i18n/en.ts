@@ -646,14 +646,15 @@ export const en = {
   'schedule.cronMon7': 'Every Monday 7am',
 
   // Env profiles (list + modals)
-  'envProfiles.applied': 'Profile applied',
   'envProfiles.deleted': 'Profile deleted',
   'envProfiles.deleteTitle': 'Delete profile?',
   'envProfiles.deleteConfirm': 'This will permanently remove the environment profile.',
-  'envProfiles.applyTooltip': 'Apply this profile',
-  'envProfiles.apply': 'Apply',
   'envProfiles.editProfile': 'Edit profile',
   'envProfiles.deleteProfile': 'Delete profile',
+  'envProfiles.apply': 'Apply',
+  'envProfiles.applyTooltip':
+    "Write this profile's keys into the project .env file (overwrites current values).",
+  'envProfiles.applied': 'Profile applied',
   'envProfiles.templateEmpty': 'Template is empty',
   'envProfiles.keysFromTemplate': 'keys loaded from template',
   'envProfiles.profileUpdated': 'Profile updated',

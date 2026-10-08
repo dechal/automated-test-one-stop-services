@@ -56,6 +56,7 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [editing, setEditing] = useState<EnvProfile | null>(null);
   const [captureOpen, { open: openCapture, close: closeCapture }] = useDisclosure(false);
+  const [appliedId, setAppliedId] = useState<string | null>(null);
 
   const profiles = useQuery(qEnvProfilesByProject(tool, type, project));
 
@@ -78,25 +79,20 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
     queryClient.invalidateQueries({ queryKey: ['env-profiles-active', tool, type, project] });
   }
 
-  const applyMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/api/env-profiles/${id}/apply`),
-    onSuccess: () => {
-      toast.success(t('envProfiles.applied'));
-      queryClient.invalidateQueries({ queryKey: ['env-profiles-active', tool, type, project] });
-    },
-    onError: (err) => toast.error((err as Error).message),
-  });
-
   const defaultMutation = useMutation({
     mutationFn: (id: string) => api.post(`/api/env-profiles/${id}/default`),
     onSuccess: () => invalidateAll(),
     onError: (err) => toast.error((err as Error).message),
   });
 
-  const allowOutsideMutation = useMutation({
-    mutationFn: ({ id, allow }: { id: string; allow: boolean }) =>
-      api.put(`/api/env-profiles/${id}`, { allowOutsideTemplate: allow }),
-    onSuccess: () => invalidateAll(),
+  const applyMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/api/env-profiles/${id}/apply`),
+    onSuccess: (_data, id: string) => {
+      toast.success(t('envProfiles.applied'));
+      setAppliedId(id);
+      setTimeout(() => setAppliedId((cur) => (cur === id ? null : cur)), 4000);
+      queryClient.invalidateQueries({ queryKey: ['env-profiles-active', tool, type, project] });
+    },
     onError: (err) => toast.error((err as Error).message),
   });
 
@@ -191,17 +187,28 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
                     <Text size="xs" c="dimmed">
                       {Object.keys(p.entries).length} keys · Updated {dayjs(p.updatedAt).fromNow()}
                     </Text>
-                    <Switch
-                      mt={6}
-                      size="xs"
-                      label={t('envProfiles.allowOutside')}
-                      checked={p.allowOutsideTemplate ?? false}
-                      onChange={(e) =>
-                        allowOutsideMutation.mutate({ id: p.id, allow: e.currentTarget.checked })
-                      }
-                    />
                   </Stack>
                   <Group gap="xs">
+                    {appliedId === p.id && (
+                      <Group gap={4} c="green">
+                        <TbCheck size={14} />
+                        <Text size="xs" fw={500}>
+                          {t('envProfiles.applied')}
+                        </Text>
+                      </Group>
+                    )}
+                    <Tooltip label={t('envProfiles.applyTooltip')} multiline w={240} withArrow>
+                      <Button
+                        variant="light"
+                        size="compact-xs"
+                        color="teal"
+                        onClick={() => applyMutation.mutate(p.id)}
+                        loading={applyMutation.isPending && applyMutation.variables === p.id}
+                        leftSection={<TbPlayerPlay size={14} />}
+                      >
+                        {t('envProfiles.apply')}
+                      </Button>
+                    </Tooltip>
                     <Tooltip label={t('envProfiles.setDefault')}>
                       <ActionIcon
                         variant="subtle"
@@ -212,18 +219,6 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
                       >
                         {isDefault ? <TbStarFilled size={16} /> : <TbStar size={16} />}
                       </ActionIcon>
-                    </Tooltip>
-                    <Tooltip label={t('envProfiles.applyTooltip')}>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="green"
-                        leftSection={<TbPlayerPlay size={14} />}
-                        onClick={() => applyMutation.mutate(p.id)}
-                        loading={applyMutation.isPending && applyMutation.variables === p.id}
-                      >
-                        {t('envProfiles.apply')}
-                      </Button>
                     </Tooltip>
                     <ActionIcon
                       variant="subtle"
@@ -421,11 +416,13 @@ function ProfileFormModal({
         allowDeselect={false}
       />
 
-      <Switch
-        label={t('envProfiles.allowOutside')}
-        checked={allowOutside}
-        onChange={(e) => setAllowOutside(e.currentTarget.checked)}
-      />
+      {isEdit && (
+        <Switch
+          label={t('envProfiles.allowOutside')}
+          checked={allowOutside}
+          onChange={(e) => setAllowOutside(e.currentTarget.checked)}
+        />
+      )}
 
       {missingKeys.length > 0 && (
         <InlineAlert

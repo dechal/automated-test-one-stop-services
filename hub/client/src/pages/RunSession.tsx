@@ -895,6 +895,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                     onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
                     data={envOptions}
                     allowDeselect={false}
+                    searchable
                   />
                 </SimpleGrid>
                 <Tooltip label={t('run.manageEnv')} withArrow>
