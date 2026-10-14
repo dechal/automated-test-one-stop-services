@@ -567,6 +567,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       // Silent discards the report already, so never send both — the stored
       // config then reads as exactly one intent.
       discardReport: discardReport && !silent,
+      envProfileId: envProfileId !== ENV_CURRENT ? envProfileId : undefined,
       section: sectionAxis ? section : undefined,
       performanceType: sectionAxis ? perfType : undefined,
     };
@@ -602,17 +603,6 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   }
 
   async function handleRun() {
-    // Apply the chosen env profile to the project's .env BEFORE spawning. The
-    // runner only ever reads .env, so this is how "pick an env then run" takes
-    // effect. On failure (e.g. keys outside template) do NOT run.
-    if (envProfileId !== ENV_CURRENT) {
-      try {
-        await api.post(`/api/env-profiles/${envProfileId}/apply`);
-      } catch (err) {
-        toast.error((err as Error).message || t('run.applyBeforeRunFailed'));
-        return;
-      }
-    }
     const tagExpr = buildTagQuery(tool, selectedTags, excludedTags);
     const effectiveNoTrack = config.data?.forceTrack ? false : noTrack;
     runMutation.mutate({
@@ -626,6 +616,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       noTrack: effectiveNoTrack,
       silent,
       discardReport: discardReport && !silent,
+      envProfileId: envProfileId !== ENV_CURRENT ? envProfileId : undefined,
       section: sectionAxis ? section : undefined,
       performanceType: sectionAxis ? perfType : undefined,
     });

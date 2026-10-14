@@ -1,4 +1,4 @@
-import type { RunSummary } from '@hub/shared';
+import type { PneBreakdown, RunSummary } from '@hub/shared';
 import type { ReactNode } from 'react';
 import { TbAlertTriangle, TbCircleCheck, TbCircleX, TbClock, TbHelp } from 'react-icons/tb';
 import type { TranslationKey } from '~/i18n/en';
@@ -149,4 +149,14 @@ export function runOutcome(
     icon: <TbHelp size={size} />,
     emphasise: false,
   };
+}
+
+export function formatPneBreakdown(pne: PneBreakdown, t: (key: TranslationKey) => string): string {
+  const parts = [
+    `${t('run.pnePositive')} ${pne.positive}`,
+    `${t('run.pneNegative')} ${pne.negative}`,
+    `${t('run.pneEdge')} ${pne.edge}`,
+  ];
+  if (pne.unclassified > 0) parts.push(`${t('run.pneUnclassified')} ${pne.unclassified}`);
+  return parts.join(', ');
 }

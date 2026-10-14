@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { buildTaskCommand } from '../services/command-builder.js';
 import { getEnabledToolIds } from '../services/manifest-registry.js';
-import { reportEntryByRun, severityByRun } from '../services/reports.js';
+import { pneByRun, reportEntryByRun, severityByRun } from '../services/reports.js';
 import { compareRuns, failedSelectionFromReport } from '../services/run-compare.js';
 import { checkRunPreconditions } from '../services/run-preconditions.js';
 import { runner } from '../services/runner.js';
@@ -27,6 +27,7 @@ const runRequestSchema = z.object({
   noTrack: z.boolean().optional(),
   silent: z.boolean().optional(),
   discardReport: z.boolean().optional(),
+  envProfileId: z.string().optional(),
   section: z.string().optional(),
   performanceType: z
     .enum(['TEST_PROTOCOL', 'MINIMAL_LOAD', 'LOAD', 'STRESS', 'ENDURANCE', 'PEAK'])
@@ -75,10 +76,17 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
     // Enrich with the per-severity tally the report service already parsed,
     // matched back to each run (RunRecord has no path to its own results.json).
     const severity = await severityByRun(records);
-    if (severity.size === 0) return records;
+    const pne = await pneByRun(records);
+    if (severity.size === 0 && pne.size === 0) return records;
     return records.map((r) => {
       const sev = severity.get(r.id);
-      return sev ? { ...r, severity: sev } : r;
+      const p = pne.get(r.id);
+      const withSev = sev ? { ...r, severity: sev } : r;
+      if (!p) return withSev;
+      return {
+        ...withSev,
+        summary: withSev.summary ? { ...withSev.summary, pne: p } : withSev.summary,
+      };
     });
   });
 

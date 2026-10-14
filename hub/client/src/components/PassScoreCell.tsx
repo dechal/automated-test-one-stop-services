@@ -3,6 +3,7 @@ import { SEVERITY_LEVELS, weightedPassPercent } from '@hub/shared';
 import { Group, RingProgress, Text, Tooltip } from '@mantine/core';
 import { useT } from '~/i18n/index.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
+import { formatPneBreakdown } from '~/utils/run-status.js';
 
 /**
  * Ring size matches the `Badge size="sm"` (1.125rem = 18px) that every row of
@@ -84,6 +85,9 @@ export function PassScoreCell({
           ` / ${total.toLocaleString()}`,
       );
     }
+  }
+  if (summary?.pne) {
+    tooltipLines.push(formatPneBreakdown(summary.pne, t));
   }
 
   return (

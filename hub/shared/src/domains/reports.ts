@@ -54,6 +54,8 @@ export interface ReportEntry {
    * Run mode (local | docker) from the matched run request.
    */
   runMode?: string;
+  environment?: string;
+  envProfileName?: string;
 }
 
 const RUN_DATE_DIR = /^\d{4}-\d{2}-\d{2}$/;

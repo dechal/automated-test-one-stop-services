@@ -67,6 +67,8 @@ export const SCHEMA_DDL = `
     summary_failed  INTEGER,
     summary_skipped INTEGER,
     triggered_by    TEXT,
+    environment     TEXT,
+    env_profile_name TEXT,
     ${RUN_REQUEST_DDL}
   );
   CREATE INDEX IF NOT EXISTS idx_history_started_at ON history(started_at DESC);

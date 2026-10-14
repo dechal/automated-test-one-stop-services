@@ -281,6 +281,12 @@ function ensureHistorySummaryColumns(db: DatabaseSync): void {
   if (!hasColumn(db, 'history', 'output_stamp')) {
     db.exec('ALTER TABLE history ADD COLUMN output_stamp TEXT');
   }
+  if (!hasColumn(db, 'history', 'environment')) {
+    db.exec('ALTER TABLE history ADD COLUMN environment TEXT');
+  }
+  if (!hasColumn(db, 'history', 'env_profile_name')) {
+    db.exec('ALTER TABLE history ADD COLUMN env_profile_name TEXT');
+  }
   // `req_discard_report` joined the flattened RunRequest later than the rest, so
   // every table that embeds RUN_REQUEST_DDL needs it back-filled on an older DB.
   for (const table of ['history', 'schedules', 'bookmarks']) {

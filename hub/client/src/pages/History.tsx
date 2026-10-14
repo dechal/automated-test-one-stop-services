@@ -54,7 +54,12 @@ import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
 import { formatAbsolute, formatDurationBetween, formatRelative } from '~/utils/datetime.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
-import { getStatusColor, getStatusIcon, runOutcome } from '~/utils/run-status.js';
+import {
+  formatPneBreakdown,
+  getStatusColor,
+  getStatusIcon,
+  runOutcome,
+} from '~/utils/run-status.js';
 import { buildTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
@@ -193,6 +198,8 @@ export function HistoryPage() {
       status: r.status,
       mode: r.request.mode,
       triggeredBy: r.triggeredBy ?? 'manual',
+      environment: r.environment ?? '',
+      envProfileName: r.envProfileName ?? '',
       tag: r.request.tag ?? '',
       cases: r.summary ? r.summary.passed + r.summary.failed + (r.summary.skipped ?? 0) : '',
       passed: r.summary?.passed ?? '',
@@ -610,7 +617,7 @@ export function HistoryPage() {
               highlightOnHover
               verticalSpacing="xs"
               stickyHeader
-              miw={advancedMode ? 1200 : 1060}
+              miw={advancedMode ? 1300 : 1160}
             >
               <Table.Thead>
                 <Table.Tr>
@@ -650,6 +657,7 @@ export function HistoryPage() {
                   <Table.Th>{t('table.tag')}</Table.Th>
                   <Table.Th>{t('table.mode')}</Table.Th>
                   <Table.Th>{t('table.trigger')}</Table.Th>
+                  <Table.Th>{t('table.environment')}</Table.Th>
                   <Table.Th>{t('table.duration')}</Table.Th>
                   <Table.Th>
                     <SortableHeader
@@ -723,11 +731,9 @@ export function HistoryPage() {
                     <Table.Td>
                       {r.summary ? (
                         <Tooltip
-                          label={(
-                            r.summary.passed +
-                            r.summary.failed +
-                            (r.summary.skipped ?? 0)
-                          ).toLocaleString()}
+                          label={`${(
+                            r.summary.passed + r.summary.failed + (r.summary.skipped ?? 0)
+                          ).toLocaleString()}${r.summary.pne ? ` (${formatPneBreakdown(r.summary.pne, t)})` : ''}`}
                           withArrow
                         >
                           <Text size="xs" c="dimmed">
@@ -789,6 +795,19 @@ export function HistoryPage() {
                           {t(`trigger.${r.triggeredBy ?? 'manual'}`)}
                         </Text>
                       </Tooltip>
+                    </Table.Td>
+                    <Table.Td>
+                      {r.envProfileName || r.environment ? (
+                        <Tooltip label={r.environment ?? '—'} withArrow>
+                          <Text size="xs" c="dimmed" truncate maw={100}>
+                            {r.envProfileName ?? r.environment}
+                          </Text>
+                        </Tooltip>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          —
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       <Tooltip

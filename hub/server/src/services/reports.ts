@@ -1,10 +1,18 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { ReportEntry, RunRecord, RunStatus, SeverityBreakdown, ToolId } from '@hub/shared';
+import type {
+  PneBreakdown,
+  ReportEntry,
+  RunRecord,
+  RunStatus,
+  SeverityBreakdown,
+  ToolId,
+} from '@hub/shared';
 import { OUTPUTS_DIR } from '../config.js';
 import { historyStore } from './history-store.js';
 import { getEnabledTools, getManifestModule } from './manifest-registry.js';
+import { pneFromReportPath } from './pne-parse.js';
 import { severityFromReportPath } from './severity-parse.js';
 
 /**
@@ -85,7 +93,18 @@ async function buildAllEntries(): Promise<ReportEntry[]> {
   walkOutputs(OUTPUTS_DIR, toolConfigs, entries);
   attachSummaries(entries);
   attachSeverity(entries);
+  attachPne(entries);
   return entries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+function attachPne(entries: ReportEntry[]): void {
+  for (const entry of entries) applyPneToEntry(entry);
+}
+
+export function applyPneToEntry(entry: ReportEntry): void {
+  if (entry.tool !== 'playwright' || !entry.summary) return;
+  const pne = pneFromReportPath(entry.reportPath);
+  if (pne) entry.summary = { ...entry.summary, pne };
 }
 
 /**
@@ -189,6 +208,8 @@ function applyRunToEntry(entry: ReportEntry, run: RunRecord): void {
   }
   if (run.request.tag) entry.runTag = run.request.tag;
   entry.runMode = run.request.mode;
+  if (run.environment !== undefined) entry.environment = run.environment;
+  if (run.envProfileName !== undefined) entry.envProfileName = run.envProfileName;
 }
 
 /** Drop the cache so the next listReports call re-walks `outputs/`. */
@@ -270,6 +291,15 @@ export async function severityByRun(runs: RunRecord[]): Promise<Map<string, Seve
   const result = new Map<string, SeverityBreakdown>();
   for (const [runId, entry] of matched) {
     if (entry.severity) result.set(runId, entry.severity);
+  }
+  return result;
+}
+
+export async function pneByRun(runs: RunRecord[]): Promise<Map<string, PneBreakdown>> {
+  const matched = await reportEntryByRun(runs, (e) => !!e.summary?.pne);
+  const result = new Map<string, PneBreakdown>();
+  for (const [runId, entry] of matched) {
+    if (entry.summary?.pne) result.set(runId, entry.summary.pne);
   }
   return result;
 }

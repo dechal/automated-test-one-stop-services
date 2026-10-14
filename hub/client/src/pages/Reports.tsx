@@ -50,7 +50,12 @@ import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { formatAbsolute, formatDurationMs, formatRelative } from '~/utils/datetime.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
-import { getStatusColor, getStatusIcon, runOutcome } from '~/utils/run-status.js';
+import {
+  formatPneBreakdown,
+  getStatusColor,
+  getStatusIcon,
+  runOutcome,
+} from '~/utils/run-status.js';
 
 const ALL_STATUSES = ['success', 'error'];
 
@@ -77,7 +82,7 @@ function CaseCountCell({ summary }: { summary?: RunSummary }) {
   const total = summary.passed + summary.failed + (summary.skipped ?? 0);
   const breakdown = `${total.toLocaleString()} ${t('reports.cases').toLowerCase()} — ${summary.passed.toLocaleString()} ${t('run.passed')} · ${summary.failed.toLocaleString()} ${t('run.failed')}${
     summary.skipped ? ` · ${summary.skipped.toLocaleString()} ${t('run.skipped')}` : ''
-  }`;
+  }${summary.pne ? ` (${formatPneBreakdown(summary.pne, t)})` : ''}`;
   return (
     <Tooltip label={breakdown} withArrow>
       <Group gap={5} wrap="nowrap">
@@ -619,7 +624,7 @@ export function ReportsPage() {
               // +60px over the previous 1100/820: lock and delete are their own
               // icons again, so the Actions column needs the room rather than
               // squeezing the Tag and Timestamp columns.
-              miw={advancedMode ? 1320 : 1040}
+              miw={advancedMode ? 1430 : 1150}
             >
               <Table.Thead>
                 <Table.Tr>
@@ -688,6 +693,7 @@ export function ReportsPage() {
                   <Table.Th>{t('table.duration')}</Table.Th>
                   <Table.Th>{t('table.tag')}</Table.Th>
                   {advancedMode && <Table.Th>{t('table.mode')}</Table.Th>}
+                  <Table.Th>{t('table.environment')}</Table.Th>
                   <Table.Th>
                     <SortableHeader
                       label={t('table.timestamp')}
@@ -839,6 +845,19 @@ export function ReportsPage() {
                         )}
                       </Table.Td>
                     )}
+                    <Table.Td>
+                      {r.envProfileName || r.environment ? (
+                        <Tooltip label={r.environment ?? '—'} withArrow>
+                          <Text size="xs" c="dimmed" truncate maw={100}>
+                            {r.envProfileName ?? r.environment}
+                          </Text>
+                        </Tooltip>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          —
+                        </Text>
+                      )}
+                    </Table.Td>
                     <Table.Td>
                       <Tooltip label={formatAbsolute(r.timestamp)} withArrow>
                         <Text size="xs" c="dimmed">

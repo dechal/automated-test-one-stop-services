@@ -114,12 +114,14 @@ function rowToRunRecord(row: Row): RunRecord {
     outputStamp: readStr(row.output_stamp),
     summary,
     triggeredBy: readStr(row.triggered_by) as RunRecord['triggeredBy'],
+    environment: readStr(row.environment),
+    envProfileName: readStr(row.env_profile_name),
   };
 }
 
 const HISTORY_INSERT = `INSERT OR REPLACE INTO history
-  (id, status, command, started_at, ended_at, exit_code, report_path, output_stamp, summary_passed, summary_failed, summary_skipped, triggered_by, ${REQ_COLS})
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`;
+  (id, status, command, started_at, ended_at, exit_code, report_path, output_stamp, summary_passed, summary_failed, summary_skipped, triggered_by, environment, env_profile_name, ${REQ_COLS})
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`;
 
 function historyValues(rec: RunRecord): SqlValue[] {
   return [
@@ -135,6 +137,8 @@ function historyValues(rec: RunRecord): SqlValue[] {
     numCol(rec.summary?.failed),
     numCol(rec.summary?.skipped),
     strCol(rec.triggeredBy),
+    strCol(rec.environment),
+    strCol(rec.envProfileName),
     ...runRequestValues(rec.request),
   ];
 }

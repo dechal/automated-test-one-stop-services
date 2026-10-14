@@ -43,6 +43,10 @@ vi.mock('../manifest-registry.js', () => ({
   }),
 }));
 
+const historyMock = vi.hoisted(() => ({ getAll: vi.fn(() => [] as unknown[]) }));
+vi.mock('../history-store.js', () => ({ historyStore: { getAll: historyMock.getAll } }));
+
+import type { RunRecord } from '@hub/shared';
 import { invalidateReportsCache, listReports } from '../reports.js';
 
 /** Build a full report path under outputs/ and write the result file. */
@@ -65,6 +69,8 @@ const builtIns: MockManifest[] = [
 describe('reports (manifest-driven)', () => {
   beforeEach(() => {
     hoisted.outputsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'reports-'));
+    historyMock.getAll.mockReset();
+    historyMock.getAll.mockReturnValue([]);
     invalidateReportsCache();
   });
 
@@ -135,6 +141,30 @@ describe('reports (manifest-driven)', () => {
 
     const all = await listReports();
     expect(all.map((e) => e.tool)).toEqual(['k6']);
+  });
+
+  it('copies envProfileName onto the matched entry alongside environment', async () => {
+    hoisted.manifests = builtIns;
+    const base = ['playwright', 'web', 'shop', 'success', '2024-05-05', '09-00-00'];
+    seedReport([...base, 'html-results', 'index.html']);
+
+    const run: RunRecord = {
+      id: 'run-1',
+      request: { tool: 'playwright', type: 'web', project: 'shop', mode: 'local' },
+      command: 'task test',
+      status: 'passed',
+      startedAt: new Date(2024, 4, 5, 9, 0, 0).toISOString(),
+      endedAt: new Date(2024, 4, 5, 9, 0, 30).toISOString(),
+      outputStamp: '2024-05-05/09-00-00',
+      environment: 'prod',
+      envProfileName: 'Main Prod',
+    };
+    historyMock.getAll.mockReturnValue([run]);
+
+    const all = await listReports();
+    const entry = all.find((e) => e.tool === 'playwright' && e.project === 'shop');
+    expect(entry?.environment).toBe('prod');
+    expect(entry?.envProfileName).toBe('Main Prod');
   });
 
   it('filters by tool/status are applied to the cached entries', async () => {

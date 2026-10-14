@@ -39,6 +39,7 @@ export interface RunRequest {
    * `outputs/` without bound. Ignored when `silent` is set, which discards more.
    */
   discardReport?: boolean;
+  envProfileId?: string;
   // k6-only
   section?: string;
   performanceType?: PerformanceType;
@@ -68,6 +69,8 @@ export interface RunRecord {
   summary?: RunSummary;
   /** How the run was launched. Persisted; defaults to 'manual' for legacy rows. */
   triggeredBy?: RunTrigger;
+  environment?: string;
+  envProfileName?: string;
   /**
    * Per-severity passed/failed tally, parsed on demand from the Playwright
    * `results.json` when serving history. Transient (never persisted) — derived

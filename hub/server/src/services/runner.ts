@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
+  type EnvProfile,
   parseRunSummary,
   type RunRecord,
   type RunRequest,
@@ -12,6 +13,7 @@ import {
 } from '@hub/shared';
 import { nanoid } from 'nanoid';
 import { BASH_PATH, WORKSPACE_ROOT } from '../config.js';
+import { envProfileService } from './env-profiles.js';
 import { historyStore } from './history-store.js';
 import { loadJson, saveJson } from './persistence.js';
 import { invalidateReportsCache } from './reports.js';
@@ -185,6 +187,15 @@ function fireUsageLog(command: string): void {
     )
     .catch(() => {});
 }
+function resolveActiveProfile(req: RunRequest): EnvProfile | undefined {
+  try {
+    const id = envProfileService.getActiveProfile(req.tool, req.type, req.project);
+    if (!id) return undefined;
+    return envProfileService.getById(id);
+  } catch {
+    return undefined;
+  }
+}
 
 class RunnerService extends EventEmitter {
   private active = new Map<string, ActiveRun>();
@@ -306,6 +317,14 @@ class RunnerService extends EventEmitter {
       CURRENT_DATE: stampDate,
       CURRENT_TIME: stampTime,
     };
+    const selectedProfile = record.request.envProfileId
+      ? envProfileService.getById(record.request.envProfileId)
+      : undefined;
+    if (selectedProfile) {
+      for (const [key, value] of Object.entries(selectedProfile.entries)) {
+        env[key] = value;
+      }
+    }
     if (env.PATH) {
       env.PATH = env.PATH.split(path.delimiter)
         .filter((p) => !p.includes('@pnpm'))
@@ -332,6 +351,10 @@ class RunnerService extends EventEmitter {
         job.release(); // couldn't enroll the process — drop it, use taskkill
       }
     }
+
+    const resolvedProfile = selectedProfile ?? resolveActiveProfile(record.request);
+    record.environment = resolvedProfile?.environment;
+    record.envProfileName = resolvedProfile?.name;
 
     this.persistInFlight(record);
 

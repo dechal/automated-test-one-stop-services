@@ -16,6 +16,14 @@ export interface RunSummary {
   passed: number;
   failed: number;
   skipped?: number;
+  pne?: PneBreakdown;
+}
+
+export interface PneBreakdown {
+  positive: number;
+  negative: number;
+  edge: number;
+  unclassified: number;
 }
 
 export function parseRunSummary(raw: string): RunSummary | null {
