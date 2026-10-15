@@ -61,7 +61,7 @@
     "_comment": "Controlled vocabulary for the test-case xlsx deliverable — the SINGLE source read by the AI layer's test-case content gate and documented in its own docs. Edit here; the gate falls back to these same values if this section is absent.",
     "severity_priority": ["Critical", "High", "Medium", "Low"],
     "test_type": ["Positive", "Negative", "Edge"],
-    "remark": ["verified-live", "needs-live-confirm"],
+    "remark": ["verified-live", "needs-live-confirm", "seasonal"],
     "test_case_id_pattern": "^TC-[A-Z0-9]+-\\d{3,}$"
   }
 }

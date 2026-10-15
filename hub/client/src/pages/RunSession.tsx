@@ -47,6 +47,7 @@ import {
   TbCopy,
   TbDeviceMobile,
   TbExternalLink,
+  TbFolder,
   TbPlayerPlay,
   TbPlayerStop,
   TbRefresh,
@@ -673,6 +674,15 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       await api.post('/api/reports/open-file', { path: reportPath });
     } catch {
       toast.error(t('runlog.openReportFailed'));
+    }
+  }
+
+  async function handleRevealReport(): Promise<void> {
+    if (!reportPath) return;
+    try {
+      await api.post('/api/system/reveal', { path: reportPath });
+    } catch (err) {
+      toast.error((err as Error).message || t('run.revealReportFailed'));
     }
   }
 
@@ -1377,18 +1387,32 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             style={{ flexShrink: 0 }}
           >
             {advancedMode && (
-              <Code
-                fz="xs"
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {lastCommand}
-              </Code>
+              <Group gap={4} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                <Code
+                  fz="xs"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {lastCommand}
+                </Code>
+                <Tooltip label={t('run.copy')} withArrow>
+                  <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    color="gray"
+                    onClick={handleCopyCommand}
+                    aria-label={t('run.copy')}
+                    style={{ flexShrink: 0 }}
+                  >
+                    <TbCopy size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             )}
             <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
               {!isRunning && elapsed && (
@@ -1407,6 +1431,17 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                   >
                     {t('runlog.openReport')}
                   </Button>
+                  <Tooltip label={t('run.revealReportHint')} withArrow>
+                    <Button
+                      size="sm"
+                      variant="subtle"
+                      color="gray"
+                      onClick={handleRevealReport}
+                      leftSection={<TbFolder size={16} />}
+                    >
+                      {t('run.revealReport')}
+                    </Button>
+                  </Tooltip>
                   <Tooltip
                     label={t('reports.favoriteLockedHint')}
                     withArrow
@@ -1433,17 +1468,6 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                   leftSection={<TbRefresh size={16} />}
                 >
                   {t('run.rerun')}
-                </Button>
-              )}
-              {advancedMode && (
-                <Button
-                  size="sm"
-                  variant="subtle"
-                  color="gray"
-                  onClick={handleCopyCommand}
-                  leftSection={<TbCopy size={16} />}
-                >
-                  {t('run.copy')}
                 </Button>
               )}
             </Group>

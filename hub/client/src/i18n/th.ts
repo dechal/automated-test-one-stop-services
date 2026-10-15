@@ -202,6 +202,9 @@ export const th: Record<TranslationKey, string> = {
   'run.openReportAfterHint':
     'พอรันเสร็จจะเปิด HTML report ให้อัตโนมัติ ใช้ได้เฉพาะเมื่อ report ยังอยู่หลังรัน (ไม่ใช่โหมดเงียบ และไม่ได้ลบ report)',
   'run.deleteReport': 'ลบ report',
+  'run.revealReport': 'เปิดโฟลเดอร์',
+  'run.revealReportHint': 'โฟลเดอร์ที่เก็บ report ของรันนี้ เปิดในตัวจัดการไฟล์ของเครื่องให้ด้วย',
+  'run.revealReportFailed': 'เปิดโฟลเดอร์ report ไม่สำเร็จ',
   'run.credentialsMissing': 'ไม่พบ Google credentials — การบันทึกการใช้งานจะล้มเหลว',
   'run.uploadCredentials': 'อัปโหลด credentials.json',
   'run.credentialsUploaded': 'อัปโหลด credentials แล้ว',

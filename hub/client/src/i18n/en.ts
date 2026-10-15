@@ -204,6 +204,9 @@ export const en = {
   'run.openReportAfterHint':
     'When the run finishes, open its HTML report automatically. Only available when a report survives the run (not silent, not discarded).',
   'run.deleteReport': 'Delete report',
+  'run.revealReport': 'Reveal folder',
+  'run.revealReportHint': "Open the folder that holds this run's report in the OS file explorer",
+  'run.revealReportFailed': 'Could not open the report folder',
   'run.credentialsMissing': 'Google credentials not found — usage logging will fail.',
   'run.uploadCredentials': 'Upload credentials.json',
   'run.credentialsUploaded': 'Credentials uploaded',
