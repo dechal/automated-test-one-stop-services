@@ -15,7 +15,6 @@ import type {
   RunRecord,
   RunRequest,
   RunStatus,
-  RunSummary,
   ToolId,
 } from '@hub/shared';
 import { missingChecksForTool } from '@hub/shared';
@@ -38,7 +37,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure, useHotkeys } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   TbAlertTriangle,
   TbBookmarkPlus,
@@ -79,6 +78,7 @@ import { useRunTerminal } from '~/hooks/useRunTerminal.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
+import { recordingTerminal, useRunSessions, useSessionField } from '~/stores/navigation.js';
 import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
 import { mergeExtraArgs, parseRunArgs, SUPPORTS_RUN_FLAGS } from '~/utils/run-flags.js';
@@ -97,6 +97,7 @@ const SPLIT_STEP = 2;
  *  the ends instead of clicking to no effect. */
 const FONT_MIN = 9;
 const FONT_MAX = 20;
+const TERMINAL_RESET = '\x1b[H\x1b[2J\x1b[3J';
 
 export interface SessionRef {
   cancel: () => void;
@@ -128,53 +129,91 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const queryClient = useQueryClient();
   const saveBookmark = useSaveBookmark();
 
-  const [tool, setTool] = useState<ToolId>(initialConfig?.tool ?? prefs.lastTool);
-  const [mode, setMode] = useState<RunMode>(initialConfig?.mode ?? prefs.defaultMode);
-  const [type, setType] = useState(initialConfig?.type ?? '');
-  const [project, setProject] = useState(initialConfig?.project ?? '');
+  const restoredRef = useRef(useRunSessions.getState().sessions[sessionId] !== undefined);
+  const [tool, setTool] = useSessionField(sessionId, 'tool', initialConfig?.tool ?? prefs.lastTool);
+  const [mode, setMode] = useSessionField(
+    sessionId,
+    'mode',
+    initialConfig?.mode ?? prefs.defaultMode,
+  );
+  const [type, setType] = useSessionField(sessionId, 'type', initialConfig?.type ?? '');
+  const [project, setProject] = useSessionField(sessionId, 'project', initialConfig?.project ?? '');
   // Env is session form state, NOT part of RunRequest/currentConfig: a manual
   // run applies the profile before spawn and stores nothing (a deleted profile
   // id must never land in a permanent record — same reason as the schedule
   // column). `__current__` means "run with the project's .env on disk".
-  const [envProfileId, setEnvProfileId] = useState<string>(ENV_CURRENT);
+  const [envProfileId, setEnvProfileId] = useSessionField(sessionId, 'envProfileId', ENV_CURRENT);
+  const [envDefaultFor, setEnvDefaultFor] = useSessionField(sessionId, 'envDefaultFor', '');
   const [envDrawerOpen, { open: openEnvDrawer, close: closeEnvDrawer }] = useDisclosure(false);
   const initialSelection = parseTagQuery(initialConfig?.tool ?? '', initialConfig?.tag);
-  const [selectedTags, setSelectedTags] = useState<string[]>(initialSelection.include);
-  const [excludedTags, setExcludedTags] = useState<string[]>(initialSelection.exclude);
-  const [headless, setHeadless] = useState<HeadlessMode>(
+  const [selectedTags, setSelectedTags] = useSessionField(
+    sessionId,
+    'selectedTags',
+    initialSelection.include,
+  );
+  const [excludedTags, setExcludedTags] = useSessionField(
+    sessionId,
+    'excludedTags',
+    initialSelection.exclude,
+  );
+  const [headless, setHeadless] = useSessionField(
+    sessionId,
+    'headless',
     initialConfig?.headless ?? prefs.defaultHeadless,
   );
   // Saved configs store the composed argument string, so split it back apart to
   // hydrate the typed fields (round-trip pair — brain LESS-073).
   const initialArgs = parseRunArgs(initialConfig?.extraArgs);
-  const [extraArgs, setExtraArgs] = useState(initialArgs.rest);
-  const [workers, setWorkers] = useState<number | null>(initialArgs.workers ?? null);
-  const [repeatEach, setRepeatEach] = useState<number | null>(initialArgs.repeatEach ?? null);
+  const [extraArgs, setExtraArgs] = useSessionField(sessionId, 'extraArgs', initialArgs.rest);
+  const [workers, setWorkers] = useSessionField(sessionId, 'workers', initialArgs.workers ?? null);
+  const [repeatEach, setRepeatEach] = useSessionField(
+    sessionId,
+    'repeatEach',
+    initialArgs.repeatEach ?? null,
+  );
 
   // Skip usage logging defaults ON: the Google Sheet log is opt-in for most runs,
   // so a fresh session should not write to it unless the user asks. A saved
   // config still wins, so bookmarks/reconnect keep their captured intent.
-  const [noTrack, setNoTrack] = useState(initialConfig?.noTrack ?? true);
-  const [silent, setSilent] = useState(initialConfig?.silent ?? false);
-  const [discardReport, setDiscardReport] = useState(initialConfig?.discardReport ?? false);
+  const [noTrack, setNoTrack] = useSessionField(
+    sessionId,
+    'noTrack',
+    initialConfig?.noTrack ?? true,
+  );
+  const [silent, setSilent] = useSessionField(sessionId, 'silent', initialConfig?.silent ?? false);
+  const [discardReport, setDiscardReport] = useSessionField(
+    sessionId,
+    'discardReport',
+    initialConfig?.discardReport ?? false,
+  );
   // Open the HTML report automatically once the run finishes, so the user does
   // not switch to the Reports page. A form-only preference (not part of
   // RunRequest), meaningful only when a report survives the run — i.e. not
   // silent and not discardReport.
-  const [autoOpenReport, setAutoOpenReport] = useState(false);
-  const [section, setSection] = useState(initialConfig?.section ?? '');
-  const [perfType, setPerfType] = useState<PerformanceType>(
+  const [autoOpenReport, setAutoOpenReport] = useSessionField(sessionId, 'autoOpenReport', false);
+  const [section, setSection] = useSessionField(sessionId, 'section', initialConfig?.section ?? '');
+  const [perfType, setPerfType] = useSessionField(
+    sessionId,
+    'perfType',
     initialConfig?.performanceType ?? 'LOAD',
   );
 
-  const [runStatus, setRunStatus] = useState<RunStatus | 'idle'>('idle');
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
-  const [lastCommand, setLastCommand] = useState('');
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [elapsed, setElapsed] = useState('');
-  const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
+  const [runStatus, setRunStatus] = useSessionField(sessionId, 'runStatus', 'idle');
+  const [activeRunId, setActiveRunId] = useSessionField(sessionId, 'activeRunId', null);
+  const [lastCommand, setLastCommand] = useSessionField(sessionId, 'lastCommand', '');
+  const [startTime, setStartTime] = useSessionField(sessionId, 'startTime', null);
+  const [elapsed, setElapsed] = useSessionField(sessionId, 'elapsed', '');
+  const [runSummary, setRunSummary] = useSessionField(sessionId, 'runSummary', null);
+  const [lastRequest, setLastRequest] = useSessionField(sessionId, 'lastRequest', null);
+  const [reconnectTarget] = useState<{ runId: string; command: string } | null>(() => {
+    if (!restoredRef.current) {
+      return reconnectRunId ? { runId: reconnectRunId, command: reconnectCommand ?? '' } : null;
+    }
+    const inFlight = runStatus === 'running' || runStatus === 'pending';
+    return inFlight && activeRunId ? { runId: activeRunId, command: lastCommand } : null;
+  });
   const fullOutputRef = useRef('');
-  const activeRunIdRef = useRef<string | null>(null);
+  const activeRunIdRef = useRef<string | null>(activeRunId);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -252,11 +291,12 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // run status: the bottom bar and the search row mount/unmount without one
   // (e.g. toggling advanced mode mid-run), and the committed split percent
   // changes the column's width — either would leave the canvas stale.
-  const { termRef, term } = useRunTerminal({
+  const { termRef, term: rawTerm } = useRunTerminal({
     visible,
     refitKey: `${runStatus}|${showRunBar}|${searchOpen}|${splitPercent}`,
     fontSize,
   });
+  const term = useMemo(() => recordingTerminal(rawTerm, sessionId), [rawTerm, sessionId]);
   const { send } = useRunSocket({
     term,
     activeRunIdRef,
@@ -265,10 +305,17 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     setRunSummary,
     setActiveRunId,
     setLastCommand,
-    reconnectRunId,
-    reconnectCommand,
+    reconnectRunId: reconnectTarget?.runId,
+    reconnectCommand: reconnectTarget?.command,
     t,
   });
+
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    const transcript = useRunSessions.getState().transcripts[sessionId];
+    if (!transcript) return;
+    rawTerm.write(`${TERMINAL_RESET}${transcript}`);
+  }, []);
 
   useImperativeHandle(ref, () => ({
     cancel: () => handleCancel(),
@@ -389,10 +436,21 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   useEffect(() => {
     if (!project) {
       setEnvProfileId(ENV_CURRENT);
+      setEnvDefaultFor('');
       return;
     }
     if (envDefaultQ.data === undefined || envProfilesQ.data === undefined) return;
-    setEnvProfileId(resolveDefaultEnv(envDefaultQ.data.defaultId, envProfilesQ.data));
+    const resolved = resolveDefaultEnv(envDefaultQ.data.defaultId, envProfilesQ.data);
+    const signature = [
+      tool,
+      effectiveType,
+      project,
+      resolved,
+      ...envProfilesQ.data.map((p) => p.id),
+    ].join('|');
+    if (signature === envDefaultFor) return;
+    setEnvDefaultFor(signature);
+    setEnvProfileId(resolved);
   }, [project, effectiveType, tool, envDefaultQ.data, envProfilesQ.data]);
 
   // One line of what a run will use, read from the same live state
@@ -542,6 +600,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       setStartTime(Date.now());
       setElapsed('0s');
       setRunSummary(null);
+      setLastRequest(record.request);
       fullOutputRef.current = '';
       term.clear();
       term.writeln(`\x1b[32m[Started]\x1b[0m Run ${record.id}`);
@@ -637,7 +696,8 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   }
 
   function handleRerun() {
-    if (runMutation.data) runMutation.mutate(runMutation.data.request);
+    const request = runMutation.data?.request ?? lastRequest;
+    if (request) runMutation.mutate(request);
   }
 
   async function handleCopyCommand() {
@@ -713,7 +773,9 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // Open the report once per finished run when the user asked for it. Keyed on
   // the run id so a rerun (new id) can open again, and guarded by a ref so a
   // query refetch does not reopen the same report.
-  const autoOpenedRunRef = useRef<string | null>(null);
+  const autoOpenedRunRef = useRef<string | null>(
+    restoredRef.current && isFinished ? activeRunId : null,
+  );
   useEffect(() => {
     if (!autoOpenReport || !reportPath || !reportRunId) return;
     if (autoOpenedRunRef.current === reportRunId) return;

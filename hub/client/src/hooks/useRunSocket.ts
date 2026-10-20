@@ -7,7 +7,16 @@ import { toast } from '~/components/Toast.js';
 import { playFailureSound, playSuccessSound } from '~/hooks/useNotificationSound.js';
 import type { RunTerminal } from '~/hooks/useRunTerminal.js';
 import type { TranslationKey } from '~/i18n/en';
+import { appendCapped, type ReconnectPhase, resolveReconnectPhase } from '~/stores/navigation.js';
 import { parseRunSummary, type RunSummary } from '~/utils/parse-run-summary.js';
+
+async function probePhase(runId: string): Promise<ReconnectPhase> {
+  try {
+    return await resolveReconnectPhase(runId, api.get);
+  } catch {
+    return 'live';
+  }
+}
 
 /**
  * Minimal envelope guard for incoming WS frames: require an object with a
@@ -33,13 +42,6 @@ interface UseRunSocketOptions {
   reconnectRunId?: string;
   reconnectCommand?: string;
   t: (key: TranslationKey) => string;
-}
-
-const OUTPUT_TAIL_LIMIT = 512 * 1024;
-
-function appendCapped(current: string, chunk: string): string {
-  const next = current + chunk;
-  return next.length <= OUTPUT_TAIL_LIMIT ? next : next.slice(-OUTPUT_TAIL_LIMIT);
 }
 
 /**
@@ -166,29 +168,26 @@ export function useRunSocket({
       setActiveRunId(runId);
       setRunStatus('running');
       setLastCommand(reconnectCommand ?? '');
-      try {
-        const { output } = (await api.get(`/api/runs/${runId}/output`)) as { output: string };
-        if (cancelled) return;
-        if (term.ready()) {
-          term.clear();
-          term.writeln(`\x1b[32m[Reconnected]\x1b[0m Run ${runId}`);
-          if (reconnectCommand) term.writeln(`\x1b[90m$ ${reconnectCommand}\x1b[0m\n`);
-          term.write(output);
-        }
-      } catch {
-        if (cancelled) return;
+      const phase = await probePhase(runId);
+      if (cancelled) return;
+      if (phase === 'gone') {
         setRunStatus('idle');
         if (term.ready()) {
-          term.clear();
           term.writeln(`\x1b[33m[Finished]\x1b[0m Run ${runId} has already completed.`);
         }
         return;
       }
+      if (term.ready()) {
+        term.clear();
+        term.writeln(`\x1b[32m[Reconnected]\x1b[0m Run ${runId}`);
+        if (reconnectCommand) term.writeln(`\x1b[90m$ ${reconnectCommand}\x1b[0m\n`);
+      }
+      fullOutputRef.current = '';
       const waitForWs = () => {
         if (cancelled) return;
         const ws = wsRef.current;
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ kind: 'subscribe', runId }));
+          ws.send(JSON.stringify({ kind: 'subscribe', runId, replay: true }));
         } else {
           track(waitForWs, 200);
         }
@@ -197,13 +196,10 @@ export function useRunSocket({
 
       track(() => {
         void (async () => {
-          try {
-            await api.get(`/api/runs/${runId}/output`);
-          } catch {
-            if (cancelled) return;
-            setRunStatus('idle');
-            term.writeln(`\n\x1b[33m[Finished]\x1b[0m Run completed while reconnecting.`);
-          }
+          const phase = await probePhase(runId);
+          if (cancelled || phase !== 'gone') return;
+          setRunStatus('idle');
+          term.writeln(`\n\x1b[33m[Finished]\x1b[0m Run completed while reconnecting.`);
         })();
       }, 2000);
     }

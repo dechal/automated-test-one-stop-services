@@ -26,7 +26,7 @@ import { RunQueuePanel } from '~/components/RunQueuePanel.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { useNotifications } from '~/stores/hub.js';
-import { useNavigationStore } from '~/stores/navigation.js';
+import { type SessionTab, useNavigationStore, useRunSessions } from '~/stores/navigation.js';
 import { getStatusColor } from '~/utils/run-status.js';
 import { toolLabel } from '~/utils/tool-label.js';
 import { RunSession, type SessionRef } from './RunSession.js';
@@ -36,25 +36,16 @@ function genId(): string {
   return crypto.randomUUID();
 }
 
-interface SessionTab {
-  id: string;
-  status: RunStatus | 'idle';
-  project: string;
-  tool?: ToolId;
-  initialConfig?: RunRequest;
-  reconnectRunId?: string;
-  reconnectCommand?: string;
-}
-
 export function RunPage() {
   const pendingConfig = useNavigationStore((s) => s.pendingRunConfig);
   const consumePendingRunConfig = useNavigationStore((s) => s.consumePendingRunConfig);
-  const initialId = genId();
-  const [sessions, setSessions] = useState<SessionTab[]>([
-    { id: initialId, status: 'idle', project: '' },
-  ]);
-  const [activeId, setActiveId] = useState(initialId);
-  const [reconnecting, setReconnecting] = useState(true);
+  const sessions = useRunSessions((s) => s.tabs);
+  const setSessions = useRunSessions((s) => s.setTabs);
+  const activeId = useRunSessions((s) => s.activeId);
+  const setActiveId = useRunSessions((s) => s.setActiveId);
+  const removeSession = useRunSessions((s) => s.removeSession);
+  const markInitialized = useRunSessions((s) => s.markInitialized);
+  const [reconnecting, setReconnecting] = useState(() => !useRunSessions.getState().initialized);
   const sessionRefs = useRef<Map<string, SessionRef>>(new Map());
   const addNotification = useNotifications((s) => s.add);
 
@@ -97,9 +88,16 @@ export function RunPage() {
     async function reconnect() {
       try {
         const activeRuns: RunRecord[] = await api.get('/api/runs/active');
-        if (activeRuns.length === 0) return;
+        const state = useRunSessions.getState();
+        const known = new Set(
+          state.tabs.flatMap((tab) => [tab.reconnectRunId, state.sessions[tab.id]?.activeRunId]),
+        );
+        const pending = state.initialized
+          ? activeRuns.filter((record) => !known.has(record.id))
+          : activeRuns;
+        if (pending.length === 0) return;
 
-        const tabs: SessionTab[] = activeRuns.map((record) => ({
+        const tabs: SessionTab[] = pending.map((record) => ({
           id: genId(),
           status: 'running' as const,
           project: record.request.project,
@@ -109,16 +107,21 @@ export function RunPage() {
           reconnectCommand: record.command,
         }));
 
+        if (state.initialized) {
+          setSessions((prev) => [...prev, ...tabs]);
+          return;
+        }
         setSessions(tabs);
         setActiveId(tabs[0]?.id ?? '');
       } catch {
         // Server not ready, ignore
       } finally {
+        markInitialized();
         setReconnecting(false);
       }
     }
     reconnect();
-  }, []);
+  }, [setSessions, setActiveId, markInitialized]);
 
   function addSession(config?: RunRequest) {
     const id = genId();
@@ -166,15 +169,20 @@ export function RunPage() {
       }
     }
     sessionRefs.current.delete(id);
+    removeSession(id);
   }
 
   const handleStatusChange = useCallback(
     (sessionId: string, status: RunStatus | 'idle', project: string, tool?: ToolId) => {
+      const previous = useRunSessions.getState().tabs.find((s) => s.id === sessionId)?.status;
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, status, project, tool: tool ?? s.tool } : s)),
       );
       // Add to notification center on completion
-      if (status === 'passed' || status === 'failed' || status === 'cancelled') {
+      if (
+        previous !== status &&
+        (status === 'passed' || status === 'failed' || status === 'cancelled')
+      ) {
         addNotification({
           type: status === 'passed' ? 'success' : status === 'failed' ? 'error' : 'warning',
           title:
@@ -187,7 +195,7 @@ export function RunPage() {
         });
       }
     },
-    [addNotification, t, tools],
+    [addNotification, t, tools, setSessions],
   );
 
   /** Live config of the active session's form — the bookmark filter scope, and
@@ -222,6 +230,7 @@ export function RunPage() {
         ),
       );
       sessionRefs.current.delete(activeId);
+      removeSession(activeId);
       setActiveId(freshId);
     } else {
       addSession(config);
