@@ -315,7 +315,7 @@ tasks:
         echo "Cleaning outputs and ephemeral artifacts..."
         echo ""
         rm -rf outputs/playwright outputs/k6 outputs/robot-framework 2>/dev/null
-        rm -rf .playwright-mcp .playwright-cli 2>/dev/null
+        rm -rf .playwright-mcp .playwright-cli .cache/deletable/playwright-cli 2>/dev/null
         # Cross-platform artifact sweep (replaces GNU `find ... -exec rm -rf`):
         # node is a Core tool, so `task clean` runs from cmd/PowerShell/Git Bash.
         node scripts/lib/rm-matching-dirs.mjs . \

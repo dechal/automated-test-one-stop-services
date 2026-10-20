@@ -33,6 +33,7 @@ link-mode = "copy"
 [tool.ruff]
 exclude = ["outputs", ".kiro"]
 extend-exclude = [".kiro/**/*.py"]
+cache-dir = ".cache/regenerable/ruff"
 line-length = 100
 target-version = "py314"
 
