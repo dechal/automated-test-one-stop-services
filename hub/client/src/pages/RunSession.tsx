@@ -665,6 +665,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     queryFn: () => api.get(`/api/runs/${reportRunId}/report`),
     enabled: isFinished && reportSurvives && !!reportRunId,
     retry: false,
+    meta: { silentError: true },
   });
   const reportPath = reportQuery.data?.reportPath;
 
@@ -698,11 +699,14 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     if (!ok) return;
     try {
       await api.delete(`/api/reports?path=${encodeURIComponent(reportPath)}`);
-      toast.success(t('reports.reportDeleted'));
-      queryClient.invalidateQueries({ queryKey: ['run-report', reportRunId] });
+      toast.success(t('reports.reportDeleted'), {
+        id: `report-del-${reportRunId}-${Date.now()}`,
+      });
+      queryClient.removeQueries({ queryKey: ['run-report', reportRunId] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-    } catch {
-      toast.error(t('reports.deleteFailed'));
+    } catch (err) {
+      const code = (err as Error & { code?: string }).code;
+      toast.error(code === 'REPORT_LOCKED' ? t('reports.deleteLocked') : t('reports.deleteFailed'));
     }
   }
 

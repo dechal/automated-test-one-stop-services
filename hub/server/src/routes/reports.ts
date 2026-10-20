@@ -187,7 +187,12 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     // We delete the TIME folder (parent of html-results), not the day folder.
     const htmlResultsDir = path.dirname(reportPath);
     const timeDir = path.dirname(htmlResultsDir);
-    removeDirWithRetry(timeDir);
+    try {
+      removeDirWithRetry(timeDir);
+    } catch {
+      reply.status(409);
+      return { code: 'REPORT_LOCKED', message: 'Report directory is locked' };
+    }
     invalidateReportsCache();
 
     return { success: true };

@@ -1,7 +1,7 @@
-import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { type RunRecord, runDirFromReportPath, type WsServerEvent } from '@hub/shared';
 import { OUTPUTS_DIR } from '../config.js';
+import { removeDirWithRetryAsync } from './fs-remove.js';
 import { isUnder } from './path-guard.js';
 import { invalidateReportsCache } from './reports.js';
 import { runner } from './runner.js';
@@ -49,7 +49,7 @@ export async function discardReportDir(reportPath: string, outputStamp?: string)
     return false;
   }
   try {
-    await fsp.rm(dir, { recursive: true, force: true });
+    await removeDirWithRetryAsync(dir);
     // The reports listing caches its walk; drop it so the deleted run stops
     // appearing in Reports / Dashboard until the next natural refresh.
     invalidateReportsCache();

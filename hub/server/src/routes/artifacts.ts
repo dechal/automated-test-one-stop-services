@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import nodePath from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { artifactService } from '../services/artifacts.js';
+import { removeDirWithRetry } from '../services/fs-remove.js';
 import { getEnabledToolIds } from '../services/manifest-registry.js';
 import { isUnderOutputs } from '../services/path-guard.js';
 
@@ -144,7 +145,12 @@ export async function artifactRoutes(app: FastifyInstance): Promise<void> {
 
     const stat = fs.statSync(resolved);
     if (stat.isDirectory()) {
-      fs.rmSync(resolved, { recursive: true, force: true });
+      try {
+        removeDirWithRetry(resolved);
+      } catch {
+        reply.status(409);
+        return { code: 'REPORT_LOCKED', message: 'Report directory is locked' };
+      }
     } else {
       fs.unlinkSync(resolved);
     }

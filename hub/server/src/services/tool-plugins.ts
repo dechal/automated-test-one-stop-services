@@ -10,6 +10,7 @@ import type {
 } from '@hub/shared';
 import { TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { SAFE_GIT_REF, SAFE_ID } from '../lib/safe-id.js';
+import { removeDirWithRetry } from './fs-remove.js';
 import {
   getManifestModule,
   getRegistry,
@@ -426,7 +427,7 @@ async function transactionalRemove(dir: string): Promise<void> {
 
   // Step 2: remove quarantine
   try {
-    fs.rmSync(quarantine, { recursive: true, force: true });
+    removeDirWithRetry(quarantine);
   } catch (err) {
     // Attempt to restore from quarantine
     try {
@@ -1058,7 +1059,7 @@ function buildGitCloneCommand(gitUrl: string, ref: string, targetDir: string): s
 function safelyRemoveDir(dirPath: string): void {
   if (!fs.existsSync(dirPath)) return;
   try {
-    fs.rmSync(dirPath, { recursive: true, force: true });
+    removeDirWithRetry(dirPath);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`⚠ Failed to remove ${dirPath}: ${message}`);

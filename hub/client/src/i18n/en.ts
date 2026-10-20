@@ -769,6 +769,8 @@ export const en = {
   'reports.reportsDeleted': 'Reports deleted',
   'reports.deleteFailed': 'Failed to delete report',
   'reports.deleteSomeFailed': 'Failed to delete some reports',
+  'reports.deleteLocked':
+    'A file in this report is still open (e.g. a report tab or trace viewer). Close it and try again.',
   'reports.locked': 'Report locked',
   'reports.lockFailed': 'Failed to lock report',
   'reports.unlocked': 'Report unlocked',
@@ -903,6 +905,10 @@ export const en = {
   'reports.unlockHint': 'Unlock (allow cleanup)',
   'reports.lockReport': 'Lock report',
   'reports.unlockReport': 'Unlock report',
+  'reports.hideLocalOrigin': 'Hide reports not from the Hub',
+  'reports.cleanupCrashes': 'Clean up crashes',
+  'reports.cleanupCrashesTitle': 'Clean up crashed reports?',
+  'reports.cleanupNothing': 'No crashed reports to clean up',
 
   // Schedules (page body)
   'schedules.list': 'List',

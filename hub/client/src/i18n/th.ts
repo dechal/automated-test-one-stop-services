@@ -757,6 +757,7 @@ export const th: Record<TranslationKey, string> = {
   'reports.reportsDeleted': 'ลบรายงานแล้ว',
   'reports.deleteFailed': 'ลบรายงานไม่สำเร็จ',
   'reports.deleteSomeFailed': 'ลบบางรายงานไม่สำเร็จ',
+  'reports.deleteLocked': 'ไฟล์ในรายงานนี้ยังเปิดค้างอยู่ (เช่น แท็บรายงานหรือ trace viewer) ปิดก่อนแล้วลองใหม่',
   'reports.locked': 'ล็อกรายงานแล้ว',
   'reports.lockFailed': 'ล็อกรายงานไม่สำเร็จ',
   'reports.unlocked': 'ปลดล็อกรายงานแล้ว',
@@ -890,6 +891,10 @@ export const th: Record<TranslationKey, string> = {
   'reports.unlockHint': 'ปลดล็อก (อนุญาตให้ล้างได้)',
   'reports.lockReport': 'ล็อกรายงาน',
   'reports.unlockReport': 'ปลดล็อกรายงาน',
+  'reports.hideLocalOrigin': 'ซ่อนรายงานที่ไม่ได้มาจาก Hub',
+  'reports.cleanupCrashes': 'ล้างรายงานที่พัง',
+  'reports.cleanupCrashesTitle': 'ล้างรายงานที่รันพังทั้งหมด?',
+  'reports.cleanupNothing': 'ไม่มีรายงานที่รันพังให้ล้าง',
 
   // Schedules (page body)
   'schedules.list': 'รายการ',

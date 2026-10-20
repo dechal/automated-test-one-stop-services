@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Bookmark, EnvProfile, RunRecord, WebhookConfig } from '@hub/shared';
 import { OUTPUTS_DIR, TOOLS_DIR } from '../config.js';
+import { removeDirWithRetry } from './fs-remove.js';
 import { getToolManifest } from './manifest-registry.js';
 import { loadJson, saveJson } from './persistence.js';
 import { runner } from './runner.js';
@@ -53,7 +54,7 @@ function safeRemoveDir(base: string, target: string): boolean {
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
     return false;
   }
-  fs.rmSync(resolved, { recursive: true, force: true });
+  removeDirWithRetry(resolved);
   return true;
 }
 

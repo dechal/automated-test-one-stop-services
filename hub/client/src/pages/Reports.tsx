@@ -12,6 +12,7 @@ import {
   Select,
   Skeleton,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
@@ -23,6 +24,7 @@ import { useNavigate } from '@tanstack/react-router';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import {
+  TbAlertTriangle,
   TbCalendar,
   TbExternalLink,
   TbFilter,
@@ -50,6 +52,7 @@ import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { formatAbsolute, formatDurationMs, formatRelative } from '~/utils/datetime.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
+import { isCrashReport, isHubOrigin } from '~/utils/report-origin.js';
 import {
   formatPneBreakdown,
   getStatusColor,
@@ -107,6 +110,7 @@ export function ReportsPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
   const [filterProject, setFilterProject] = useState('');
+  const [hideLocalOrigin, setHideLocalOrigin] = useState(false);
   const [dateRange, setDateRange] = useState<[DateValue, DateValue]>([null, null]);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -131,23 +135,49 @@ export function ReportsPage() {
       api.delete(`/api/reports?path=${encodeURIComponent(reportPath)}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-      toast.success(t('reports.reportDeleted'));
+      toast.success(t('reports.reportDeleted'), { id: `report-del-${Date.now()}` });
     },
-    onError: () => toast.error(t('reports.deleteFailed')),
+    onError: (err) => {
+      const code = (err as Error & { code?: string }).code;
+      toast.error(code === 'REPORT_LOCKED' ? t('reports.deleteLocked') : t('reports.deleteFailed'));
+    },
   });
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (paths: string[]) => {
+      let deleted = 0;
+      let locked = 0;
+      let failed = 0;
       for (const p of paths) {
-        await api.delete(`/api/reports?path=${encodeURIComponent(p)}`);
+        try {
+          await api.delete(`/api/reports?path=${encodeURIComponent(p)}`);
+          deleted += 1;
+        } catch (err) {
+          if ((err as Error & { code?: string }).code === 'REPORT_LOCKED') locked += 1;
+          else failed += 1;
+        }
       }
+      return { deleted, total: paths.length, locked, failed };
     },
-    onSuccess: () => {
+    onSuccess: ({ deleted, total, locked, failed }) => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       setSelectedRows(new Set());
-      toast.success(t('reports.reportsDeleted'));
+      toast.success(`${t('reports.reportsDeleted')} (${deleted}/${total})`, {
+        id: `reports-del-${Date.now()}`,
+      });
+      if (locked > 0) {
+        toast.error(t('reports.deleteLocked'), { id: `reports-del-locked-${Date.now()}` });
+      }
+      if (failed > 0) {
+        toast.error(t('reports.deleteSomeFailed'), { id: `reports-del-failed-${Date.now()}` });
+      }
     },
-    onError: () => toast.error(t('reports.deleteSomeFailed')),
+    onError: (err) => {
+      const code = (err as Error & { code?: string }).code;
+      toast.error(
+        code === 'REPORT_LOCKED' ? t('reports.deleteLocked') : t('reports.deleteSomeFailed'),
+      );
+    },
   });
 
   const lockMutation = useMutation({
@@ -209,6 +239,24 @@ export function ReportsPage() {
     }
   }
 
+  const crashes = (reports.data ?? []).filter((r) => isCrashReport(r) && !r.locked);
+
+  async function handleCleanupCrashes() {
+    if (crashes.length === 0) {
+      toast.info(t('reports.cleanupNothing'), { id: `cleanup-none-${Date.now()}` });
+      return;
+    }
+    const ok = await confirmDialog({
+      title: t('reports.cleanupCrashesTitle'),
+      message: `${t('common.delete')} ${crashes.length} ${t('reports.reportsWord')} — ${t('reports.cannotUndo')}`,
+      confirmLabel: `${t('common.delete')} ${crashes.length}`,
+      danger: true,
+    });
+    if (ok) {
+      bulkDeleteMutation.mutate(crashes.map((r) => r.reportPath));
+    }
+  }
+
   const availableTypes = [...new Set((reports.data ?? []).map((r) => r.type))].sort();
 
   function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
@@ -239,6 +287,7 @@ export function ReportsPage() {
         if (selectedTypes.size > 0 && !selectedTypes.has(r.type)) return false;
         if (filterProject && !r.project.toLowerCase().includes(filterProject.toLowerCase()))
           return false;
+        if (hideLocalOrigin && !isHubOrigin(r)) return false;
         const [from, to] = dateRange;
         if (from || to) {
           const reportDay = dayjs(r.timestamp);
@@ -248,7 +297,15 @@ export function ReportsPage() {
         }
         return true;
       }),
-    [reports.data, selectedTools, selectedStatuses, selectedTypes, filterProject, dateRange],
+    [
+      reports.data,
+      selectedTools,
+      selectedStatuses,
+      selectedTypes,
+      filterProject,
+      hideLocalOrigin,
+      dateRange,
+    ],
   );
 
   // Sort
@@ -306,6 +363,7 @@ export function ReportsPage() {
     (selectedStatuses.size > 0 ? 1 : 0) +
     (selectedTypes.size > 0 ? 1 : 0) +
     (filterProject ? 1 : 0) +
+    (hideLocalOrigin ? 1 : 0) +
     (dateRange[0] || dateRange[1] ? 1 : 0);
 
   function clearFilters() {
@@ -313,6 +371,7 @@ export function ReportsPage() {
     setSelectedStatuses(new Set());
     setSelectedTypes(new Set());
     setFilterProject('');
+    setHideLocalOrigin(false);
     setDateRange([null, null]);
     setCurrentPage(1);
   }
@@ -338,6 +397,18 @@ export function ReportsPage() {
                   loading={bulkDeleteMutation.isPending}
                 >
                   {t('common.delete')} {selectedRows.size}
+                </Button>
+              )}
+              {crashes.length > 0 && (
+                <Button
+                  color="red"
+                  size="xs"
+                  variant="subtle"
+                  leftSection={<TbAlertTriangle size={14} />}
+                  onClick={handleCleanupCrashes}
+                  loading={bulkDeleteMutation.isPending}
+                >
+                  {t('reports.cleanupCrashes')} {crashes.length}
                 </Button>
               )}
               <Button
@@ -369,11 +440,22 @@ export function ReportsPage() {
               <Text size="xs" fw={600} c="dimmed" tt="uppercase">
                 {t('reports.advancedSearch')}
               </Text>
-              {activeFilterCount > 0 && (
-                <Button size="compact-xs" variant="subtle" color="gray" onClick={clearFilters}>
-                  {t('common.clearAll')}
-                </Button>
-              )}
+              <Group gap="sm">
+                <Switch
+                  size="xs"
+                  checked={hideLocalOrigin}
+                  onChange={(e) => {
+                    setHideLocalOrigin(e.currentTarget.checked);
+                    setCurrentPage(1);
+                  }}
+                  label={t('reports.hideLocalOrigin')}
+                />
+                {activeFilterCount > 0 && (
+                  <Button size="compact-xs" variant="subtle" color="gray" onClick={clearFilters}>
+                    {t('common.clearAll')}
+                  </Button>
+                )}
+              </Group>
             </Group>
 
             <SavedFiltersBar
