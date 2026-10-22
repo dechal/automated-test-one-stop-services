@@ -148,6 +148,12 @@ async function checkComposeService(
   };
 }
 
+export function dockerStartHint(platform: NodeJS.Platform = process.platform): string {
+  return platform === 'win32' || platform === 'darwin'
+    ? 'Start Docker Desktop'
+    : 'Start the Docker daemon: sudo systemctl start docker';
+}
+
 async function checkDockerDaemon(): Promise<DoctorCheck> {
   const ok = await isDockerRunning();
   return ok
@@ -155,7 +161,7 @@ async function checkDockerDaemon(): Promise<DoctorCheck> {
     : {
         name: 'docker-running',
         ok: false,
-        hint: 'Start Docker Desktop or run: sudo systemctl start docker',
+        hint: dockerStartHint(),
         category: 'optional-process',
       };
 }

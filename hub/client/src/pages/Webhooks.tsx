@@ -15,7 +15,6 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import dayjs from 'dayjs';
 import { useState } from 'react';
 import {
   TbBell,
@@ -38,6 +37,7 @@ import { toast } from '~/components/Toast';
 import { useProjectList, useProjectTypes } from '~/hooks/useProjectQueries';
 import { useToolOptions, useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { formatRelative, formatShort } from '~/utils/datetime.js';
 
 interface Webhook {
   id: string;
@@ -142,7 +142,7 @@ export function WebhooksPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        title={t('webhooks.title')}
+        title={t('nav.webhooks')}
         description={t('settings.webhooksDesc')}
         actions={
           <Button leftSection={<TbPlus size={14} />} onClick={openCreate} size="xs">
@@ -172,7 +172,6 @@ export function WebhooksPage() {
                       checked={w.enabled}
                       onChange={() => toggleMutation.mutate(w.id)}
                       size="md"
-                      color="green"
                     />
                     <Stack gap={2}>
                       <Group gap="xs">
@@ -211,7 +210,7 @@ export function WebhooksPage() {
                   <Group gap="xs" wrap="wrap">
                     {w.lastTriggeredAt && (
                       <Tooltip
-                        label={`${t('webhook.lastPrefix')} ${dayjs(w.lastTriggeredAt).format('DD MMM HH:mm')}`}
+                        label={`${t('webhook.lastPrefix')} ${formatShort(w.lastTriggeredAt)}`}
                       >
                         <Badge
                           variant="light"
@@ -219,7 +218,7 @@ export function WebhooksPage() {
                           color={w.lastStatus === 'success' ? 'green' : 'red'}
                         >
                           {w.lastStatus === 'success' ? t('webhook.ok') : t('webhook.failed')}{' '}
-                          {dayjs(w.lastTriggeredAt).fromNow()}
+                          {formatRelative(w.lastTriggeredAt)}
                         </Badge>
                       </Tooltip>
                     )}
@@ -395,7 +394,7 @@ function WebhookFormModal({
         label={t('webhook.name')}
         value={name}
         onChange={(e) => setName(e.currentTarget.value)}
-        placeholder="CI Notifications"
+        placeholder={t('webhook.namePlaceholder')}
       />
       <Select
         label={t('webhook.platform')}

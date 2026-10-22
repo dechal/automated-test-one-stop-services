@@ -235,7 +235,8 @@ export function ProjectsPage() {
 
       // 4. Report results
       if (status.error) {
-        toast.error(`Pull-all error: ${status.error}`);
+        const error = status.error;
+        toast.error(t('projects.pullAllError').replace('{error}', () => error));
         return;
       }
 
@@ -244,15 +245,20 @@ export function ProjectsPage() {
       const failed = pullResults.filter((r) => !r.success);
 
       if (failed.length === 0) {
-        toast.success(`Pulled ${pullResults.length} project(s) successfully`);
+        toast.success(t('projects.pullAllSuccess').replace('{n}', String(pullResults.length)));
       } else {
+        const list = failed.map((f) => f.project).join(', ');
         toast.error(
-          `${failed.length}/${pullResults.length} pull(s) failed: ${failed.map((f) => f.project).join(', ')}`,
+          t('projects.pullSomeFailed')
+            .replace('{failed}', String(failed.length))
+            .replace('{total}', String(pullResults.length))
+            .replace('{list}', () => list),
         );
       }
 
       if (hubRebuild && !hubRebuild.success) {
-        toast.error(`Update Hub failed: build error — ${hubRebuild.output}`);
+        const output = hubRebuild.output;
+        toast.error(t('projects.hubRebuildFailed').replace('{output}', () => output));
       } else if (hubRebuild?.success) {
         toast.success(t('projects.hubRebuilt'));
       }
@@ -274,8 +280,15 @@ export function ProjectsPage() {
     onMutate: (payload) => setPullingProject(`${payload.tool}/${payload.type}/${payload.project}`),
     onSuccess: (data) => {
       setPullingProject(null);
-      if (data.success) toast.success(`Pulled ${data.project}`);
-      else toast.error(`Pull failed: ${data.project} — ${data.output}`);
+      if (data.success) {
+        toast.success(t('projects.pullOneSuccess').replace('{project}', () => data.project));
+      } else {
+        toast.error(
+          t('projects.pullOneFailed')
+            .replace('{project}', () => data.project)
+            .replace('{output}', () => data.output),
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['git-status'] });
     },
     onError: () => {
@@ -365,7 +378,7 @@ export function ProjectsPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        title={t('projects.title')}
+        title={t('nav.projects')}
         description={t('nav.projects.desc')}
         actions={
           <>
@@ -395,8 +408,7 @@ export function ProjectsPage() {
             >
               <Button
                 leftSection={<TbDownload size={14} />}
-                variant="light"
-                color="grape"
+                variant="default"
                 size="xs"
                 onClick={() => pullAllMutation.mutate()}
                 loading={pullAllMutation.isPending}

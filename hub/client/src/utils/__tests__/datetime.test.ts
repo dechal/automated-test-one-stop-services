@@ -1,5 +1,65 @@
-import { describe, expect, it } from 'vitest';
-import { formatDurationBetween, formatDurationMs } from '~/utils/datetime.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { formatNextRun, humanizeCron } from '~/utils/cron.js';
+import {
+  formatDate,
+  formatDurationBetween,
+  formatDurationMs,
+  formatRelative,
+  formatShort,
+  monthShortNames,
+  weekdayShortName,
+} from '~/utils/datetime.js';
+import { setDayjsLocale } from '~/utils/dayjs.js';
+
+const THAI_SCRIPT = /[\u0E00-\u0E7F]/;
+
+describe('formatShort / formatDate', () => {
+  it('renders a placeholder for missing or unparseable input', () => {
+    expect(formatShort(undefined)).toBe('-');
+    expect(formatShort('not-a-date')).toBe('-');
+    expect(formatDate(null)).toBe('-');
+    expect(formatDate('not-a-date')).toBe('-');
+  });
+
+  it('formats a valid timestamp', () => {
+    expect(formatDate('2026-07-27T10:00:00')).toBe('27 Jul 2026');
+    expect(formatShort('2026-07-27T10:05:00')).toBe('27 Jul 10:05');
+  });
+});
+
+describe('locale-aware formatting', () => {
+  afterEach(() => {
+    setDayjsLocale('en');
+  });
+
+  it('renders relative time in Thai once the dayjs locale is Thai', () => {
+    setDayjsLocale('th');
+    expect(formatRelative('2020-01-01T00:00:00.000Z')).toContain('ที่แล้ว');
+  });
+
+  it('names months and weekdays in the active locale', () => {
+    expect(monthShortNames()).toHaveLength(12);
+    expect(monthShortNames()[0]).toBe('Jan');
+    expect(weekdayShortName(1)).toBe('Mon');
+    setDayjsLocale('th');
+    expect(monthShortNames()[0]).toMatch(THAI_SCRIPT);
+    expect(weekdayShortName(1)).toMatch(THAI_SCRIPT);
+  });
+
+  it('humanises a cron expression in the requested locale', () => {
+    expect(humanizeCron('0 1 * * 2', 'th')).toMatch(THAI_SCRIPT);
+    expect(humanizeCron('0 1 * * 2', 'en')).not.toMatch(THAI_SCRIPT);
+  });
+
+  it('returns null for an invalid cron expression', () => {
+    expect(humanizeCron('bad', 'en')).toBeNull();
+    expect(formatNextRun('bad')).toBeNull();
+  });
+
+  it('describes the next fire time of a valid cron expression', () => {
+    expect(formatNextRun('0 1 * * 2')).toMatch(/^in .+ \(\d{2} \w{3} 01:00\)$/);
+  });
+});
 
 describe('formatDurationMs', () => {
   it('renders sub-minute spans in seconds', () => {

@@ -17,7 +17,6 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import dayjs from 'dayjs';
 import { lazy, Suspense, useCallback, useMemo } from 'react';
 import { TbPlayerPlay, TbRocket } from 'react-icons/tb';
 import { qDoctor, qProjects, qRunsHistory } from '~/api/queries.js';
@@ -29,6 +28,7 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
+import { formatRelative } from '~/utils/datetime.js';
 import { runOutcome } from '~/utils/run-status.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
@@ -107,15 +107,11 @@ export function DashboardPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        title={t('dashboard.title')}
+        title={t('nav.dashboard')}
         description={t('nav.dashboard.desc')}
         actions={
           hasProjects ? (
-            <Button
-              color="green"
-              leftSection={<TbPlayerPlay size={16} />}
-              onClick={() => onNavigate('run')}
-            >
+            <Button leftSection={<TbPlayerPlay size={16} />} onClick={() => onNavigate('run')}>
               {t('nav.runTests')}
             </Button>
           ) : null
@@ -155,7 +151,9 @@ export function DashboardPage() {
               />
               <Group gap="sm" mb="sm">
                 <TbRocket size={20} color="var(--mantine-color-brand-6)" />
-                <Title order={5}>{t('dashboard.gettingStarted')}</Title>
+                <Title order={2} size="h5">
+                  {t('dashboard.gettingStarted')}
+                </Title>
               </Group>
               <Stepper
                 active={envOk ? (hasProjects ? (hasRuns ? 3 : 2) : 1) : 0}
@@ -212,7 +210,9 @@ export function DashboardPage() {
             {/* Recent Runs */}
             <Paper p="md" withBorder h="100%">
               <Group justify="space-between" mb="sm">
-                <Title order={5}>{t('dashboard.recentRuns')}</Title>
+                <Title order={2} size="h5">
+                  {t('dashboard.recentRuns')}
+                </Title>
                 {recentRuns.length > 0 && (
                   <Button size="compact-xs" variant="subtle" onClick={() => onNavigate('history')}>
                     {t('dashboard.viewAll')}
@@ -285,7 +285,7 @@ export function DashboardPage() {
                             </Group>
                             <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
                               <Text size="xs" c="dimmed">
-                                {run.endedAt ? dayjs(run.endedAt).fromNow() : '-'}
+                                {formatRelative(run.endedAt)}
                               </Text>
                               <TbPlayerPlay
                                 size={14}
@@ -304,7 +304,9 @@ export function DashboardPage() {
             {/* Project overview */}
             <Paper p="md" withBorder h="100%">
               <Group justify="space-between" mb="sm">
-                <Title order={5}>{t('dashboard.projectsOverview')}</Title>
+                <Title order={2} size="h5">
+                  {t('dashboard.projectsOverview')}
+                </Title>
                 <Button size="compact-xs" variant="subtle" onClick={() => onNavigate('projects')}>
                   {t('dashboard.manage')}
                 </Button>
@@ -355,7 +357,9 @@ export function DashboardPage() {
           {/* Test Trend Chart */}
           <Paper p="md" withBorder>
             <Group justify="space-between" mb="sm">
-              <Title order={5}>{t('dashboard.testTrends')}</Title>
+              <Title order={2} size="h5">
+                {t('dashboard.testTrends')}
+              </Title>
               <Text size="xs" c="dimmed">
                 {t('dashboard.trendsDesc')}
               </Text>
@@ -370,7 +374,9 @@ export function DashboardPage() {
             {/* Top Projects */}
             <Paper p="md" withBorder>
               <Group justify="space-between" mb="sm">
-                <Title order={5}>{t('dashboard.topProjects')}</Title>
+                <Title order={2} size="h5">
+                  {t('dashboard.topProjects')}
+                </Title>
                 <Text size="xs" c="dimmed">
                   {t('dashboard.topProjectsDesc')}
                 </Text>
@@ -383,7 +389,9 @@ export function DashboardPage() {
             {/* Run Activity Heatmap */}
             <Paper p="md" withBorder>
               <Group justify="space-between" mb="sm">
-                <Title order={5}>{t('dashboard.runActivity')}</Title>
+                <Title order={2} size="h5">
+                  {t('dashboard.runActivity')}
+                </Title>
                 <Text size="xs" c="dimmed">
                   {t('dashboard.runActivityDesc')}
                 </Text>

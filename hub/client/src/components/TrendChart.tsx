@@ -4,6 +4,7 @@ import { Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { api } from '~/api/client.js';
+import { useT } from '~/i18n/index.js';
 
 interface DayStats {
   date: string;
@@ -43,6 +44,7 @@ function aggregateByDay(records: RunRecord[]): DayStats[] {
  * already pulls in). Saves ~135KB gzipped from the bundle.
  */
 export function TrendChart() {
+  const t = useT();
   const history = useQuery<RunRecord[]>({
     queryKey: ['runs-history'],
     queryFn: () => api.get('/api/runs/history'),
@@ -53,13 +55,13 @@ export function TrendChart() {
   if (history.isLoading)
     return (
       <Text c="dimmed" size="sm">
-        Loading chart...
+        {t('common.loading')}
       </Text>
     );
   if (!history.data || history.data.length === 0) {
     return (
       <Text c="dimmed" size="sm">
-        No run history yet. Run some tests to see trends.
+        {t('chart.noHistory')}
       </Text>
     );
   }
@@ -67,7 +69,7 @@ export function TrendChart() {
   if (data.length === 0) {
     return (
       <Text c="dimmed" size="sm">
-        No completed runs to chart.
+        {t('chart.noCompletedRuns')}
       </Text>
     );
   }
@@ -83,8 +85,8 @@ export function TrendChart() {
       tickLine="x"
       gridAxis="xy"
       series={[
-        { name: 'passed', label: 'Passed', color: 'green.6' },
-        { name: 'failed', label: 'Failed', color: 'red.6' },
+        { name: 'passed', label: t('status.allPassed'), color: 'green.6' },
+        { name: 'failed', label: t('status.testsFailed'), color: 'red.6' },
       ]}
     />
   );

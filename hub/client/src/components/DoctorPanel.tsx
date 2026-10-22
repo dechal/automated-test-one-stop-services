@@ -11,6 +11,7 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  Tooltip,
   UnstyledButton,
 } from '@mantine/core';
 import { useState } from 'react';
@@ -18,6 +19,7 @@ import {
   TbAlertTriangle,
   TbChevronRight,
   TbCircleCheck,
+  TbCircleDashed,
   TbCircleX,
   TbDownload,
   TbHelpCircle,
@@ -304,17 +306,22 @@ function CheckCard({
   const [showFix, setShowFix] = useState(false);
   // An unverified check reads as "unknown", never as broken: neutral icon and
   // neutral text, so a busy machine cannot make an installed tool look missing.
-  const FailIcon = check.unverified
-    ? TbHelpCircle
-    : cat.failIcon === 'warn'
-      ? TbAlertTriangle
-      : TbCircleX;
-  const failColor = check.unverified
-    ? 'var(--mantine-color-dimmed)'
-    : cat.failIcon === 'warn'
-      ? 'var(--mantine-color-yellow-6)'
-      : 'var(--mantine-color-red-6)';
-  const hintColor = check.unverified ? 'dimmed' : cat.failIcon === 'warn' ? 'yellow.8' : 'red';
+  const notEnabled = cat.key === 'optional-process' && !check.ok && !check.unverified;
+  const FailIcon = notEnabled
+    ? TbCircleDashed
+    : check.unverified
+      ? TbHelpCircle
+      : cat.failIcon === 'warn'
+        ? TbAlertTriangle
+        : TbCircleX;
+  const failColor =
+    check.unverified || notEnabled
+      ? 'var(--mantine-color-dimmed)'
+      : cat.failIcon === 'warn'
+        ? 'var(--mantine-color-yellow-6)'
+        : 'var(--mantine-color-red-6)';
+  const hintColor =
+    check.unverified || notEnabled ? 'dimmed' : cat.failIcon === 'warn' ? 'yellow.8' : 'red';
 
   // A failing tool check (e.g. playwright-browsers, k6) can be re-provisioned by
   // re-running the tool's `setup` task. Generic checks have no provision target.
@@ -355,6 +362,11 @@ function CheckCard({
         <Text size="sm" fw={500} truncate>
           {check.name}
         </Text>
+        {notEnabled && (
+          <Badge size="xs" color="gray" style={{ flexShrink: 0 }}>
+            {t('doctor.notEnabled')}
+          </Badge>
+        )}
       </Group>
       {check.ok && check.version && (
         <Text size="xs" c="dimmed" mt={4} truncate title={check.version}>
@@ -362,9 +374,11 @@ function CheckCard({
         </Text>
       )}
       {!check.ok && check.hint && (
-        <Text size="xs" c={hintColor} mt={4} truncate title={check.hint}>
-          {check.hint}
-        </Text>
+        <Tooltip label={check.hint} multiline w={320}>
+          <Text size="xs" c={hintColor} mt={4} lineClamp={2}>
+            {check.hint}
+          </Text>
+        </Tooltip>
       )}
       {provisionTarget && (
         <Stack gap={4} mt={6}>

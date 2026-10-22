@@ -165,7 +165,6 @@ function ArtifactsEmpty() {
       action={
         <Button
           size="xs"
-          color="green"
           leftSection={<TbPlayerPlay size={14} />}
           onClick={() => navigate({ to: '/run' })}
         >
@@ -250,7 +249,7 @@ function FolderCard({
           {onDelete && (
             <Tooltip label={t('artifacts.deleteFolder')}>
               <ActionIcon
-                variant="light"
+                variant="subtle"
                 color="red"
                 size="sm"
                 onClick={(e: React.MouseEvent) => {
@@ -719,10 +718,10 @@ export function ArtifactsPage() {
 
   // Filter buttons
   const filterTypes: { value: FileType; label: string; icon: React.ReactNode }[] = [
-    { value: 'screenshot', label: 'Screenshots', icon: <TbCamera size={14} /> },
-    { value: 'video', label: 'Videos', icon: <TbMovie size={14} /> },
-    { value: 'trace', label: 'Traces', icon: <TbRoute size={14} /> },
-    { value: 'log', label: 'Logs', icon: <TbFileText size={14} /> },
+    { value: 'screenshot', label: t('artifacts.filterScreenshots'), icon: <TbCamera size={14} /> },
+    { value: 'video', label: t('artifacts.filterVideos'), icon: <TbMovie size={14} /> },
+    { value: 'trace', label: t('artifacts.filterTraces'), icon: <TbRoute size={14} /> },
+    { value: 'log', label: t('artifacts.filterLogs'), icon: <TbFileText size={14} /> },
   ];
 
   if (tree.isError) {
@@ -736,7 +735,7 @@ export function ArtifactsPage() {
     <Stack gap="md">
       {/* Header */}
       <PageHeader
-        title={t('artifacts.title')}
+        title={t('nav.artifacts')}
         description={t('nav.artifacts.desc')}
         actions={
           <Group gap="md" wrap="nowrap">
@@ -788,7 +787,6 @@ export function ArtifactsPage() {
             key={ft.value}
             size="xs"
             variant={typeFilter === ft.value ? 'filled' : 'light'}
-            color={fileTypeColor(ft.value)}
             leftSection={ft.icon}
             onClick={() => setTypeFilter(typeFilter === ft.value ? null : ft.value)}
           >
@@ -833,7 +831,7 @@ export function ArtifactsPage() {
               <Button
                 size="compact-xs"
                 color="red"
-                variant="light"
+                variant="subtle"
                 leftSection={<TbTrash size={12} />}
                 onClick={handleBulkDelete}
                 loading={bulkDeleteMutation.isPending}

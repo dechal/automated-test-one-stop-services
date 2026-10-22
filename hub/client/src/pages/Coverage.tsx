@@ -79,7 +79,7 @@ export function CoveragePage() {
 
   return (
     <Stack gap="md">
-      <PageHeader title={t('nav.coverage')} description={t('coverage.desc')} />
+      <PageHeader title={t('nav.coverage')} description={t('coverage.desc')} order={2} />
 
       {allQ.isLoading ? (
         <ListSkeleton rows={4} />

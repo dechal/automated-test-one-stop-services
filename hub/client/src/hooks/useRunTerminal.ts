@@ -2,6 +2,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { Terminal } from '@xterm/xterm';
 import { useEffect, useRef } from 'react';
+import { translate } from '~/i18n/index.js';
 
 /**
  * Stable imperative handle to the run terminal. Methods are safe to call before
@@ -78,7 +79,7 @@ export function useRunTerminal({ visible, refitKey, fontSize }: UseRunTerminalOp
     terminalRef.current = term;
     fitAddonRef.current = fitAddon;
     searchAddonRef.current = searchAddon;
-    term.writeln('\x1b[90m[Hub] Ready. Configure and click Run.\x1b[0m');
+    term.writeln(`\x1b[90m[Hub] ${translate('run.terminalReady')}\x1b[0m`);
 
     /**
      * Refit on the NEXT frame, coalescing a burst of size changes into one fit.

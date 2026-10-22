@@ -42,13 +42,14 @@ import { EmptyState } from '~/components/EmptyState.js';
 import { ErrorState } from '~/components/ErrorState.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { PassScoreCell } from '~/components/PassScoreCell.js';
+import { RunStatusBadge } from '~/components/RunStatusBadge.js';
 import { ArtifactMenu } from '~/components/reports/ArtifactMenu.js';
 import { SavedFiltersBar } from '~/components/SavedFilters.js';
 import { toast } from '~/components/Toast.js';
 import { PAGE_SIZE_OPTIONS, SortableHeader } from '~/components/table/SortableHeader.js';
 import { useTableSort } from '~/hooks/useTableSort.js';
 import { useTools } from '~/hooks/useTools.js';
-import { useT } from '~/i18n/index.js';
+import { type TranslationKey, useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { formatAbsolute, formatDurationMs, formatRelative } from '~/utils/datetime.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
@@ -57,10 +58,14 @@ import {
   formatPneBreakdown,
   getStatusColor,
   getStatusIcon,
-  runOutcome,
+  statusLabelKey,
 } from '~/utils/run-status.js';
 
 const ALL_STATUSES = ['success', 'error'];
+const STATUS_FILTER_LABEL: Record<string, TranslationKey> = {
+  success: 'status.allPassed',
+  error: 'status.testsFailed',
+};
 
 // The server emits report timestamps as ISO-8601 strings (same shape as a
 // run's `startedAt`), so they parse with a plain `dayjs(iso)` — no month-name
@@ -383,7 +388,7 @@ export function ReportsPage() {
     <Stack gap="md" h="100%" style={{ minHeight: 0, overflow: 'hidden' }}>
       <div style={{ flexShrink: 0 }}>
         <PageHeader
-          title={t('reports.title')}
+          title={t('nav.reports')}
           description={t('nav.reports.desc')}
           actions={
             <>
@@ -391,7 +396,7 @@ export function ReportsPage() {
                 <Button
                   color="red"
                   size="xs"
-                  variant="light"
+                  variant="subtle"
                   leftSection={<TbTrash size={14} />}
                   onClick={handleBulkDelete}
                   loading={bulkDeleteMutation.isPending}
@@ -573,7 +578,7 @@ export function ReportsPage() {
                       }}
                       style={{ cursor: 'pointer' }}
                     >
-                      {s}
+                      {t(STATUS_FILTER_LABEL[s] ?? statusLabelKey(s))}
                     </Badge>
                   ))}
                 </Group>
@@ -669,7 +674,6 @@ export function ReportsPage() {
               ) : (
                 <Button
                   size="xs"
-                  color="green"
                   leftSection={<TbPlayerPlay size={14} />}
                   onClick={() => {
                     navigate({ to: '/run' });
@@ -728,7 +732,7 @@ export function ReportsPage() {
                       aria-label={t('reports.selectAll')}
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th w={1}>
                     <SortableHeader
                       label={t('table.status')}
                       field="status"
@@ -810,22 +814,12 @@ export function ReportsPage() {
                         aria-label={`${t('reports.selectRow')} ${r.project}`}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       {/* Outcome, not the raw output folder. `r.status` only says
                           which directory the runner wrote into, so a run with a
                           few failing tests badged as `ERROR` — indistinguishable
                           from a run that never produced a result. */}
-                      <Tooltip label={t(runOutcome(r.status, r.summary).labelKey)} withArrow>
-                        <Badge
-                          color={runOutcome(r.status, r.summary).color}
-                          variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
-                          size="sm"
-                          leftSection={runOutcome(r.status, r.summary).icon}
-                          style={{ maxWidth: '100%' }}
-                        >
-                          {t(runOutcome(r.status, r.summary).labelKey)}
-                        </Badge>
-                      </Tooltip>
+                      <RunStatusBadge status={r.status} summary={r.summary} />
                     </Table.Td>
                     {advancedMode && (
                       <Table.Td>

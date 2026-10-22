@@ -77,7 +77,9 @@ export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string
         <Group gap="sm">
           <TbCircleCheck size={20} color="var(--mantine-color-green-6)" />
           <Stack gap={0}>
-            <Title order={5}>{t('dashboard.allGood')}</Title>
+            <Title order={2} size="h5">
+              {t('dashboard.allGood')}
+            </Title>
             <Text size="xs" c="dimmed">
               {t('dashboard.allGoodDesc')}
             </Text>
@@ -89,7 +91,7 @@ export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string
 
   return (
     <Paper p="md" withBorder h="100%">
-      <Title order={5} mb="sm">
+      <Title order={2} size="h5" mb="sm">
         {t('dashboard.needsAttention')}
       </Title>
       {/* Autosize + cap, not a fixed height: with three items a fixed 35vh left

@@ -1,20 +1,19 @@
 import type { Bookmark, ProjectSummary } from '@hub/shared';
 import { Spotlight, type SpotlightActionData } from '@mantine/spotlight';
 import { useQuery } from '@tanstack/react-query';
-import {
-  TbBookmark,
-  TbCalendarTime,
-  TbChartBar,
-  TbFolderFilled,
-  TbPlayerPlay,
-  TbReportAnalytics,
-  TbSettings,
-} from 'react-icons/tb';
+import { TbBookmark, TbFolderFilled } from 'react-icons/tb';
 import { api } from '~/api/client.js';
+import {
+  NAV_CATEGORIES,
+  type PagePath,
+  SEARCH_ONLY_ITEMS,
+  SETTINGS_ITEM,
+} from '~/components/nav-config.js';
+import { en } from '~/i18n/en';
 import { useT } from '~/i18n/index.js';
 
 interface SpotlightSearchProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (path: PagePath) => void;
   onLoadBookmark: (config: Bookmark['config']) => void;
 }
 
@@ -32,72 +31,27 @@ export function SpotlightSearch({ onNavigate, onLoadBookmark }: SpotlightSearchP
   });
 
   const navActions: SpotlightActionData[] = [
-    {
-      id: 'nav-dashboard',
-      label: 'Dashboard',
-      description: 'Environment status & test trends',
-      leftSection: <TbChartBar size={18} />,
-      onClick: () => onNavigate('dashboard'),
-      keywords: ['home', 'overview', 'status'],
-    },
-    {
-      id: 'nav-run',
-      label: 'Run Tests',
-      description: 'Execute test suites',
-      leftSection: <TbPlayerPlay size={18} />,
-      onClick: () => onNavigate('run'),
-      keywords: ['execute', 'test', 'start'],
-    },
-    {
-      id: 'nav-history',
-      label: 'Run History',
-      description: 'View past test executions',
-      leftSection: <TbPlayerPlay size={18} />,
-      onClick: () => onNavigate('history'),
-      keywords: ['history', 'past', 'log', 'previous'],
-    },
-    {
-      id: 'nav-schedules',
-      label: 'Schedules',
-      description: 'Manage scheduled test runs',
-      leftSection: <TbCalendarTime size={18} />,
-      onClick: () => onNavigate('schedules'),
-      keywords: ['cron', 'timer', 'automatic'],
-    },
-    {
-      id: 'nav-projects',
-      label: 'Project Manager',
-      description: 'Manage projects & environments',
-      leftSection: <TbFolderFilled size={18} />,
-      onClick: () => onNavigate('projects'),
-      keywords: ['project', 'env', 'clone', 'create'],
-    },
-    {
-      id: 'nav-reports',
-      label: 'Reports',
-      description: 'View test execution reports',
-      leftSection: <TbReportAnalytics size={18} />,
-      onClick: () => onNavigate('reports'),
-      keywords: ['report', 'result', 'html'],
-    },
-    {
-      id: 'nav-settings',
-      label: 'Settings',
-      description: 'Hub preferences & configuration',
-      leftSection: <TbSettings size={18} />,
-      onClick: () => onNavigate('settings'),
-      keywords: ['preferences', 'config', 'options'],
-    },
-  ];
+    ...NAV_CATEGORIES.flatMap((c) => c.items),
+    SETTINGS_ITEM,
+    ...SEARCH_ONLY_ITEMS,
+  ].map((item) => ({
+    id: `nav-${item.path}`,
+    label: t(item.labelKey),
+    description: t(item.descKey),
+    leftSection: item.icon,
+    onClick: () => onNavigate(item.path),
+    keywords: [en[item.labelKey], en[item.descKey]],
+    group: t('spotlight.pagesGroup'),
+  }));
 
   const projectActions: SpotlightActionData[] = (projects.data ?? []).map((p) => ({
     id: `project-${p.tool}-${p.type}-${p.name}`,
     label: p.name,
     description: `${p.tool} / ${p.type}`,
     leftSection: <TbFolderFilled size={16} />,
-    onClick: () => onNavigate('projects'),
+    onClick: () => onNavigate('/projects'),
     keywords: [p.tool, p.type, p.name],
-    group: 'Projects',
+    group: t('nav.projects'),
   }));
 
   // Newest bookmark first, so an empty query surfaces what was just saved. Mantine's
@@ -114,7 +68,7 @@ export function SpotlightSearch({ onNavigate, onLoadBookmark }: SpotlightSearchP
         description: detail,
         leftSection: <TbBookmark size={16} />,
         onClick: () => {
-          onNavigate('run');
+          onNavigate('/run');
           onLoadBookmark(bm.config);
         },
         keywords: [c.tool, c.type, c.project, c.tag, bm.name].filter((v): v is string => !!v),
@@ -127,10 +81,10 @@ export function SpotlightSearch({ onNavigate, onLoadBookmark }: SpotlightSearchP
   return (
     <Spotlight
       actions={actions}
-      nothingFound="No results found"
+      nothingFound={t('spotlight.nothingFound')}
       highlightQuery
       searchProps={{
-        placeholder: 'Search pages, projects, bookmarks...',
+        placeholder: t('spotlight.placeholder'),
       }}
       shortcut="mod+K"
       scrollable

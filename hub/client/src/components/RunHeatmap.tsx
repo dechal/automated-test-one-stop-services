@@ -6,8 +6,12 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { api } from '~/api/client.js';
+import { useT } from '~/i18n/index.js';
+import { formatDate, monthShortNames, weekdayShortName } from '~/utils/datetime.js';
 
 type Metric = 'total' | 'failed' | 'passed';
+
+const HEATMAP_WEEKDAY_SLOTS: (number | null)[] = [0, 1, null, 3, null, 5, null];
 
 const COLORS_PASSED_DARK = ['#1f2937', '#14532d', '#15803d', '#22c55e', '#86efac'];
 const COLORS_PASSED_LIGHT = ['#f3f4f6', '#bbf7d0', '#4ade80', '#16a34a', '#15803d'];
@@ -38,6 +42,7 @@ function aggregate(records: RunRecord[]): Record<string, DayBucket> {
 }
 
 export function RunHeatmap() {
+  const t = useT();
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
   const [metric, setMetric] = useState<Metric>('total');
@@ -70,14 +75,14 @@ export function RunHeatmap() {
   if (history.isLoading) {
     return (
       <Text c="dimmed" size="sm">
-        Loading heatmap...
+        {t('common.loading')}
       </Text>
     );
   }
   if (!history.data || history.data.length === 0) {
     return (
       <Text c="dimmed" size="sm">
-        No run history yet. Run some tests to see activity.
+        {t('chart.noHistory')}
       </Text>
     );
   }
@@ -97,16 +102,19 @@ export function RunHeatmap() {
     <Stack gap="xs">
       <Group justify="space-between" wrap="wrap">
         <Text size="xs" c="dimmed">
-          {totalRuns} runs · {totalPassed} passed · {totalFailed} failed (last 12 months)
+          {t('heatmap.summary')
+            .replace('{runs}', String(totalRuns))
+            .replace('{passed}', String(totalPassed))
+            .replace('{failed}', String(totalFailed))}
         </Text>
         <SegmentedControl
           size="xs"
           value={metric}
           onChange={(v) => setMetric(v as Metric)}
           data={[
-            { value: 'total', label: 'Total' },
-            { value: 'passed', label: 'Passed' },
-            { value: 'failed', label: 'Failed' },
+            { value: 'total', label: t('chart.total') },
+            { value: 'passed', label: t('status.allPassed') },
+            { value: 'failed', label: t('status.testsFailed') },
           ]}
         />
       </Group>
@@ -120,12 +128,21 @@ export function RunHeatmap() {
             withWeekdayLabels
             withMonthLabels
             withLegend
+            monthLabels={monthShortNames()}
+            weekdayLabels={HEATMAP_WEEKDAY_SLOTS.map((day) =>
+              day === null ? '' : weekdayShortName(day),
+            )}
+            legendLabels={[t('heatmap.less'), t('heatmap.more')]}
             colors={colorMap[metric]}
             getTooltipLabel={({ date, value: _value }) => {
               const b = buckets[date];
-              const dateStr = dayjs(date).format('DD MMM YYYY');
-              if (!b) return `${dateStr} — No runs`;
-              return `${dateStr} — ${b.total} run${b.total === 1 ? '' : 's'} (${b.passed} passed, ${b.failed} failed)`;
+              const dateStr = formatDate(date);
+              if (!b) return `${dateStr} — ${t('heatmap.noRuns')}`;
+              const detail = t(b.total === 1 ? 'heatmap.dayTooltipOne' : 'heatmap.dayTooltip')
+                .replace('{runs}', String(b.total))
+                .replace('{passed}', String(b.passed))
+                .replace('{failed}', String(b.failed));
+              return `${dateStr} — ${detail}`;
             }}
           />
         )}

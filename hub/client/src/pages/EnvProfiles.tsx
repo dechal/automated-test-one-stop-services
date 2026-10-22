@@ -21,7 +21,7 @@ export function EnvProfilesPage() {
 
   return (
     <Stack gap="md">
-      <PageHeader title={t('envProfiles.title')} description={t('nav.envProfiles.desc')} />
+      <PageHeader title={t('nav.envProfiles')} description={t('nav.envProfiles.desc')} />
 
       {/* Cascading project selector */}
       <Paper p="md" withBorder>
@@ -49,7 +49,7 @@ export function EnvProfilesPage() {
               setType(v ?? '');
               setProject('');
             }}
-            placeholder={types.isLoading ? 'Loading...' : 'Select type...'}
+            placeholder={types.isLoading ? t('common.loading') : t('webhook.selectType')}
             data={types.data ?? []}
             disabled={types.isLoading}
             rightSection={types.isLoading ? <Loader size={14} /> : undefined}
@@ -62,7 +62,11 @@ export function EnvProfilesPage() {
             value={project || null}
             onChange={(v) => setProject(v ?? '')}
             placeholder={
-              !type ? 'Select type first' : projects.isLoading ? 'Loading...' : 'Select project...'
+              !type
+                ? t('webhook.selectTypeFirst')
+                : projects.isLoading
+                  ? t('common.loading')
+                  : t('webhook.selectProject')
             }
             data={projects.data ?? []}
             disabled={!type || projects.isLoading}

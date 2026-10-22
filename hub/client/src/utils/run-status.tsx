@@ -37,12 +37,32 @@ export function getStatusIcon(status: string, size = 14): ReactNode {
       return <TbCircleCheck size={size} />;
     case 'failed':
     case 'error':
+    case 'cancelled':
       return <TbCircleX size={size} />;
     case 'running':
     case 'pending':
       return <TbClock size={size} />;
     default:
       return <TbHelp size={size} />;
+  }
+}
+
+export function statusLabelKey(status: string): TranslationKey {
+  switch (status) {
+    case 'passed':
+    case 'success':
+      return 'status.allPassed';
+    case 'failed':
+      return 'status.testsFailed';
+    case 'error':
+      return 'status.runError';
+    case 'cancelled':
+      return 'status.cancelled';
+    case 'running':
+    case 'pending':
+      return 'common.running';
+    default:
+      return 'status.unknown';
   }
 }
 

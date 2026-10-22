@@ -45,6 +45,7 @@ import { ErrorState } from '~/components/ErrorState.js';
 import { RunLogModal } from '~/components/history/RunLogModal.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { PassScoreCell } from '~/components/PassScoreCell.js';
+import { RunStatusBadge } from '~/components/RunStatusBadge.js';
 import { toast } from '~/components/Toast.js';
 import { PAGE_SIZE_OPTIONS, SortableHeader } from '~/components/table/SortableHeader.js';
 import { useTableSort } from '~/hooks/useTableSort.js';
@@ -58,7 +59,7 @@ import {
   formatPneBreakdown,
   getStatusColor,
   getStatusIcon,
-  runOutcome,
+  statusLabelKey,
 } from '~/utils/run-status.js';
 import { buildTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
@@ -320,14 +321,14 @@ export function HistoryPage() {
     <Stack gap="md" h="100%" style={{ minHeight: 0, overflow: 'hidden' }}>
       <div style={{ flexShrink: 0 }}>
         <PageHeader
-          title={t('history.title')}
+          title={t('nav.history')}
           description={t('nav.history.desc')}
           actions={
             <>
               {compareSel.size === 2 && (
                 <Button
                   size="xs"
-                  color="grape"
+                  variant="light"
                   leftSection={<TbGitCompare size={14} />}
                   onClick={handleCompare}
                 >
@@ -342,26 +343,6 @@ export function HistoryPage() {
                   onClick={exportCsv}
                 >
                   {t('history.exportCsv')}
-                </Button>
-              )}
-              {sorted.length > 0 && (
-                <Button
-                  variant="light"
-                  color="red"
-                  size="xs"
-                  leftSection={<TbTrash size={14} />}
-                  onClick={async () => {
-                    const ok = await confirmDialog({
-                      title: t('history.clearTitle'),
-                      message: t('history.clearConfirm'),
-                      confirmLabel: t('history.clearAll'),
-                      danger: true,
-                    });
-                    if (ok) clearHistoryMutation.mutate();
-                  }}
-                  loading={clearHistoryMutation.isPending}
-                >
-                  {t('history.clearHistory')}
                 </Button>
               )}
               <Button
@@ -379,6 +360,26 @@ export function HistoryPage() {
               >
                 {t('reports.filters')}
               </Button>
+              {sorted.length > 0 && (
+                <Button
+                  variant="subtle"
+                  color="red"
+                  size="xs"
+                  leftSection={<TbTrash size={14} />}
+                  onClick={async () => {
+                    const ok = await confirmDialog({
+                      title: t('history.clearTitle'),
+                      message: t('history.clearConfirm'),
+                      confirmLabel: t('history.clearAll'),
+                      danger: true,
+                    });
+                    if (ok) clearHistoryMutation.mutate();
+                  }}
+                  loading={clearHistoryMutation.isPending}
+                >
+                  {t('history.clearHistory')}
+                </Button>
+              )}
             </>
           }
         />
@@ -491,7 +492,7 @@ export function HistoryPage() {
                       }}
                       style={{ cursor: 'pointer' }}
                     >
-                      {s}
+                      {t(statusLabelKey(s))}
                     </Badge>
                   ))}
                 </Group>
@@ -584,7 +585,6 @@ export function HistoryPage() {
               ) : (
                 <Button
                   size="xs"
-                  color="green"
                   leftSection={<TbPlayerPlay size={14} />}
                   onClick={() => {
                     navigate({ to: '/run' });
@@ -622,7 +622,7 @@ export function HistoryPage() {
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th w={40} />
-                  <Table.Th>
+                  <Table.Th w={1}>
                     <SortableHeader
                       label={t('table.status')}
                       field="status"
@@ -683,21 +683,11 @@ export function HistoryPage() {
                         aria-label={t('compare.button')}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       {/* Same outcome vocabulary as Reports: a run whose tests
                           failed and a run that never produced a result are
                           different problems and must not read alike. */}
-                      <Tooltip label={t(runOutcome(r.status, r.summary).labelKey)} withArrow>
-                        <Badge
-                          color={runOutcome(r.status, r.summary).color}
-                          variant={runOutcome(r.status, r.summary).emphasise ? 'filled' : 'light'}
-                          size="sm"
-                          leftSection={runOutcome(r.status, r.summary).icon}
-                          style={{ maxWidth: '100%' }}
-                        >
-                          {t(runOutcome(r.status, r.summary).labelKey)}
-                        </Badge>
-                      </Tooltip>
+                      <RunStatusBadge status={r.status} summary={r.summary} />
                     </Table.Td>
                     {/* Tool / mode / trigger are context, not signals. As pills
                         they gave every row five coloured chips and nothing stood
@@ -841,8 +831,7 @@ export function HistoryPage() {
                       <Group gap={4} wrap="nowrap">
                         <Tooltip label={t('history.rerun')}>
                           <ActionIcon
-                            variant="light"
-                            color="green"
+                            variant="subtle"
                             size="sm"
                             onClick={() => handleRerun(r)}
                             aria-label={t('history.rerun')}

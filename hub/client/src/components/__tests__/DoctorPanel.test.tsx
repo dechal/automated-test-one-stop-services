@@ -1,11 +1,12 @@
 import type { DoctorCheck, DoctorReport, ProvisionResult, PythonInstallResult } from '@hub/shared';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en } from '~/i18n/en';
+import { usePreferences } from '~/stores/hub.js';
 import { DoctorPanel } from '../DoctorPanel';
 
 /** Match the button by its translation source, so a copy change cannot break
@@ -60,6 +61,7 @@ vi.mock('react-icons/tb', () => {
     TbAlertTriangle: makeIcon('TbAlertTriangle'),
     TbChevronRight: makeIcon('TbChevronRight'),
     TbCircleCheck: makeIcon('TbCircleCheck'),
+    TbCircleDashed: makeIcon('TbCircleDashed'),
     TbCircleX: makeIcon('TbCircleX'),
     TbDownload: makeIcon('TbDownload'),
     TbRefresh: makeIcon('TbRefresh'),
@@ -189,6 +191,32 @@ describe('DoctorPanel rendering', () => {
     // before asserting the ok icon.
     await user.click(screen.getByText(/Show passing checks/));
     expect(iconForCheck('hub/server')).toHaveAttribute('data-testid', 'TbCircleCheck');
+  });
+
+  it('renders a stopped optional service as not enabled rather than failed', () => {
+    usePreferences.setState({ advancedMode: true });
+    try {
+      renderPanel(
+        <DoctorPanel
+          doctor={report([
+            check({ name: 'tools/playwright', ok: false, hint: 'Run: pnpm install' }),
+            check({
+              name: 'docker-running',
+              ok: false,
+              hint: 'Start Docker Desktop',
+              category: 'optional-process',
+            }),
+          ])}
+          isLoading={false}
+        />,
+      );
+
+      expect(iconForCheck('docker-running')).toHaveAttribute('data-testid', 'TbCircleDashed');
+      expect(screen.getByText(en['doctor.notEnabled'])).toBeInTheDocument();
+      expect(iconForCheck('tools/playwright')).toHaveAttribute('data-testid', 'TbCircleX');
+    } finally {
+      act(() => usePreferences.setState({ advancedMode: false }));
+    }
   });
 
   it('renders the hint text for a failing check that has a hint', () => {

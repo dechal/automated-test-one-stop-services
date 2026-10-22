@@ -7,7 +7,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { queryClient } from './api/query-client.js';
 import { router } from './router.js';
-import { theme } from './theme.js';
+import { cssVariablesResolver, theme } from './theme.js';
 import './utils/dayjs.js';
 import '@mantine/core/styles.css';
 import '@mantine/charts/styles.css';
@@ -19,7 +19,11 @@ import './index.css';
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
-    <MantineProvider theme={theme} defaultColorScheme="dark">
+    <MantineProvider
+      theme={theme}
+      cssVariablesResolver={cssVariablesResolver}
+      defaultColorScheme="dark"
+    >
       <ModalsProvider>
         <Notifications position="bottom-right" zIndex={1000} />
         <QueryClientProvider client={queryClient}>

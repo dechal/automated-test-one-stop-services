@@ -4,6 +4,7 @@ import {
   AppShell,
   Badge,
   Burger,
+  Button,
   Center,
   Divider,
   Group,
@@ -24,22 +25,10 @@ import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { Suspense, useCallback, useState } from 'react';
 import {
   TbAdjustmentsHorizontal,
-  TbBrandDocker,
-  TbCalendarTime,
-  TbChartBar,
-  TbChartLine,
-  TbChecklist,
   TbChevronDown,
   TbChevronRight,
-  TbFolderFilled,
-  TbHistory,
-  TbKey,
   TbLayoutSidebarLeftCollapse,
   TbLayoutSidebarLeftExpand,
-  TbPhoto,
-  TbPlayerPlay,
-  TbReportAnalytics,
-  TbSettings,
 } from 'react-icons/tb';
 import { qActiveRuns, qDoctor } from '~/api/queries.js';
 import { ActiveRunsBanner } from '~/components/ActiveRunsBanner.js';
@@ -48,155 +37,21 @@ import { FloatingRunsWindow } from '~/components/FloatingRunsWindow.js';
 import { KeyboardShortcuts } from '~/components/KeyboardShortcuts.js';
 import { LanguageToggle } from '~/components/LanguageToggle.js';
 import { NotificationCenter } from '~/components/NotificationCenter.js';
+import {
+  NAV_CATEGORIES,
+  type NavCategory,
+  type NavItem,
+  type PagePath,
+  SETTINGS_ITEM,
+} from '~/components/nav-config.js';
 import { PageLoader } from '~/components/PageLoader.js';
 import { SpotlightSearch } from '~/components/SpotlightSearch.js';
 import { UserNameGate } from '~/components/UserNameGate.js';
 import { useRunFinishedNotifier } from '~/hooks/useRunFinishedNotifier.js';
 import { useScheduleToasts } from '~/hooks/useScheduleToasts.js';
-import type { TranslationKey } from '~/i18n/en';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
-
-// ---------------------------------------------------------------------------
-// Nav structure
-// ---------------------------------------------------------------------------
-
-type PagePath =
-  | '/'
-  | '/run'
-  | '/history'
-  | '/schedules'
-  | '/projects'
-  | '/testcases'
-  | '/env-profiles'
-  | '/reports'
-  | '/artifacts'
-  | '/insights'
-  | '/docker'
-  | '/webhooks'
-  | '/settings';
-
-interface NavItem {
-  path: PagePath;
-  labelKey: TranslationKey;
-  descKey: TranslationKey;
-  icon: React.ReactNode;
-  /**
-   * Advanced-only ITEM inside an otherwise basic category. Hidden from the navbar
-   * in simple mode, and it keeps its category (moving it into an `advanced`
-   * category would file it under the wrong heading). ⌘K still reaches it, exactly
-   * like the items in `advanced` categories.
-   */
-  advanced?: boolean;
-}
-
-interface NavCategory {
-  labelKey: TranslationKey;
-  /** When true the whole category is tucked behind the "Advanced" toggle. */
-  advanced?: boolean;
-  items: NavItem[];
-}
-
-const NAV_CATEGORIES: NavCategory[] = [
-  {
-    labelKey: 'nav.workspace',
-    items: [
-      {
-        path: '/',
-        labelKey: 'nav.dashboard',
-        descKey: 'nav.dashboard.desc',
-        icon: <TbChartBar size={18} />,
-      },
-      {
-        path: '/run',
-        labelKey: 'nav.runTests',
-        descKey: 'nav.runTests.desc',
-        icon: <TbPlayerPlay size={18} />,
-      },
-      {
-        path: '/reports',
-        labelKey: 'nav.reports',
-        descKey: 'nav.reports.desc',
-        icon: <TbReportAnalytics size={18} />,
-      },
-      {
-        path: '/history',
-        labelKey: 'nav.history',
-        descKey: 'nav.history.desc',
-        icon: <TbHistory size={18} />,
-      },
-      {
-        path: '/schedules',
-        labelKey: 'nav.schedules',
-        descKey: 'nav.schedules.desc',
-        icon: <TbCalendarTime size={18} />,
-      },
-    ],
-  },
-  {
-    labelKey: 'nav.manage',
-    items: [
-      {
-        path: '/projects',
-        labelKey: 'nav.projects',
-        descKey: 'nav.projects.desc',
-        icon: <TbFolderFilled size={18} />,
-      },
-      {
-        path: '/testcases',
-        labelKey: 'nav.testCases',
-        descKey: 'nav.testCases.desc',
-        icon: <TbChecklist size={18} />,
-      },
-      {
-        path: '/artifacts',
-        labelKey: 'nav.artifacts',
-        descKey: 'nav.artifacts.desc',
-        icon: <TbPhoto size={18} />,
-      },
-    ],
-  },
-  {
-    labelKey: 'nav.insights',
-    items: [
-      {
-        path: '/insights',
-        labelKey: 'nav.insights',
-        descKey: 'nav.insights.desc',
-        icon: <TbChartLine size={18} />,
-      },
-    ],
-  },
-  {
-    // Operator-only surfaces: a raw `.env` key/value editor and the container
-    // services. Both need engineering context, so they share one gated group.
-    labelKey: 'nav.infrastructure',
-    advanced: true,
-    items: [
-      {
-        path: '/env-profiles',
-        labelKey: 'nav.envProfiles',
-        descKey: 'nav.envProfiles.desc',
-        icon: <TbKey size={18} />,
-      },
-      {
-        path: '/docker',
-        labelKey: 'nav.docker',
-        descKey: 'nav.docker.desc',
-        icon: <TbBrandDocker size={18} />,
-      },
-    ],
-  },
-];
-
-/** Pinned below the categories: reached from every page, never scrolled away. */
-const SETTINGS_ITEM: NavItem = {
-  path: '/settings',
-  labelKey: 'nav.settings',
-  descKey: 'nav.settings.desc',
-  icon: <TbSettings size={18} />,
-};
 
 // ---------------------------------------------------------------------------
 // Layout component
@@ -283,8 +138,7 @@ export function AppLayout() {
 
   // Spotlight navigation adapter (accepts string page names for backward compat)
   const handleSpotlightNavigate = useCallback(
-    (page: string) => {
-      const path = page === 'dashboard' ? '/' : (`/${page}` as PagePath);
+    (path: PagePath) => {
       navigate({ to: path });
       close();
     },
@@ -470,19 +324,15 @@ export function AppLayout() {
             </Group>
             <Group gap="xs">
               <Tooltip label={t('app.searchHint')}>
-                <Badge
+                <Button
                   variant="default"
-                  size="lg"
-                  style={{ cursor: 'pointer' }}
+                  size="compact-sm"
                   onClick={() => spotlight.open()}
+                  aria-label={t('app.searchHint')}
+                  rightSection={<Kbd size="xs">⌘K</Kbd>}
                 >
-                  <Group gap={4}>
-                    <Text size="xs" c="dimmed">
-                      {t('common.search')}
-                    </Text>
-                    <Kbd size="xs">⌘K</Kbd>
-                  </Group>
-                </Badge>
+                  {t('common.search')}
+                </Button>
               </Tooltip>
               <Tooltip
                 label={advancedMode ? t('common.advancedModeOn') : t('common.advancedModeOff')}

@@ -1,6 +1,7 @@
-import { Tabs } from '@mantine/core';
+import { Stack, Tabs } from '@mantine/core';
 import { lazy, Suspense, useState } from 'react';
 import { TbChartLine, TbFlame, TbListCheck } from 'react-icons/tb';
+import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton, StatCardsSkeleton } from '~/components/Skeletons.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
@@ -48,44 +49,47 @@ export function InsightsPage() {
   const activeTab = tab === 'performance' && !k6Installed ? 'flaky' : tab;
 
   return (
-    <Tabs value={activeTab} onChange={selectTab}>
-      <Tabs.List mb="md">
-        <Tabs.Tab value="flaky" leftSection={<TbFlame size={16} />}>
-          {t('nav.flakyTests')}
-        </Tabs.Tab>
-        <Tabs.Tab value="coverage" leftSection={<TbListCheck size={16} />}>
-          {t('nav.coverage')}
-        </Tabs.Tab>
-        {k6Installed && (
-          <Tabs.Tab value="performance" leftSection={<TbChartLine size={16} />}>
-            {t('nav.performance')}
+    <Stack gap="md">
+      <PageHeader title={t('nav.insights')} description={t('nav.insights.desc')} />
+      <Tabs value={activeTab} onChange={selectTab}>
+        <Tabs.List mb="md">
+          <Tabs.Tab value="flaky" leftSection={<TbFlame size={16} />}>
+            {t('nav.flakyTests')}
           </Tabs.Tab>
-        )}
-      </Tabs.List>
+          <Tabs.Tab value="coverage" leftSection={<TbListCheck size={16} />}>
+            {t('nav.coverage')}
+          </Tabs.Tab>
+          {k6Installed && (
+            <Tabs.Tab value="performance" leftSection={<TbChartLine size={16} />}>
+              {t('nav.performance')}
+            </Tabs.Tab>
+          )}
+        </Tabs.List>
 
-      <Tabs.Panel value="flaky">
-        {opened.has('flaky') && (
-          <Suspense fallback={<ListSkeleton />}>
-            <FlakyTestsPage />
-          </Suspense>
-        )}
-      </Tabs.Panel>
-      <Tabs.Panel value="coverage">
-        {opened.has('coverage') && (
-          <Suspense fallback={<ListSkeleton />}>
-            <CoveragePage />
-          </Suspense>
-        )}
-      </Tabs.Panel>
-      {k6Installed && (
-        <Tabs.Panel value="performance">
-          {opened.has('performance') && (
-            <Suspense fallback={<StatCardsSkeleton />}>
-              <PerformancePage />
+        <Tabs.Panel value="flaky">
+          {opened.has('flaky') && (
+            <Suspense fallback={<ListSkeleton />}>
+              <FlakyTestsPage />
             </Suspense>
           )}
         </Tabs.Panel>
-      )}
-    </Tabs>
+        <Tabs.Panel value="coverage">
+          {opened.has('coverage') && (
+            <Suspense fallback={<ListSkeleton />}>
+              <CoveragePage />
+            </Suspense>
+          )}
+        </Tabs.Panel>
+        {k6Installed && (
+          <Tabs.Panel value="performance">
+            {opened.has('performance') && (
+              <Suspense fallback={<StatCardsSkeleton />}>
+                <PerformancePage />
+              </Suspense>
+            )}
+          </Tabs.Panel>
+        )}
+      </Tabs>
+    </Stack>
   );
 }

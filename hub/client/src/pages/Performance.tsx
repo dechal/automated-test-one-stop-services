@@ -29,6 +29,7 @@ import {
 import { api } from '~/api/client';
 import { EmptyState } from '~/components/EmptyState.js';
 import { K6TrendChart } from '~/components/K6TrendChart.js';
+import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
 import { useTools } from '~/hooks/useTools.js';
@@ -173,25 +174,22 @@ export function PerformancePage() {
 function PageHeaderRow({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
   const t = useT();
   return (
-    <Group justify="space-between" align="flex-start">
-      <div>
-        <Text fw={600} fz="h4">
-          {t('nav.performance')}
-        </Text>
-        <Text size="sm" c="dimmed">
-          {t('performance.desc')}
-        </Text>
-      </div>
-      <Button
-        leftSection={<TbRefresh size={14} />}
-        size="xs"
-        variant="light"
-        onClick={onRefresh}
-        loading={refreshing}
-      >
-        {t('common.refresh')}
-      </Button>
-    </Group>
+    <PageHeader
+      title={t('nav.performance')}
+      description={t('performance.desc')}
+      order={2}
+      actions={
+        <Button
+          leftSection={<TbRefresh size={14} />}
+          size="xs"
+          variant="light"
+          onClick={onRefresh}
+          loading={refreshing}
+        >
+          {t('common.refresh')}
+        </Button>
+      }
+    />
   );
 }
 

@@ -185,15 +185,18 @@ export function TestCasesPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        title={t('testcases.title')}
+        title={t('nav.testCases')}
         description={t('nav.testCases.desc')}
         actions={
           <Tooltip label={t('testcases.selectProjectFirst')} disabled={ready} withArrow>
             <Button
               size="xs"
               leftSection={<TbFilePlus size={14} />}
-              disabled={!ready}
-              onClick={() => setCreateOpen(true)}
+              data-disabled={!ready || undefined}
+              aria-disabled={!ready}
+              onClick={() => {
+                if (ready) setCreateOpen(true);
+              }}
             >
               {t('testcases.newDoc')}
             </Button>
@@ -299,7 +302,7 @@ export function TestCasesPage() {
                 <Text size="sm" fw={500} truncate style={{ flex: 1, textAlign: 'left' }}>
                   {g.type} · {g.project}
                 </Text>
-                <Badge size="xs" variant="light" color="gray" circle style={{ flexShrink: 0 }}>
+                <Badge size="xs" variant="light" color="gray" miw={24} style={{ flexShrink: 0 }}>
                   {g.items.length}
                 </Badge>
               </UnstyledButton>

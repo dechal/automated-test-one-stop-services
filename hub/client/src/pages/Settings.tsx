@@ -24,7 +24,6 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import {
   TbChevronRight,
@@ -49,6 +48,7 @@ import { useNotificationSound } from '~/hooks/useNotificationSound.js';
 import { useResyncWorkspace, useToolOptions } from '~/hooks/useTools.js';
 import { type Locale, useI18nStore, useT } from '~/i18n';
 import { usePreferences } from '~/stores/hub.js';
+import { formatShort } from '~/utils/datetime.js';
 
 /**
  * Poll /api/health until it succeeds or timeout. Used during system update
@@ -243,7 +243,8 @@ export function SettingsPage() {
       if (final.error) {
         setUpdateStatus(null);
         setIsUpdating(false);
-        toast.error(`Update failed: ${final.error}`);
+        const finalError = final.error;
+        toast.error(t('settings.updateFailed').replace('{error}', () => finalError));
         return;
       }
 
@@ -280,7 +281,12 @@ export function SettingsPage() {
       setIsUpdating(false);
       const error = err as Error & { stage?: string };
       const stage = error.stage ? ` (${error.stage})` : '';
-      toast.error(`Update Hub failed${stage}: ${error.message || 'Unknown error'}`);
+      const message = error.message || t('settings.unknownError');
+      toast.error(
+        t('settings.updateHubFailed')
+          .replace('{stage}', () => stage)
+          .replace('{error}', () => message),
+      );
     }
   };
 
@@ -302,7 +308,7 @@ export function SettingsPage() {
 
   return (
     <Stack gap="md">
-      <PageHeader title={t('settings.title')} description={t('nav.settings.desc')} />
+      <PageHeader title={t('nav.settings')} description={t('nav.settings.desc')} />
 
       {/* Two cards, not three. Theme and language are the same concern (how the
           Hub presents itself) and each held a single row, so in a 3-up grid they
@@ -312,7 +318,7 @@ export function SettingsPage() {
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         {/* Display — theme + language */}
         <Paper p="md" withBorder>
-          <Title order={5} mb="sm">
+          <Title order={2} size="h5" mb="sm">
             {t('settings.appearance')}
           </Title>
           <Stack gap="sm">
@@ -362,7 +368,7 @@ export function SettingsPage() {
         </Paper>
         {/* Notifications */}
         <Paper p="md" withBorder>
-          <Title order={5} mb="sm">
+          <Title order={2} size="h5" mb="sm">
             {t('settings.notifications')}
           </Title>
           <Stack gap="sm">
@@ -395,7 +401,7 @@ export function SettingsPage() {
       <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
         {/* Identity — the name stamped into test-case "Edited By" */}
         <Paper p="md" withBorder>
-          <Title order={5} mb="sm">
+          <Title order={2} size="h5" mb="sm">
             {t('user.identity')}
           </Title>
           <Stack gap="sm">
@@ -446,7 +452,9 @@ export function SettingsPage() {
         <Paper p="md" withBorder>
           <Group justify="space-between">
             <Stack gap={2}>
-              <Title order={5}>{t('settings.webhooks')}</Title>
+              <Title order={2} size="h5">
+                {t('settings.webhooks')}
+              </Title>
               <Text size="xs" c="dimmed">
                 {t('settings.webhooksDesc')}
               </Text>
@@ -465,7 +473,7 @@ export function SettingsPage() {
 
         {/* Execution */}
         <Paper p="md" withBorder>
-          <Title order={5} mb="sm">
+          <Title order={2} size="h5" mb="sm">
             {t('settings.execution')}
           </Title>
           <Stack gap="sm">
@@ -518,7 +526,7 @@ export function SettingsPage() {
 
       {/* Run Defaults */}
       <Paper p="md" withBorder>
-        <Title order={5} mb="sm">
+        <Title order={2} size="h5" mb="sm">
           {t('settings.runDefaults')}
         </Title>
         <Stack gap="sm">
@@ -584,7 +592,7 @@ export function SettingsPage() {
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         {/* Output Retention */}
         <Paper p="md" withBorder>
-          <Title order={5} mb="sm">
+          <Title order={2} size="h5" mb="sm">
             {t('settings.outputRetention')}
           </Title>
           <Stack gap="sm">
@@ -640,7 +648,7 @@ export function SettingsPage() {
               <Button
                 size="xs"
                 color="red"
-                variant="light"
+                variant="subtle"
                 leftSection={<TbTrash size={12} />}
                 onClick={() => cleanupMutation.mutate()}
                 loading={cleanupMutation.isPending}
@@ -688,7 +696,7 @@ export function SettingsPage() {
                       {cleanupHistoryQ.data.map((h) => (
                         <Table.Tr key={h.timestamp}>
                           <Table.Td>
-                            <Text size="xs">{dayjs(h.timestamp).format('DD MMM HH:mm')}</Text>
+                            <Text size="xs">{formatShort(h.timestamp)}</Text>
                           </Table.Td>
                           <Table.Td>
                             <Text size="xs" fw={500} c={h.deleted > 0 ? 'red' : 'dimmed'}>
@@ -723,7 +731,7 @@ export function SettingsPage() {
 
         {/* Data */}
         <Paper p="md" withBorder>
-          <Title order={5} mb="sm">
+          <Title order={2} size="h5" mb="sm">
             {t('settings.dataStorage')}
           </Title>
           <Stack gap="sm">
@@ -776,7 +784,7 @@ export function SettingsPage() {
               <Button
                 size="xs"
                 color="red"
-                variant="light"
+                variant="subtle"
                 onClick={async () => {
                   const ok = await confirmDialog({
                     title: t('settings.resetTitle'),
@@ -803,7 +811,7 @@ export function SettingsPage() {
 
       {/* System Update */}
       <Paper p="md" withBorder>
-        <Title order={5} mb="sm">
+        <Title order={2} size="h5" mb="sm">
           {t('settings.systemUpdate')}
         </Title>
         <Stack gap="sm">
@@ -837,7 +845,7 @@ export function SettingsPage() {
       {/* Support / Donate — drop your PromptPay QR image at
           hub/client/public/promptpay-qr.png (served at /promptpay-qr.png). */}
       <Paper p="md" withBorder>
-        <Title order={5} mb="sm">
+        <Title order={2} size="h5" mb="sm">
           {t('settings.support')}
         </Title>
         <Stack gap={6}>
@@ -883,7 +891,7 @@ export function SettingsPage() {
 
       {/* About */}
       <Paper p="md" withBorder>
-        <Title order={5} mb="sm">
+        <Title order={2} size="h5" mb="sm">
           {t('settings.about')}
         </Title>
         <Stack gap={4}>

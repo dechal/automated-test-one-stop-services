@@ -166,7 +166,9 @@ export function ImportExportPanel() {
   return (
     <Paper p="md" withBorder>
       <Stack gap="md">
-        <Title order={5}>{t('settings.importExport')}</Title>
+        <Title order={2} size="h5">
+          {t('settings.importExport')}
+        </Title>
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           {/* Export card */}

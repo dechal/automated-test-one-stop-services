@@ -10,10 +10,10 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import dayjs from 'dayjs';
 import { TbBell, TbCheck, TbCircleCheck, TbCircleX, TbInfoCircle, TbTrash } from 'react-icons/tb';
 import { useT } from '~/i18n/index.js';
 import { type HubNotification, useNotifications } from '~/stores/hub.js';
+import { formatRelative } from '~/utils/datetime.js';
 
 function NotificationIcon({ type }: { type: HubNotification['type'] }) {
   switch (type) {
@@ -125,7 +125,7 @@ export function NotificationCenter() {
                     </Text>
                   </Stack>
                   <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                    {dayjs(n.timestamp).fromNow()}
+                    {formatRelative(n.timestamp)}
                   </Text>
                 </Group>
               ))}

@@ -10,6 +10,7 @@ interface PageHeaderProps {
   icon?: ReactNode;
   /** Optional right-aligned actions (buttons, selects, badges). */
   actions?: ReactNode;
+  order?: 1 | 2;
 }
 
 /**
@@ -24,13 +25,15 @@ interface PageHeaderProps {
  * confidently the headline. Size comes from the `h1` rung in `theme.ts` (24px),
  * so this is a hierarchy fix, not a "make it bigger" one.
  */
-export function PageHeader({ title, description, icon, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, icon, actions, order = 1 }: PageHeaderProps) {
   return (
     <Group justify="space-between" wrap="wrap" gap="sm">
       <Group gap="sm" wrap="nowrap">
         {icon}
         <Stack gap={2}>
-          <Title order={1}>{title}</Title>
+          <Title order={order} size={order === 1 ? 'h1' : 'h3'}>
+            {title}
+          </Title>
           {description ? (
             <Text size="sm" c="dimmed">
               {description}

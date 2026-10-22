@@ -6,6 +6,7 @@ import {
   Paper,
   Progress,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
@@ -13,7 +14,6 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { TbChevronRight, TbFlame, TbSearch } from 'react-icons/tb';
 import { qAllTestTrends } from '~/api/queries.js';
@@ -22,6 +22,9 @@ import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { formatShort } from '~/utils/datetime.js';
+import { filterFlaky } from '~/utils/flaky-filter.js';
+import { statusLabelKey } from '~/utils/run-status.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
 function statusColor(status: TestStatus): string {
@@ -30,11 +33,12 @@ function statusColor(status: TestStatus): string {
 
 /** A left-to-right dot timeline of a test's recent outcomes (newest last). */
 function TrendDots({ points }: { points: TestTrend['points'] }) {
+  const t = useT();
   const shown = points.slice(-12);
   return (
     <Group gap={3} wrap="nowrap">
       {shown.map((p) => (
-        <Tooltip key={p.runId} label={`${p.status} · ${dayjs(p.at).format('DD MMM HH:mm')}`}>
+        <Tooltip key={p.runId} label={`${t(statusLabelKey(p.status))} · ${formatShort(p.at)}`}>
           <div
             style={{
               width: 8,
@@ -70,14 +74,16 @@ export function FlakyTestsPage() {
   const t = useT();
   const tools = useTools().data ?? [];
   const [q, setQ] = useState('');
+  const [onlyFlaky, setOnlyFlaky] = useState(true);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const allQ = useQuery(qAllTestTrends());
   const reports = allQ.data ?? [];
   const query = q.trim().toLowerCase();
 
-  const { visible, flakyTotal } = useMemo(() => {
-    const matched = reports.filter((r) => reportMatches(r, query));
+  const { visible, flakyTotal, hiddenCount, scopedCount } = useMemo(() => {
+    const scoped = filterFlaky(reports, onlyFlaky);
+    const matched = scoped.reports.filter((r) => reportMatches(r, query));
     const sorted = [...matched].sort(
       (a, b) =>
         b.flakyCount - a.flakyCount ||
@@ -85,8 +91,13 @@ export function FlakyTestsPage() {
         a.type.localeCompare(b.type) ||
         a.project.localeCompare(b.project),
     );
-    return { visible: sorted, flakyTotal: reports.reduce((n, r) => n + r.flakyCount, 0) };
-  }, [reports, query, tools]);
+    return {
+      visible: sorted,
+      flakyTotal: reports.reduce((n, r) => n + r.flakyCount, 0),
+      hiddenCount: scoped.hiddenCount,
+      scopedCount: scoped.reports.length,
+    };
+  }, [reports, query, tools, onlyFlaky]);
 
   const searching = query.length > 0;
   const isCollapsed = (key: string) => !searching && collapsed.has(key);
@@ -103,6 +114,7 @@ export function FlakyTestsPage() {
   return (
     <Stack gap="md">
       <PageHeader
+        order={2}
         title={t('nav.flakyTests')}
         description={t('flaky.desc')}
         actions={
@@ -124,15 +136,28 @@ export function FlakyTestsPage() {
         />
       ) : (
         <>
-          <TextInput
-            value={q}
-            onChange={(e) => setQ(e.currentTarget.value)}
-            placeholder={t('flaky.searchPlaceholder')}
-            leftSection={<TbSearch size={14} />}
-          />
+          <Group gap="sm" wrap="wrap">
+            <TextInput
+              value={q}
+              onChange={(e) => setQ(e.currentTarget.value)}
+              placeholder={t('flaky.searchPlaceholder')}
+              leftSection={<TbSearch size={14} />}
+              style={{ flex: 1, minWidth: 240 }}
+            />
+            <Switch
+              checked={onlyFlaky}
+              onChange={(e) => setOnlyFlaky(e.currentTarget.checked)}
+              label={t('flaky.onlyFlaky')}
+            />
+          </Group>
+          {onlyFlaky && hiddenCount > 0 && (
+            <Text size="xs" c="dimmed">
+              {t('flaky.hiddenStable').replace('{n}', String(hiddenCount))}
+            </Text>
+          )}
           {visible.length === 0 ? (
             <Text size="sm" c="dimmed" ta="center" py="lg">
-              {t('flaky.noMatch')}
+              {onlyFlaky && scopedCount === 0 ? t('flaky.noneFlaky') : t('flaky.noMatch')}
             </Text>
           ) : (
             <Stack gap="xs">
@@ -175,10 +200,10 @@ export function FlakyTestsPage() {
                         size="xs"
                         variant="light"
                         color="gray"
-                        circle
+                        miw={24}
                         style={{ flexShrink: 0 }}
                       >
-                        {r.totalTests}
+                        {r.tests.length}
                       </Badge>
                     </UnstyledButton>
                     <Collapse expanded={!isCollapsed(key)}>

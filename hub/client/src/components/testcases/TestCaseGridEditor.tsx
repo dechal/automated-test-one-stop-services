@@ -457,7 +457,6 @@ export function TestCaseGridEditor({ doc, tool, type, project }: TestCaseGridEdi
             <Button
               size="compact-xs"
               variant="light"
-              color="grape"
               leftSection={<TbPlayerPlay size={12} />}
               disabled={selectedIds.length === 0}
               onClick={() => runIds(selectedIds)}

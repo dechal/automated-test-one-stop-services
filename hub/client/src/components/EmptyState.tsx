@@ -24,7 +24,11 @@ export function EmptyState({ icon, title, description, action, fullHeight }: Emp
     <Paper p="xl" withBorder maw={520} ta="center">
       <Stack align="center" gap="md">
         {icon}
-        {title ? <Title order={4}>{title}</Title> : null}
+        {title ? (
+          <Title order={2} size="h4">
+            {title}
+          </Title>
+        ) : null}
         {typeof description === 'string' ? (
           <Text size="sm" c="dimmed">
             {description}

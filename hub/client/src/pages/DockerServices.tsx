@@ -24,7 +24,7 @@ import { ErrorState } from '~/components/ErrorState.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { GridSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
-import { useT } from '~/i18n/index.js';
+import { type TranslationKey, useT } from '~/i18n/index.js';
 
 /**
  * Poll interval for the Docker/Appium probes. Each poll shells out to the
@@ -46,9 +46,9 @@ interface AppiumStatus {
   installed: boolean;
 }
 
-const SERVICE_INFO: Record<string, { label: string; port: number; description: string }> = {
-  influxdb: { label: 'InfluxDB', port: 8086, description: 'Time-series metrics database' },
-  grafana: { label: 'Grafana', port: 3000, description: 'Metrics dashboard' },
+const SERVICE_INFO: Record<string, { label: string; port: number; descKey: TranslationKey }> = {
+  influxdb: { label: 'InfluxDB', port: 8086, descKey: 'docker.influxDesc' },
+  grafana: { label: 'Grafana', port: 3000, descKey: 'docker.grafanaDesc' },
 };
 
 export function DockerServicesPage() {
@@ -165,7 +165,7 @@ export function DockerServicesPage() {
 
   return (
     <Stack gap="md">
-      <PageHeader title={t('docker.title')} description={t('nav.docker.desc')} />
+      <PageHeader title={t('nav.docker')} description={t('nav.docker.desc')} />
 
       {/* Probing Docker can take a few seconds. Mirror the real layout (status
           card → bulk actions → service cards) so the page never looks stuck and
@@ -219,7 +219,6 @@ export function DockerServicesPage() {
             <Button
               size="xs"
               variant="light"
-              color="green"
               leftSection={<TbPlayerPlay size={14} />}
               onClick={() => startAll.mutate()}
               loading={startAll.isPending}
@@ -229,8 +228,7 @@ export function DockerServicesPage() {
             </Button>
             <Button
               size="xs"
-              variant="light"
-              color="red"
+              variant="default"
               leftSection={<TbPlayerStop size={14} />}
               onClick={() => stopAll.mutate()}
               loading={stopAll.isPending}
@@ -263,7 +261,7 @@ export function DockerServicesPage() {
 
                     <Stack gap={2}>
                       <Text size="xs" c="dimmed">
-                        {info.description}
+                        {t(info.descKey)}
                       </Text>
                       <Text size="xs" c="dimmed" ff="monospace">
                         :{info.port}
@@ -276,7 +274,6 @@ export function DockerServicesPage() {
                           <Button
                             size="xs"
                             variant="light"
-                            color="green"
                             leftSection={<TbPlayerPlay size={12} />}
                             onClick={() => startService.mutate(name)}
                             disabled={!dockerRunning}
@@ -290,8 +287,7 @@ export function DockerServicesPage() {
                         <Tooltip label={t('docker.stopService')}>
                           <Button
                             size="xs"
-                            variant="light"
-                            color="red"
+                            variant="default"
                             leftSection={<TbPlayerStop size={12} />}
                             onClick={() => stopService.mutate(name)}
                             disabled={!dockerRunning}
@@ -358,8 +354,7 @@ export function DockerServicesPage() {
                 <Tooltip label={t('docker.installAppiumTip')}>
                   <Button
                     size="xs"
-                    variant="light"
-                    color="grape"
+                    variant="default"
                     leftSection={<TbDownload size={12} />}
                     onClick={() => appiumInstall.mutate()}
                     loading={appiumInstall.isPending}
@@ -373,7 +368,6 @@ export function DockerServicesPage() {
                     <Button
                       size="xs"
                       variant="light"
-                      color="green"
                       leftSection={<TbPlayerPlay size={12} />}
                       onClick={() => appiumStart.mutate()}
                       loading={appiumStart.isPending}
@@ -384,8 +378,7 @@ export function DockerServicesPage() {
                   {appium.data?.running && (
                     <Button
                       size="xs"
-                      variant="light"
-                      color="red"
+                      variant="default"
                       leftSection={<TbPlayerStop size={12} />}
                       onClick={() => appiumStop.mutate()}
                       loading={appiumStop.isPending}

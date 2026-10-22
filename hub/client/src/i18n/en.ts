@@ -9,7 +9,7 @@ export const en = {
   'nav.dashboard': 'Dashboard',
   'nav.runTests': 'Run Tests',
   'nav.advanced': 'Advanced',
-  'nav.history': 'History',
+  'nav.history': 'Run History',
   'nav.schedules': 'Schedules',
   'nav.projects': 'Projects',
   'nav.envProfiles': 'Env Profiles',
@@ -41,7 +41,6 @@ export const en = {
   'app.envNeedsAttention': 'Something in your setup needs a look',
 
   // Dashboard
-  'dashboard.title': 'Dashboard',
   'dashboard.needsAttention': 'Needs Attention',
   'dashboard.allGood': 'All Good',
   'dashboard.allGoodDesc': 'No issues need your attention right now.',
@@ -79,7 +78,6 @@ export const en = {
   'common.retry': 'Retry',
 
   // Settings
-  'settings.title': 'Settings',
   'settings.appearance': 'Appearance',
   'settings.colorScheme': 'Color Scheme',
   'settings.notifications': 'Notifications',
@@ -115,12 +113,10 @@ export const en = {
   'settings.about': 'About',
 
   // Reports
-  'reports.title': 'Reports',
   'reports.filters': 'Filters',
   'reports.noReports': 'No reports yet. Run some tests to generate reports.',
 
   // Docker
-  'docker.title': 'Docker & Services',
   'docker.checking': 'Checking Docker status...',
   'docker.startDesktop': 'Start Docker Desktop',
   'docker.startAll': 'Start All',
@@ -134,12 +130,10 @@ export const en = {
   'envProfiles.selectProject': 'Select a project to view its environment profiles.',
 
   // Schedules
-  'schedules.title': 'Schedules',
   'schedules.newSchedule': 'New Schedule',
   'schedules.noSchedules': 'No schedules yet. Create one to run tests automatically.',
 
   // Artifacts
-  'artifacts.title': 'Artifacts',
   'artifacts.hideEmpty': 'Hide empty folders',
   'artifacts.noArtifacts': 'No artifacts yet',
   'artifacts.noArtifactsDesc':
@@ -265,8 +259,6 @@ export const en = {
   'queue.removed': 'Taken out of the queue',
 
   // Additional page titles
-  'projects.title': 'Projects',
-  'history.title': 'Run History',
   'webhooks.title': 'Webhooks',
   'projects.addTools': 'Add other tools',
   'projects.pullAll': 'Update All',
@@ -542,7 +534,6 @@ export const en = {
   'compare.noRuns': 'No comparable tests found.',
   'nav.testCases': 'Test Cases',
   'nav.testCases.desc': 'Browse test-case documents for a project',
-  'testcases.title': 'Test Cases',
   'testcases.selectProject': 'Pick a tool, type, and project to see its test-case documents.',
   'testcases.none': 'No test-case documents found for this project.',
   'testcases.open': 'Open',
@@ -1132,6 +1123,58 @@ export const en = {
   'status.runErrorHelp': 'The run stopped before producing any result — check the output',
   'status.sameForAllRows': 'Same for every row on this page',
   'status.moreTags': '+{n} more',
+  'nav.webhooks': 'Webhooks',
+  'nav.webhooks.desc': 'Notify other systems when a run finishes',
+  'spotlight.placeholder': 'Search pages, projects, bookmarks…',
+  'spotlight.nothingFound': 'No results',
+  'spotlight.pagesGroup': 'Pages',
+  'schedule.invalidCron': 'Invalid cron expression',
+  'schedule.namePlaceholder': 'Nightly regression',
+  'schedule.calendarTitle': 'Upcoming Schedule',
+  'schedule.calendarSummary': 'Next 30 days · {n} active schedules',
+  'schedule.calendarSummaryOne': 'Next 30 days · {n} active schedule',
+  'schedule.calendarMonth': 'Month',
+  'schedule.calendarWeek': 'Week',
+  'chart.total': 'Total',
+  'chart.byProject': 'By project',
+  'chart.byTool': 'By tool',
+  'chart.runCount': '{n} runs',
+  'chart.runCountOne': '{n} run',
+  'chart.noRuns': 'No runs yet.',
+  'chart.noHistory': 'No run history yet. Run some tests to see activity.',
+  'chart.noCompletedRuns': 'No completed runs to chart.',
+  'heatmap.summary': '{runs} runs · {passed} passed · {failed} failed (last 12 months)',
+  'heatmap.noRuns': 'No runs',
+  'heatmap.dayTooltip': '{runs} runs ({passed} passed, {failed} failed)',
+  'heatmap.dayTooltipOne': '{runs} run ({passed} passed, {failed} failed)',
+  'envProfiles.namePlaceholder': 'Production API keys',
+  'envProfiles.snapshotPlaceholder': 'Current dev snapshot',
+  'artifacts.filterScreenshots': 'Screenshots',
+  'artifacts.filterVideos': 'Videos',
+  'artifacts.filterTraces': 'Traces',
+  'artifacts.filterLogs': 'Logs',
+  'docker.influxDesc': 'Time-series metrics database',
+  'docker.grafanaDesc': 'Metrics dashboard',
+  'projects.pullAllError': 'Pull-all error: {error}',
+  'projects.pullAllSuccess': 'Pulled {n} project(s) successfully',
+  'projects.pullSomeFailed': '{failed}/{total} pull(s) failed: {list}',
+  'projects.hubRebuildFailed': 'Update Hub failed: build error — {output}',
+  'projects.pullOneSuccess': 'Pulled {project}',
+  'projects.pullOneFailed': 'Pull failed: {project} — {output}',
+  'settings.updateFailed': 'Update failed: {error}',
+  'settings.updateHubFailed': 'Update Hub failed{stage}: {error}',
+  'settings.unknownError': 'Unknown error',
+  'runlog.title': 'Run Details — {project}',
+  'runlog.persistNote':
+    'Note: Live terminal output is only kept for active sessions — past run logs are not persisted. For a finished run, open its report (when available) for failure details.',
+  'run.terminalReady': 'Ready. Configure and click Run.',
+  'doctor.notEnabled': 'Not enabled',
+  'flaky.onlyFlaky': 'Only flaky tests (flakiness > 0)',
+  'flaky.hiddenStable': '{n} stable tests hidden',
+  'flaky.noneFlaky': 'No flaky tests in recent runs',
+  'webhook.namePlaceholder': 'CI Notifications',
+  'heatmap.less': 'Less',
+  'heatmap.more': 'More',
 } as const;
 
 export type TranslationKey = keyof typeof en;

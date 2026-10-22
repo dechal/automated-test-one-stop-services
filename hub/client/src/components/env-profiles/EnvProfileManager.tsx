@@ -449,7 +449,7 @@ function ProfileFormModal({
         label={t('webhook.name')}
         value={name}
         onChange={(e) => setName(e.currentTarget.value)}
-        placeholder="Production API keys"
+        placeholder={t('envProfiles.namePlaceholder')}
       />
       <Select
         label={t('envProfiles.environment')}
@@ -584,7 +584,7 @@ function CaptureModal({
         label={t('envProfiles.profileName')}
         value={name}
         onChange={(e) => setName(e.currentTarget.value)}
-        placeholder="Current dev snapshot"
+        placeholder={t('envProfiles.snapshotPlaceholder')}
       />
       <Select
         label={t('envProfiles.environment')}

@@ -15,9 +15,6 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CronExpressionParser } from 'cron-parser';
-import cronstrue from 'cronstrue';
-import dayjs from 'dayjs';
 import { useState } from 'react';
 import {
   TbAlertTriangle,
@@ -41,8 +38,10 @@ import { ListSkeleton } from '~/components/Skeletons.js';
 import { type Schedule, ScheduleForm } from '~/components/schedule-form/ScheduleForm.js';
 import { toast } from '~/components/Toast.js';
 import { useToolOptions } from '~/hooks/useTools.js';
-import { useT } from '~/i18n/index.js';
+import { useI18nStore, useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
+import { formatNextRun, humanizeCron } from '~/utils/cron.js';
+import { formatAbsolute } from '~/utils/datetime.js';
 import { getStatusColor } from '~/utils/run-status.js';
 
 /**
@@ -55,33 +54,9 @@ function buildCommandPreview(command: CustomCommand): string {
   return command.cwd ? `${parts}\n(cwd: ${command.cwd})` : parts;
 }
 
-function describeNextRun(cronExpr: string): string {
-  try {
-    const interval = CronExpressionParser.parse(cronExpr);
-    const next = interval.next().toDate();
-    const diffMs = next.getTime() - Date.now();
-    const diffMin = Math.round(diffMs / 60000);
-    if (diffMin < 1) return 'in <1 min';
-    if (diffMin < 60) return `in ${diffMin} min`;
-    const diffHr = Math.round(diffMin / 60);
-    if (diffHr < 24) return `in ${diffHr}h ${diffMin % 60}m`;
-    const diffDays = Math.round(diffHr / 24);
-    return `in ${diffDays}d (${dayjs(next).format('DD MMM YYYY HH:mm')})`;
-  } catch {
-    return 'invalid cron';
-  }
-}
-
-function humanizeCron(cronExpr: string): string {
-  try {
-    return cronstrue.toString(cronExpr, { use24HourTimeFormat: false });
-  } catch {
-    return 'invalid cron';
-  }
-}
-
 export function SchedulesPage() {
   const t = useT();
+  const locale = useI18nStore((s) => s.locale);
   const queryClient = useQueryClient();
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
@@ -165,7 +140,7 @@ export function SchedulesPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        title={t('schedules.title')}
+        title={t('nav.schedules')}
         description={t('nav.schedules.desc')}
         actions={
           <Button leftSection={<TbCalendarPlus size={14} />} onClick={openCreate} size="xs">
@@ -333,14 +308,13 @@ export function SchedulesPage() {
                             checked={s.enabled}
                             onChange={() => toggleMutation.mutate(s.id)}
                             size="md"
-                            color="green"
                           />
                           <Stack gap={2}>
                             <Text size="sm" fw={500}>
                               {s.name}
                             </Text>
                             <Text size="xs" c="dimmed">
-                              {humanizeCron(s.cron)}{' '}
+                              {humanizeCron(s.cron, locale) ?? t('schedule.invalidCron')}{' '}
                               <Text span ff="monospace" c="dimmed.6">
                                 ({s.cron})
                               </Text>
@@ -349,7 +323,8 @@ export function SchedulesPage() {
                               <Group gap={4}>
                                 <TbClock size={12} color="var(--mantine-color-blue-6)" />
                                 <Text size="xs" c="blue">
-                                  {t('schedule.nextRun')} {describeNextRun(s.cron)}
+                                  {t('schedule.nextRun')}{' '}
+                                  {formatNextRun(s.cron) ?? t('schedule.invalidCron')}
                                 </Text>
                               </Group>
                             )}
@@ -384,10 +359,10 @@ export function SchedulesPage() {
                           )}
                           {s.lastRunAt && (
                             <Tooltip
-                              label={`${t('schedule.lastRunPrefix')} ${new Date(s.lastRunAt).toLocaleString()}`}
+                              label={`${t('schedule.lastRunPrefix')} ${formatAbsolute(s.lastRunAt)}`}
                             >
                               <Badge variant="light" color={getStatusColor(s.lastStatus ?? '')}>
-                                {t('schedule.lastPrefix')} {new Date(s.lastRunAt).toLocaleString()}
+                                {t('schedule.lastPrefix')} {formatAbsolute(s.lastRunAt)}
                               </Badge>
                             </Tooltip>
                           )}

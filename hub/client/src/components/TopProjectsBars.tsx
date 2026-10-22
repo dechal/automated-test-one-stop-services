@@ -4,6 +4,7 @@ import { SegmentedControl, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { api } from '~/api/client.js';
+import { useT } from '~/i18n/index.js';
 
 type Mode = 'project' | 'tool';
 
@@ -26,6 +27,7 @@ function aggregate(records: RunRecord[], mode: Mode): BarsListBarData[] {
 }
 
 export function TopProjectsBars() {
+  const t = useT();
   const [mode, setMode] = useState<Mode>('project');
 
   const history = useQuery<RunRecord[]>({
@@ -38,7 +40,7 @@ export function TopProjectsBars() {
   if (history.isLoading) {
     return (
       <Text c="dimmed" size="sm">
-        Loading...
+        {t('common.loading')}
       </Text>
     );
   }
@@ -46,7 +48,7 @@ export function TopProjectsBars() {
   if (data.length === 0) {
     return (
       <Text c="dimmed" size="sm">
-        No runs yet.
+        {t('chart.noRuns')}
       </Text>
     );
   }
@@ -58,13 +60,15 @@ export function TopProjectsBars() {
         value={mode}
         onChange={(v) => setMode(v as Mode)}
         data={[
-          { value: 'project', label: 'By Project' },
-          { value: 'tool', label: 'By Tool' },
+          { value: 'project', label: t('chart.byProject') },
+          { value: 'tool', label: t('chart.byTool') },
         ]}
       />
       <BarsList
         data={data}
-        valueFormatter={(v) => `${v} run${v === 1 ? '' : 's'}`}
+        valueFormatter={(v) =>
+          t(v === 1 ? 'chart.runCountOne' : 'chart.runCount').replace('{n}', String(v))
+        }
         styles={{
           bar: { overflow: 'hidden' },
           barLabel: { whiteSpace: 'nowrap', overflow: 'visible' },

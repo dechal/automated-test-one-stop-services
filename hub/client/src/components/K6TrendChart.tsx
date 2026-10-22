@@ -1,8 +1,8 @@
 import type { K6RunSummary } from '@hub/shared';
 import { AreaChart, LineChart } from '@mantine/charts';
 import { Group, Stack, Text } from '@mantine/core';
-import dayjs from 'dayjs';
 import { useT } from '~/i18n/index.js';
+import { formatShort } from '~/utils/datetime.js';
 
 interface ChartRow {
   label: string;
@@ -23,7 +23,7 @@ export function K6TrendChart({ runs }: { runs: K6RunSummary[] }) {
   const rows: ChartRow[] = [...runs].reverse().map((run) => {
     const m = run.metrics[run.metrics.length - 1];
     return {
-      label: dayjs(run.timestamp).format('DD/MM HH:mm'),
+      label: formatShort(run.timestamp),
       p95: Math.round(m?.p95ResponseTime ?? 0),
       p99: Math.round(m?.p99ResponseTime ?? 0),
       avg: Math.round(m?.avgResponseTime ?? 0),

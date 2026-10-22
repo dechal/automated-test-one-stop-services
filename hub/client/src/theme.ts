@@ -1,4 +1,9 @@
-import { createTheme, type MantineColorsTuple, rem } from '@mantine/core';
+import {
+  type CSSVariablesResolver,
+  createTheme,
+  type MantineColorsTuple,
+  rem,
+} from '@mantine/core';
 
 /**
  * Hub design tokens — the single source of truth for how the whole app looks.
@@ -135,14 +140,20 @@ export const theme = createTheme({
     // Badges default to the tinted variant. A row of solid pills competes for
     // attention and reads as decoration; `light` keeps the label readable while
     // leaving `filled` as an explicit choice for the one status that matters.
-    Badge: { defaultProps: { variant: 'light' } },
+    Badge: { defaultProps: { variant: 'light' }, styles: { root: { textTransform: 'none' } } },
     // One density rhythm for every table in the app, instead of each page
     // picking its own vertical spacing. Tabular figures keep digits in a fixed
     // advance width, so counts, percentages and durations line up column-wise
     // and no longer shift as values change.
     Table: {
       defaultProps: { verticalSpacing: 6, horizontalSpacing: 'sm' },
-      styles: { table: { fontVariantNumeric: 'tabular-nums' } },
+      styles: { table: { fontVariantNumeric: 'tabular-nums' }, th: { whiteSpace: 'nowrap' } },
     },
   },
+});
+
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: { '--mantine-color-dimmed': '#666d75' },
+  dark: {},
 });

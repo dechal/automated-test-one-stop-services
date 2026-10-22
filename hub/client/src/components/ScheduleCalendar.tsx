@@ -11,6 +11,7 @@ import {
 import { CronExpressionParser } from 'cron-parser';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
+import { useT } from '~/i18n/index.js';
 
 interface ScheduleItem {
   id: string;
@@ -62,6 +63,7 @@ function expandToEvents(schedules: ScheduleItem[]): ScheduleEventData[] {
 }
 
 export function ScheduleCalendar({ schedules }: ScheduleCalendarProps) {
+  const t = useT();
   const [view, setView] = useState<'month' | 'week'>('month');
   const [date, setDate] = useState<string>(dayjs().format('YYYY-MM-DD HH:mm:ss'));
 
@@ -87,10 +89,12 @@ export function ScheduleCalendar({ schedules }: ScheduleCalendarProps) {
       <Group justify="space-between" mb="sm" wrap="wrap">
         <Stack gap={2}>
           <Text size="sm" fw={600}>
-            Upcoming Schedule
+            {t('schedule.calendarTitle')}
           </Text>
           <Text size="xs" c="dimmed">
-            Next 30 days · {enabledCount} active schedule{enabledCount === 1 ? '' : 's'}
+            {t(
+              enabledCount === 1 ? 'schedule.calendarSummaryOne' : 'schedule.calendarSummary',
+            ).replace('{n}', String(enabledCount))}
           </Text>
         </Stack>
         <SegmentedControl
@@ -98,8 +102,8 @@ export function ScheduleCalendar({ schedules }: ScheduleCalendarProps) {
           value={view}
           onChange={(v) => setView(v as 'month' | 'week')}
           data={[
-            { value: 'month', label: 'Month' },
-            { value: 'week', label: 'Week' },
+            { value: 'month', label: t('schedule.calendarMonth') },
+            { value: 'week', label: t('schedule.calendarWeek') },
           ]}
         />
       </Group>

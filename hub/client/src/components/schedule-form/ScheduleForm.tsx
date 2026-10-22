@@ -25,9 +25,6 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { CronExpressionParser } from 'cron-parser';
-import cronstrue from 'cronstrue';
-import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { TbSettings } from 'react-icons/tb';
 import { api } from '~/api/client.js';
@@ -44,8 +41,9 @@ import {
   useProjectTypes,
 } from '~/hooks/useProjectQueries.js';
 import { useTools } from '~/hooks/useTools.js';
-import { useT } from '~/i18n/index.js';
+import { useI18nStore, useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
+import { formatNextRun, humanizeCron } from '~/utils/cron.js';
 import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
 import { buildTagQuery, parseTagQuery, type TagSelection } from '~/utils/tag-selection.js';
@@ -55,31 +53,6 @@ import { fromConfigSilent, toConfigSilent } from './schedule-silent.js';
 // ---------------------------------------------------------------------------
 // Cron helpers
 // ---------------------------------------------------------------------------
-
-function describeNextRun(cronExpr: string): string {
-  try {
-    const interval = CronExpressionParser.parse(cronExpr);
-    const next = interval.next().toDate();
-    const diffMs = next.getTime() - Date.now();
-    const diffMin = Math.round(diffMs / 60000);
-    if (diffMin < 1) return 'in <1 min';
-    if (diffMin < 60) return `in ${diffMin} min`;
-    const diffHr = Math.round(diffMin / 60);
-    if (diffHr < 24) return `in ${diffHr}h ${diffMin % 60}m`;
-    const diffDays = Math.round(diffHr / 24);
-    return `in ${diffDays}d (${dayjs(next).format('DD MMM YYYY HH:mm')})`;
-  } catch {
-    return 'invalid cron';
-  }
-}
-
-function humanizeCron(cronExpr: string): string {
-  try {
-    return cronstrue.toString(cronExpr, { use24HourTimeFormat: false });
-  } catch {
-    return 'invalid cron';
-  }
-}
 
 /** Pull `(?=.*@TAG)` lookaheads back into a flat tag list when editing. */
 function parseTagExpression(tool: string, tag: string | undefined): TagSelection {
@@ -138,6 +111,7 @@ export function ScheduleForm({
   const isEdit = mode === 'edit';
   const isOpen = isEdit ? !!schedule : opened || !!duplicateFrom;
   const t = useT();
+  const locale = useI18nStore((s) => s.locale);
   const advancedMode = usePreferences((s) => s.advancedMode);
   const cronPresets = [
     { label: t('schedule.cronHourly'), value: '0 * * * *' },
@@ -355,9 +329,11 @@ export function ScheduleForm({
   // Human reading of the current cron plus its next fire time. Shown as the raw
   // input's description in advanced view, and standalone under the presets in
   // simple view, where the raw input is hidden.
-  const cronDescription = cronExpr
-    ? `${humanizeCron(cronExpr)} · ${t('schedule.nextRun')} ${describeNextRun(cronExpr)}`
-    : undefined;
+  const cronHuman = cronExpr ? humanizeCron(cronExpr, locale) : null;
+  const cronNextRun = cronExpr ? formatNextRun(cronExpr) : null;
+  const cronInvalid = Boolean(cronExpr) && (cronHuman === null || cronNextRun === null);
+  const cronDescription =
+    cronExpr && !cronInvalid ? `${cronHuman} · ${t('schedule.nextRun')} ${cronNextRun}` : undefined;
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -416,7 +392,7 @@ export function ScheduleForm({
           label={t('webhook.name')}
           value={name}
           onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Nightly regression"
+          placeholder={t('schedule.namePlaceholder')}
         />
 
         <Stack gap={4}>
@@ -431,7 +407,7 @@ export function ScheduleForm({
             placeholder="0 8 * * *"
             styles={{ input: { fontFamily: 'monospace' } }}
             description={cronDescription}
-            error={cronDescription?.startsWith('invalid') ? cronDescription : undefined}
+            error={cronInvalid ? t('schedule.invalidCron') : undefined}
           />
           <Text size="xs" c="dimmed">
             {t('schedule.cronPresetHint')}

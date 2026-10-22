@@ -13,6 +13,8 @@ import {
 import { api } from '~/api/client.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
+import { formatAbsolute } from '~/utils/datetime.js';
+import { getStatusColor, statusLabelKey } from '~/utils/run-status.js';
 
 export interface LastRunInfo {
   status: string;
@@ -112,21 +114,9 @@ export function ProjectRow({
             </Badge>
           )}
           {lastRun && (
-            <Tooltip
-              label={`${t('projectRow.lastRun')} ${new Date(lastRun.endedAt).toLocaleString()}`}
-            >
-              <Badge
-                size="xs"
-                variant="dot"
-                color={
-                  lastRun.status === 'passed'
-                    ? 'green'
-                    : lastRun.status === 'failed'
-                      ? 'red'
-                      : 'yellow'
-                }
-              >
-                {lastRun.status}
+            <Tooltip label={`${t('projectRow.lastRun')} ${formatAbsolute(lastRun.endedAt)}`}>
+              <Badge size="xs" variant="dot" color={getStatusColor(lastRun.status)}>
+                {t(statusLabelKey(lastRun.status))}
               </Badge>
             </Tooltip>
           )}
@@ -136,7 +126,7 @@ export function ProjectRow({
             <Indicator color="red" size={12} offset={4} processing withBorder disabled={!hasUpdate}>
               <Button
                 size="compact-xs"
-                color="grape"
+                variant={hasUpdate ? 'light' : 'subtle'}
                 onClick={onPull}
                 loading={isPulling}
                 leftSection={<TbDownload size={12} />}

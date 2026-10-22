@@ -20,8 +20,29 @@ export function formatAbsolute(iso: string | undefined | null): string {
   return d.isValid() ? d.format('YYYY-MM-DD HH:mm:ss') : '-';
 }
 
+export function formatShort(iso: string | undefined | null): string {
+  if (!iso) return '-';
+  const d = dayjs(iso);
+  return d.isValid() ? d.format('DD MMM HH:mm') : '-';
+}
+
+export function formatDate(iso: string | undefined | null): string {
+  if (!iso) return '-';
+  const d = dayjs(iso);
+  return d.isValid() ? d.format('DD MMM YYYY') : '-';
+}
+
+export function monthShortNames(): string[] {
+  const start = dayjs().startOf('year');
+  return Array.from({ length: 12 }, (_, i) => start.month(i).format('MMM'));
+}
+
+export function weekdayShortName(day: number): string {
+  return dayjs().day(day).format('ddd');
+}
+
 /** Relative local time, e.g. `2 hours ago`. */
-export function formatRelative(iso: string | undefined | null): string {
+export function formatRelative(iso: string | number | undefined | null): string {
   if (!iso) return '-';
   const d = dayjs(iso);
   return d.isValid() ? d.fromNow() : '-';

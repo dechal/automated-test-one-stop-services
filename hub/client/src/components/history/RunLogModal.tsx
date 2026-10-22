@@ -1,19 +1,12 @@
-import type { RunRecord, RunRequest, RunStatus } from '@hub/shared';
-import { Badge, Button, Code, Group, Modal, ScrollArea, Stack, Text } from '@mantine/core';
+import type { RunRecord, RunRequest } from '@hub/shared';
+import { Button, Code, Group, Modal, ScrollArea, Stack, Text } from '@mantine/core';
 import { TbCopy, TbExternalLink, TbPlayerPlay, TbTerminal } from 'react-icons/tb';
 import { api } from '~/api/client.js';
+import { RunStatusBadge } from '~/components/RunStatusBadge.js';
 import { ArtifactMenu } from '~/components/reports/ArtifactMenu.js';
 import { toast } from '~/components/Toast.js';
 import { translate, useT } from '~/i18n/index.js';
 import { formatAbsolute, formatDurationBetween } from '~/utils/datetime.js';
-
-function statusColor(s: RunStatus | string): string {
-  if (s === 'passed') return 'green';
-  if (s === 'failed') return 'red';
-  if (s === 'cancelled') return 'orange';
-  if (s === 'running') return 'blue';
-  return 'gray';
-}
 
 /** Open a run's HTML report in the OS default app (same path as the Reports page). */
 async function openReport(reportPath: string): Promise<void> {
@@ -48,11 +41,9 @@ export function RunLogModal({ run, opened, onClose, onRerun }: RunLogModalProps)
         <Group gap="sm">
           <TbTerminal size={16} />
           <Text size="sm" fw={600}>
-            Run Details — {run.request.project}
+            {t('runlog.title').replace('{project}', run.request.project)}
           </Text>
-          <Badge size="xs" color={statusColor(run.status)}>
-            {run.status}
-          </Badge>
+          <RunStatusBadge status={run.status} summary={run.summary} size="xs" />
         </Group>
       }
       size="xl"
@@ -137,7 +128,6 @@ export function RunLogModal({ run, opened, onClose, onRerun }: RunLogModalProps)
               <Button
                 size="compact-xs"
                 variant="light"
-                color="green"
                 leftSection={<TbPlayerPlay size={12} />}
                 onClick={() => {
                   onRerun(run.request);
@@ -181,15 +171,14 @@ export function RunLogModal({ run, opened, onClose, onRerun }: RunLogModalProps)
         {run.request.extraArgs && (
           <Stack gap={4}>
             <Text size="xs" c="dimmed">
-              Extra Args
+              {t('run.extraArgs')}
             </Text>
             <Code style={{ fontSize: 11 }}>{run.request.extraArgs}</Code>
           </Stack>
         )}
 
         <Text size="xs" c="dimmed" mt="sm">
-          Note: Live terminal output is only kept for active sessions — past run logs are not
-          persisted. For a finished run, open its report (when available) for failure details.
+          {t('runlog.persistNote')}
         </Text>
       </Stack>
     </Modal>
