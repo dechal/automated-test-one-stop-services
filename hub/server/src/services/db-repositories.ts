@@ -71,7 +71,7 @@ export interface DocRepo<T> {
  * which has no column in the `schedules` table (P1 gap — see the D1 findings).
  * The type reflects the gap; it does NOT fix it.
  */
-export type PersistedSchedule = Omit<Schedule, 'command'>;
+export type PersistedSchedule = Schedule;
 
 /** Persisted retention settings (see routes/system.ts). */
 export interface RetentionDoc {
@@ -174,6 +174,10 @@ export const schedulesRepo: CollectionRepo<PersistedSchedule> = {
         noOverlap: readBool(row.no_overlap),
         envProfileId: readStr(row.env_profile_id),
       };
+      const script = readStr(row.cmd_script);
+      if (script !== undefined) {
+        s.command = { script, args: readStr(row.cmd_args), cwd: readStr(row.cmd_cwd) };
+      }
       return s;
     });
   },
@@ -181,8 +185,8 @@ export const schedulesRepo: CollectionRepo<PersistedSchedule> = {
     db.exec('DELETE FROM schedules');
     const insert = db.prepare(
       `INSERT INTO schedules
-        (id, name, cron, enabled, created_at, last_run_at, last_status, last_run_id, next_run_at, no_overlap, env_profile_id, ${REQ_COLS})
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`,
+        (id, name, cron, enabled, created_at, last_run_at, last_status, last_run_id, next_run_at, no_overlap, env_profile_id, cmd_script, cmd_args, cmd_cwd, ${REQ_COLS})
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${REQ_PLACEHOLDERS})`,
     );
     for (const s of rows) {
       insert.run(
@@ -197,6 +201,9 @@ export const schedulesRepo: CollectionRepo<PersistedSchedule> = {
         strCol(s.nextRunAt),
         boolCol(s.noOverlap),
         strCol(s.envProfileId),
+        strCol(s.command?.script),
+        strCol(s.command?.args),
+        strCol(s.command?.cwd),
         ...runRequestValues(s.config),
       );
     }

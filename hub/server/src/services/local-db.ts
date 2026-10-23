@@ -306,6 +306,11 @@ function ensureHistorySummaryColumns(db: DatabaseSync): void {
   if (tableExists(db, 'schedules') && !hasColumn(db, 'schedules', 'env_profile_id')) {
     db.exec('ALTER TABLE schedules ADD COLUMN env_profile_id TEXT');
   }
+  for (const col of ['cmd_script', 'cmd_args', 'cmd_cwd']) {
+    if (tableExists(db, 'schedules') && !hasColumn(db, 'schedules', col)) {
+      db.exec(`ALTER TABLE schedules ADD COLUMN ${col} TEXT`);
+    }
+  }
 }
 
 /**

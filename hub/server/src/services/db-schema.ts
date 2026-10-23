@@ -20,7 +20,7 @@ export type SqlValue = null | number | bigint | string | Uint8Array;
 export type Row = Record<string, SqlValue>;
 
 /** Current schema version. Bumped when the table layout changes. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 /** `meta` key holding the integer schema version. */
 export const SCHEMA_VERSION_KEY = 'schema_version';
 
@@ -87,6 +87,9 @@ export const SCHEMA_DDL = `
     next_run_at  TEXT,
     no_overlap   INTEGER,
     env_profile_id TEXT,
+    cmd_script   TEXT,
+    cmd_args     TEXT,
+    cmd_cwd      TEXT,
     ${RUN_REQUEST_DDL}
   );
 
