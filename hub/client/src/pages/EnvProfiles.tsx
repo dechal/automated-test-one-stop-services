@@ -7,7 +7,7 @@ import { useProjectList, useProjectTypes } from '~/hooks/useProjectQueries';
 import { useToolOptions } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 
-export function EnvProfilesPage() {
+export function EnvProfilesBody() {
   const t = useT();
 
   // Cascading selectors
@@ -21,8 +21,6 @@ export function EnvProfilesPage() {
 
   return (
     <Stack gap="md">
-      <PageHeader title={t('nav.envProfiles')} description={t('nav.envProfiles.desc')} />
-
       {/* Cascading project selector */}
       <Paper p="md" withBorder>
         <Group gap="sm" wrap="wrap">
@@ -77,6 +75,16 @@ export function EnvProfilesPage() {
       </Paper>
 
       <EnvProfileManager tool={tool} type={type} project={project} />
+    </Stack>
+  );
+}
+
+export function EnvProfilesPage() {
+  const t = useT();
+  return (
+    <Stack gap="md">
+      <PageHeader title={t('nav.envProfiles')} description={t('nav.envProfiles.desc')} />
+      <EnvProfilesBody />
     </Stack>
   );
 }

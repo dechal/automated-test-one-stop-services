@@ -47,6 +47,7 @@ interface Preferences {
    */
   navRailCollapsed: boolean;
   runFormCollapsed: boolean;
+  runMoreOpen: boolean;
   /** Width of the run form column, percent of the session row. */
   runSplitPercent: number;
   /** xterm font size in px. */
@@ -67,6 +68,7 @@ interface PreferencesActions {
   setAdvancedMode: (on: boolean) => void;
   setNavRailCollapsed: (collapsed: boolean) => void;
   setRunFormCollapsed: (collapsed: boolean) => void;
+  setRunMoreOpen: (open: boolean) => void;
   setRunSplitPercent: (percent: number) => void;
   setTerminalFontSize: (px: number) => void;
   setHideEmptyArtifactFolders: (hide: boolean) => void;
@@ -86,6 +88,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   advancedMode: false,
   navRailCollapsed: false,
   runFormCollapsed: false,
+  runMoreOpen: true,
   runSplitPercent: 40,
   terminalFontSize: 12,
   hideEmptyArtifactFolders: false,
@@ -110,6 +113,7 @@ export const usePreferences = create<PreferencesStore>()(
       setAdvancedMode: (on) => set({ advancedMode: on }),
       setNavRailCollapsed: (collapsed) => set({ navRailCollapsed: collapsed }),
       setRunFormCollapsed: (collapsed) => set({ runFormCollapsed: collapsed }),
+      setRunMoreOpen: (open) => set({ runMoreOpen: open }),
       // Clamped so a stray drag can never leave a column unusably narrow.
       setRunSplitPercent: (percent) =>
         set({ runSplitPercent: Math.min(70, Math.max(25, Math.round(percent))) }),

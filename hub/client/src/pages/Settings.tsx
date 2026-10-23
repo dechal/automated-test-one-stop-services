@@ -23,9 +23,9 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import {
+  TbBrandDocker,
   TbChevronRight,
   TbMoonStars,
   TbQrcode,
@@ -40,6 +40,7 @@ import { qCleanupHistory, qConcurrency, qRetention, queryRoots } from '~/api/que
 import { confirmDialog } from '~/components/confirmDialog';
 import { ImportExportPanel } from '~/components/ImportExportPanel';
 import { PageHeader } from '~/components/PageHeader.js';
+import { UsageLoggingSetup } from '~/components/projects/UsageLoggingSetup.js';
 import { toast } from '~/components/Toast';
 import {
   requestDesktopPermission,
@@ -49,6 +50,8 @@ import { useHubUser, useSaveHubUser } from '~/hooks/useHubUser.js';
 import { useNotificationSound } from '~/hooks/useNotificationSound.js';
 import { useResyncWorkspace, useToolOptions } from '~/hooks/useTools.js';
 import { type Locale, useI18nStore, useT } from '~/i18n';
+import { DockerServicesBody } from '~/pages/DockerServices.js';
+import { WebhooksBody } from '~/pages/Webhooks.js';
 import { usePreferences } from '~/stores/hub.js';
 import { formatShort } from '~/utils/datetime.js';
 
@@ -90,7 +93,6 @@ async function pollUpdateStatus(
 
 export function SettingsPage() {
   const t = useT();
-  const navigate = useNavigate();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const { enabled: soundEnabled, toggle: toggleSound } = useNotificationSound();
   const desktopEnabled = useDesktopNotification((s) => s.enabled);
@@ -273,6 +275,10 @@ export function SettingsPage() {
     <Stack gap="md">
       <PageHeader title={t('nav.settings')} description={t('nav.settings.desc')} />
 
+      <Title order={2} size="h4" c="dimmed">
+        {t('settings.sectionGeneral')}
+      </Title>
+
       {/* Two cards, not three. Theme and language are the same concern (how the
           Hub presents itself) and each held a single row, so in a 3-up grid they
           were stretched to the height of the 2-row Notifications card and carried
@@ -361,7 +367,7 @@ export function SettingsPage() {
         </Paper>
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         {/* Identity — the name stamped into test-case "Edited By" */}
         <Paper p="md" withBorder>
           <Title order={2} size="h5" mb="sm">
@@ -409,29 +415,6 @@ export function SettingsPage() {
               </Group>
             )}
           </Stack>
-        </Paper>
-
-        {/* Webhooks */}
-        <Paper p="md" withBorder>
-          <Group justify="space-between">
-            <Stack gap={2}>
-              <Title order={2} size="h5">
-                {t('settings.webhooks')}
-              </Title>
-              <Text size="xs" c="dimmed">
-                {t('settings.webhooksDesc')}
-              </Text>
-            </Stack>
-            <Button
-              size="xs"
-              variant="light"
-              onClick={() => {
-                navigate({ to: '/webhooks' });
-              }}
-            >
-              {t('settings.manageWebhooks')}
-            </Button>
-          </Group>
         </Paper>
 
         {/* Execution */}
@@ -551,6 +534,26 @@ export function SettingsPage() {
           </Group>
         </Stack>
       </Paper>
+
+      <Title order={2} size="h4" c="dimmed" mt="lg">
+        {t('settings.sectionNotifications')}
+      </Title>
+
+      <Paper p="md" withBorder>
+        <Stack gap={4} mb="sm">
+          <Title order={2} size="h5">
+            {t('settings.webhooks')}
+          </Title>
+          <Text size="xs" c="dimmed">
+            {t('settings.webhooksDesc')}
+          </Text>
+        </Stack>
+        <WebhooksBody />
+      </Paper>
+
+      <Title order={2} size="h4" c="dimmed" mt="lg">
+        {t('settings.sectionData')}
+      </Title>
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
         {/* Output Retention */}
@@ -772,6 +775,8 @@ export function SettingsPage() {
       {/* Import / Export */}
       <ImportExportPanel />
 
+      <UsageLoggingSetup />
+
       {/* System Update */}
       <Paper p="md" withBorder>
         <Title order={2} size="h5" mb="sm">
@@ -802,6 +807,52 @@ export function SettingsPage() {
               {isUpdating ? t('settings.updating') : t('settings.update')}
             </Button>
           </Group>
+        </Stack>
+      </Paper>
+
+      <Title order={2} size="h4" c="dimmed" mt="lg">
+        {t('settings.sectionExtras')}
+      </Title>
+
+      <Paper p="md" withBorder>
+        <Stack gap={4} mb="sm">
+          <Group gap="xs">
+            <TbBrandDocker size={18} />
+            <Title order={2} size="h5">
+              {t('settings.dockerServices')}
+            </Title>
+          </Group>
+          <Text size="xs" c="dimmed">
+            {t('settings.dockerServicesDesc')}
+          </Text>
+        </Stack>
+        <DockerServicesBody />
+      </Paper>
+
+      <Title order={2} size="h4" c="dimmed" mt="lg">
+        {t('settings.sectionAbout')}
+      </Title>
+
+      {/* About */}
+      <Paper p="md" withBorder>
+        <Title order={2} size="h5" mb="sm">
+          {t('settings.about')}
+        </Title>
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed">
+            AutoQA Hub v{import.meta.env.VITE_APP_VERSION} — Test Execution Manager
+          </Text>
+          <Text size="xs" c="dimmed">
+            Copyright © 2026-present{' '}
+            <Anchor
+              href="https://www.linkedin.com/in/decha-laowraddecha-56b686232/"
+              target="_blank"
+              underline="always"
+            >
+              Decha_L
+            </Anchor>
+            . {t('settings.allRightsReserved')}
+          </Text>
         </Stack>
       </Paper>
 
@@ -851,29 +902,6 @@ export function SettingsPage() {
           </Text>
         </Stack>
       </Modal>
-
-      {/* About */}
-      <Paper p="md" withBorder>
-        <Title order={2} size="h5" mb="sm">
-          {t('settings.about')}
-        </Title>
-        <Stack gap={4}>
-          <Text size="xs" c="dimmed">
-            AutoQA Hub v{import.meta.env.VITE_APP_VERSION} — Test Execution Manager
-          </Text>
-          <Text size="xs" c="dimmed">
-            Copyright © 2026-present{' '}
-            <Anchor
-              href="https://www.linkedin.com/in/decha-laowraddecha-56b686232/"
-              target="_blank"
-              underline="always"
-            >
-              Decha_L
-            </Anchor>
-            . {t('settings.allRightsReserved')}
-          </Text>
-        </Stack>
-      </Paper>
     </Stack>
   );
 }

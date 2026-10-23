@@ -6,7 +6,6 @@ import {
   Burger,
   Button,
   Center,
-  Divider,
   Group,
   Indicator,
   Kbd,
@@ -23,13 +22,7 @@ import { spotlight } from '@mantine/spotlight';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import {
-  TbAdjustmentsHorizontal,
-  TbChevronDown,
-  TbChevronRight,
-  TbLayoutSidebarLeftCollapse,
-  TbLayoutSidebarLeftExpand,
-} from 'react-icons/tb';
+import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand } from 'react-icons/tb';
 import { qActiveRuns, qDoctor } from '~/api/queries.js';
 import { ActiveRunsBanner } from '~/components/ActiveRunsBanner.js';
 import { ErrorBoundary } from '~/components/ErrorBoundary.js';
@@ -37,13 +30,7 @@ import { FloatingRunsWindow } from '~/components/FloatingRunsWindow.js';
 import { KeyboardShortcuts } from '~/components/KeyboardShortcuts.js';
 import { LanguageToggle } from '~/components/LanguageToggle.js';
 import { NotificationCenter } from '~/components/NotificationCenter.js';
-import {
-  NAV_CATEGORIES,
-  type NavCategory,
-  type NavItem,
-  type PagePath,
-  SETTINGS_ITEM,
-} from '~/components/nav-config.js';
+import { NAV_ITEMS, type NavItem, type PagePath, SETTINGS_ITEM } from '~/components/nav-config.js';
 import { PageLoader } from '~/components/PageLoader.js';
 import { SpotlightSearch } from '~/components/SpotlightSearch.js';
 import { UserNameGate } from '~/components/UserNameGate.js';
@@ -92,11 +79,6 @@ export function AppLayout() {
   // Editors bind the sidebar to mod+B, so the muscle memory already exists; the
   // header button advertises it in its tooltip rather than hiding it.
   useHotkeys([['mod+B', () => setNavRailCollapsed(!navRailCollapsed)]]);
-  // Manual collapse state of the advanced nav group. `null` means "follow the
-  // advanced-mode preference"; flipping the preference resets it to null so the
-  // group re-opens with the mode, while a hand collapse still sticks.
-  const [advancedNavOpen, setAdvancedNavOpen] = useState<boolean | null>(null);
-  const showAdvanced = advancedNavOpen ?? advancedMode;
   const setPendingRunConfig = useNavigationStore((s) => s.setPendingRunConfig);
 
   // App-level Corner_Toast listener for `schedule-finished`.
@@ -247,25 +229,6 @@ export function AppLayout() {
     );
   };
 
-  /** Items of a basic category that are visible in the CURRENT mode. */
-  const visibleItems = (cat: NavCategory) =>
-    cat.items.filter((item) => !item.advanced || advancedMode);
-
-  const renderCategory = (cat: NavCategory, index: number) => (
-    <div key={cat.labelKey}>
-      {rail ? (
-        // The category name has nowhere to go at 64px; a rule keeps the grouping
-        // it encoded.
-        index > 0 && <Divider mx="xs" my="xs" />
-      ) : (
-        <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pt="md" pb={4}>
-          {t(cat.labelKey)}
-        </Text>
-      )}
-      {visibleItems(cat).map(renderItem)}
-    </div>
-  );
-
   return (
     <>
       <SpotlightSearch
@@ -366,7 +329,6 @@ export function AppLayout() {
                   checked={advancedMode}
                   onChange={(e) => {
                     setAdvancedMode(e.currentTarget.checked);
-                    setAdvancedNavOpen(null);
                   }}
                 />
               </Tooltip>
@@ -378,53 +340,7 @@ export function AppLayout() {
 
         <AppShell.Navbar p="xs">
           <AppShell.Section grow component={ScrollArea}>
-            {NAV_CATEGORIES.filter((cat) => !cat.advanced).map(renderCategory)}
-            {/* An "Advanced" expander cannot say what it holds at 64px, so the
-                rail drops it and follows the advanced-mode preference directly:
-                the gated items are either all there or reachable via ⌘K and the
-                header switch. */}
-            {rail
-              ? advancedMode && (
-                  <>
-                    <Divider mx="xs" my="xs" />
-                    {NAV_CATEGORIES.filter((cat) => cat.advanced)
-                      .flatMap((cat) => cat.items)
-                      .map(renderItem)}
-                  </>
-                )
-              : // Basic mode hides the expander itself, not just its contents: a row
-                // labelled "Advanced" that only ever reveals operator surfaces is
-                // noise for someone who has opted out of them. The header switch and
-                // ⌘K still reach everything.
-                advancedMode && (
-                  <>
-                    <NavLink
-                      mt="xs"
-                      label={t('nav.advanced')}
-                      leftSection={<TbAdjustmentsHorizontal size={18} />}
-                      rightSection={
-                        showAdvanced ? <TbChevronDown size={14} /> : <TbChevronRight size={14} />
-                      }
-                      onClick={() => setAdvancedNavOpen(!showAdvanced)}
-                      variant="subtle"
-                      c={showAdvanced ? undefined : 'dimmed'}
-                    />
-                    {/* Nest the advanced categories under the toggle with an indented
-                    left rail so items like Docker Services read as "inside
-                    Advanced" rather than as their own top-level section. */}
-                    {showAdvanced && (
-                      <div
-                        style={{
-                          marginLeft: 12,
-                          paddingLeft: 8,
-                          borderLeft: '2px solid var(--mantine-color-default-border)',
-                        }}
-                      >
-                        {NAV_CATEGORIES.filter((cat) => cat.advanced).map(renderCategory)}
-                      </div>
-                    )}
-                  </>
-                )}
+            {NAV_ITEMS.map(renderItem)}
           </AppShell.Section>
           <AppShell.Section>{renderItem(SETTINGS_ITEM)}</AppShell.Section>
         </AppShell.Navbar>

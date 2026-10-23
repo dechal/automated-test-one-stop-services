@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TbBookmark, TbFolderFilled } from 'react-icons/tb';
 import { qBookmarkList, qProjects } from '~/api/queries.js';
 import {
-  NAV_CATEGORIES,
+  NAV_ITEMS,
   type PagePath,
   SEARCH_ONLY_ITEMS,
   SETTINGS_ITEM,
@@ -23,19 +23,17 @@ export function SpotlightSearch({ onNavigate, onLoadBookmark }: SpotlightSearchP
   const projects = useQuery(qProjects());
   const bookmarks = useQuery(qBookmarkList());
 
-  const navActions: SpotlightActionData[] = [
-    ...NAV_CATEGORIES.flatMap((c) => c.items),
-    SETTINGS_ITEM,
-    ...SEARCH_ONLY_ITEMS,
-  ].map((item) => ({
-    id: `nav-${item.path}`,
-    label: t(item.labelKey),
-    description: t(item.descKey),
-    leftSection: item.icon,
-    onClick: () => onNavigate(item.path),
-    keywords: [en[item.labelKey], en[item.descKey]],
-    group: t('spotlight.pagesGroup'),
-  }));
+  const navActions: SpotlightActionData[] = [...NAV_ITEMS, SETTINGS_ITEM, ...SEARCH_ONLY_ITEMS].map(
+    (item) => ({
+      id: `nav-${item.path}`,
+      label: t(item.labelKey),
+      description: t(item.descKey),
+      leftSection: item.icon,
+      onClick: () => onNavigate(item.path),
+      keywords: [en[item.labelKey], en[item.descKey]],
+      group: t('spotlight.pagesGroup'),
+    }),
+  );
 
   const projectActions: SpotlightActionData[] = (projects.data ?? []).map((p) => ({
     id: `project-${p.tool}-${p.type}-${p.name}`,

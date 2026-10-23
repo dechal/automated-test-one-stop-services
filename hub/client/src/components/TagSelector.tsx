@@ -5,9 +5,9 @@ import {
   Button,
   Collapse,
   Group,
-  Loader,
   Paper,
   ScrollArea,
+  Skeleton,
   Stack,
   Text,
   TextInput,
@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { type ReactNode, useMemo, useState } from 'react';
 import { TbCheck, TbChevronDown, TbChevronRight, TbSearch, TbTag, TbX } from 'react-icons/tb';
+import { GridSkeleton } from '~/components/Skeletons.js';
 import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useT } from '~/i18n/index.js';
 import { getTagLevel, matchTests } from '~/utils/tag-selection';
@@ -242,12 +243,10 @@ export function TagSelector({
 
   if (isLoading) {
     return (
-      <Group gap="xs">
-        <Loader size="xs" />
-        <Text size="xs" c="dimmed">
-          {t('run.loadingTags')}
-        </Text>
-      </Group>
+      <Stack gap="xs" aria-label={t('run.loadingTags')}>
+        <Skeleton height={32} radius="sm" aria-hidden />
+        <GridSkeleton count={8} cols={{ base: 4, sm: 6, md: 8 }} height={24} />
+      </Stack>
     );
   }
 

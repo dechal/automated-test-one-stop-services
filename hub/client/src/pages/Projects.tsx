@@ -8,12 +8,13 @@ import {
   SimpleGrid,
   Skeleton,
   Stack,
+  Tabs,
   Text,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { TbDownload, TbPlus, TbPuzzle } from 'react-icons/tb';
+import { TbDownload, TbKey, TbList, TbPlus, TbPuzzle } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { waitForHealth } from '~/api/health.js';
 import { qEnv, qGitStatus, qProjects, qRunsLastStatus, queryRoots } from '~/api/queries.js';
@@ -32,11 +33,11 @@ import { ProjectRow } from '~/components/projects/ProjectRow.js';
 import { StandaloneModal } from '~/components/projects/StandaloneModal.js';
 import { ToolSection } from '~/components/projects/ToolSection.js';
 import { ToolSectionActions } from '~/components/projects/ToolSectionActions.js';
-import { UsageLoggingSetup } from '~/components/projects/UsageLoggingSetup.js';
 import { toast } from '~/components/Toast.js';
 import { TypeToConfirmModal } from '~/components/TypeToConfirmModal.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { EnvProfilesBody } from '~/pages/EnvProfiles.js';
 
 interface PullResult {
   project: string;
@@ -94,6 +95,7 @@ export function ProjectsPage() {
   const [editEntries, setEditEntries] = useState<EnvEntry[]>([]);
   const [removeTarget, setRemoveTarget] = useState<ProjectSummary | null>(null);
   const [standaloneTarget, setStandaloneTarget] = useState<ProjectSummary | null>(null);
+  const [activeTab, setActiveTab] = useState<'list' | 'env'>('list');
 
   const tools = useTools();
 
@@ -364,7 +366,20 @@ export function ProjectsPage() {
         }
       />
 
-      {projects.isLoading && (
+      <Tabs value={activeTab} onChange={(v) => setActiveTab((v as 'list' | 'env') ?? 'list')}>
+        <Tabs.List mb="md">
+          <Tabs.Tab value="list" leftSection={<TbList size={16} />}>
+            {t('projects.tabList')}
+          </Tabs.Tab>
+          <Tabs.Tab value="env" leftSection={<TbKey size={16} />}>
+            {t('nav.envProfiles')}
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
+
+      {activeTab === 'env' && <EnvProfilesBody />}
+
+      {activeTab === 'list' && projects.isLoading && (
         <Stack gap="xs">
           <Group gap="xs">
             <Loader size="xs" />
@@ -384,9 +399,11 @@ export function ProjectsPage() {
         </Stack>
       )}
 
-      {projects.isError && <ErrorState onRetry={() => projects.refetch()} />}
+      {activeTab === 'list' && projects.isError && (
+        <ErrorState onRetry={() => projects.refetch()} />
+      )}
 
-      {!projects.isLoading && !projects.isError && (
+      {activeTab === 'list' && !projects.isLoading && !projects.isError && (
         <>
           <ToolSection
             label="scripts/.env"
@@ -398,7 +415,6 @@ export function ProjectsPage() {
               status="ready"
               onEdit={() => startEditEnv('scripts', '', '')}
             />
-            <UsageLoggingSetup />
           </ToolSection>
 
           {/* Tool sections flow into two columns on desktop (left/right),

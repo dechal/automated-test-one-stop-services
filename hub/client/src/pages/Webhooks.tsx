@@ -77,6 +77,16 @@ function scopeLabel(scope?: WebhookScope): string | null {
 
 export function WebhooksPage() {
   const t = useT();
+  return (
+    <Stack gap="md">
+      <PageHeader title={t('nav.webhooks')} description={t('settings.webhooksDesc')} />
+      <WebhooksBody />
+    </Stack>
+  );
+}
+
+export function WebhooksBody() {
+  const t = useT();
   const queryClient = useQueryClient();
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [editing, setEditing] = useState<WebhookConfig | null>(null);
@@ -121,15 +131,11 @@ export function WebhooksPage() {
 
   return (
     <Stack gap="md">
-      <PageHeader
-        title={t('nav.webhooks')}
-        description={t('settings.webhooksDesc')}
-        actions={
-          <Button leftSection={<TbPlus size={14} />} onClick={openCreate} size="xs">
-            {t('webhooks.newWebhook')}
-          </Button>
-        }
-      />
+      <Group justify="flex-end">
+        <Button leftSection={<TbPlus size={14} />} onClick={openCreate} size="xs">
+          {t('webhooks.newWebhook')}
+        </Button>
+      </Group>
 
       {webhooks.isLoading && <ListSkeleton rows={4} />}
 

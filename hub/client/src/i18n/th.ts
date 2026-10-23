@@ -1,16 +1,14 @@
 import type { TranslationKey } from './en';
 
 export const th: Record<TranslationKey, string> = {
-  // Nav categories
-  'nav.workspace': 'พื้นที่ทำงาน',
-  'nav.manage': 'จัดการ',
   'nav.insights': 'วิเคราะห์',
-  'nav.infrastructure': 'โครงสร้าง',
 
   // Nav items
   'nav.dashboard': 'แดชบอร์ด',
   'nav.runTests': 'รันเทส',
   'nav.advanced': 'ขั้นสูง',
+  'nav.results': 'ผลการรัน',
+  'nav.analyze': 'วิเคราะห์',
   'nav.history': 'ประวัติการรัน',
   'nav.schedules': 'ตั้งเวลา',
   'nav.projects': 'โปรเจกต์',
@@ -26,6 +24,7 @@ export const th: Record<TranslationKey, string> = {
   // Nav item descriptions (for tooltips)
   'nav.dashboard.desc': 'ภาพรวมสภาพแวดล้อม รันล่าสุด และสุขภาพโปรเจกต์',
   'nav.runTests.desc': 'ตั้งค่าและรันเทสได้หลาย session พร้อมกัน',
+  'nav.analyze.desc': 'สรุปผล: tag coverage, flaky tests, แนวโน้มประสิทธิภาพ',
   'nav.history.desc': 'ดู กรอง และรันซ้ำเทสที่เคยทำมาก่อน',
   'nav.schedules.desc': 'ตั้งให้เทสรันอัตโนมัติตามเวลา (cron)',
   'nav.projects.desc': 'สร้าง โคลน และจัดการโปรเจกต์เทส รวมถึงไฟล์ .env',
@@ -80,6 +79,14 @@ export const th: Record<TranslationKey, string> = {
   'common.retry': 'ลองใหม่',
 
   // Settings
+  'settings.sectionGeneral': 'ทั่วไป',
+  'settings.sectionNotifications': 'การแจ้งเตือน',
+  'settings.sectionData': 'ข้อมูลและพื้นที่',
+  'settings.sectionExtras': 'บริการเสริม',
+  'settings.sectionAbout': 'เกี่ยวกับ',
+  'settings.dockerServices': 'Docker Services',
+  'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana สำหรับงานมือถือและทดสอบประสิทธิภาพ',
+  'settings.manageDocker': 'จัดการ Docker',
   'settings.appearance': 'หน้าตา',
   'settings.colorScheme': 'โทนสี',
   'settings.notifications': 'การแจ้งเตือน',
@@ -184,10 +191,14 @@ export const th: Record<TranslationKey, string> = {
   'history.rerunFailed': 'รันซ้ำเฉพาะเคสที่ fail',
   'history.rerunFailedNone': 'รันนี้ไม่มีเคสที่ fail',
   'history.rerunFailedUntagged': 'มีเคสที่ fail แต่ไม่มีรหัสเคส จึงเลือกรันซ้ำไม่ได้',
-  'run.workers': 'จำนวน worker',
-  'run.workersHint': 'โปรเซสที่รันขนาน',
-  'run.repeatEach': 'รันซ้ำต่อเคส',
-  'run.repeatEachHint': 'รันทุกเคสซ้ำ N รอบ เพื่อจับ flaky',
+  'run.workers': 'รันพร้อมกันกี่ตัว',
+  'run.workersHint': 'โปรเซสที่รันขนาน (workers)',
+  'run.repeatEach': 'รันซ้ำเพื่อหาเทสไม่เสถียร',
+  'run.repeatEachHint': 'รันทุกเคสซ้ำ N รอบ เพื่อจับ flaky (repeatEach)',
+  'run.moreOptions': 'ตัวเลือกเพิ่มเติม',
+  'run.moreOptionsCollapsed': 'ยุบไว้',
+  'run.adminOptionsNote': 'ตัวเลือกระดับผู้ดูแล (raw args, คำสั่ง shell, ไม่บันทึกการใช้งาน) อยู่ในโหมดขั้นสูง',
+  'run.resetSplit': 'รีเซ็ตสัดส่วน',
   'run.autoDefault': 'อัตโนมัติ',
   'run.discardReport': 'ลบ report หลังรันเสร็จ',
   'run.discardReportHint':
@@ -258,6 +269,7 @@ export const th: Record<TranslationKey, string> = {
   // Additional page titles
   'webhooks.title': 'Webhooks',
   'projects.addTools': 'เพิ่มเครื่องมืออื่น',
+  'projects.tabList': 'รายการ',
   'projects.pullAll': 'อัปเดตทั้งหมด',
   'webhooks.newWebhook': 'เพิ่ม Webhook',
   'history.exportCsv': 'ส่งออก CSV',
@@ -344,6 +356,7 @@ export const th: Record<TranslationKey, string> = {
   'projectRow.reveal': 'เปิดในโฟลเดอร์',
   'projectRow.revealFailed': 'เปิดโฟลเดอร์ไม่สำเร็จ',
   'projectRow.makeStandalone': 'แยกออกเป็นโปรเจกต์เดี่ยว',
+  'projectRow.openGitRepo': 'เปิด repository ใน git ของ',
 
   'projects.standaloneTitle': 'แยกออกเป็นโปรเจกต์เดี่ยว',
   'projects.standaloneDesc': 'ส่งออกโปรเจกต์นี้เป็นโฟลเดอร์ที่รันได้ด้วยตัวเอง อยู่นอก workspace',
@@ -361,6 +374,8 @@ export const th: Record<TranslationKey, string> = {
   // Tool lifecycle
   'tools.enable': 'เปิดใช้งานเครื่องมือ',
   'tools.disable': 'ปิดใช้งานเครื่องมือ',
+  'tools.switchEnabled': 'เปิดใช้งาน',
+  'tools.switchDisabled': 'ปิดใช้งาน',
   'tools.cloneProject': 'โคลนโปรเจกต์',
   'tools.removeProjectsFirst': 'ลบโปรเจกต์ของเครื่องมือนี้ก่อน',
   'tools.deletePermanently': 'ลบถาวร',

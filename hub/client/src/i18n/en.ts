@@ -1,14 +1,12 @@
 export const en = {
-  // Nav categories
-  'nav.workspace': 'Workspace',
-  'nav.manage': 'Manage',
   'nav.insights': 'Insights',
-  'nav.infrastructure': 'Infrastructure',
 
   // Nav items
   'nav.dashboard': 'Dashboard',
   'nav.runTests': 'Run Tests',
   'nav.advanced': 'Advanced',
+  'nav.results': 'Results',
+  'nav.analyze': 'Analyze',
   'nav.history': 'Run History',
   'nav.schedules': 'Schedules',
   'nav.projects': 'Projects',
@@ -24,6 +22,7 @@ export const en = {
   // Nav item descriptions (for tooltips)
   'nav.dashboard.desc': 'Overview of environment, recent runs, and project health',
   'nav.runTests.desc': 'Configure and execute test runs across multiple sessions',
+  'nav.analyze.desc': 'Aggregated analytics: tag coverage, flaky tests, performance trends',
   'nav.history.desc': 'Browse, filter, and rerun past test executions',
   'nav.schedules.desc': 'Schedule tests to run automatically on a cron timer',
   'nav.projects.desc': 'Create, clone, and manage test projects and their .env files',
@@ -78,6 +77,14 @@ export const en = {
   'common.retry': 'Retry',
 
   // Settings
+  'settings.sectionGeneral': 'General',
+  'settings.sectionNotifications': 'Notifications',
+  'settings.sectionData': 'Data & storage',
+  'settings.sectionExtras': 'Extra services',
+  'settings.sectionAbout': 'About',
+  'settings.dockerServices': 'Docker Services',
+  'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana for mobile and performance runs',
+  'settings.manageDocker': 'Manage Docker',
   'settings.appearance': 'Appearance',
   'settings.colorScheme': 'Color Scheme',
   'settings.notifications': 'Notifications',
@@ -186,10 +193,15 @@ export const en = {
   'history.rerunFailed': 'Re-run only the failed cases',
   'history.rerunFailedNone': 'This run had no failed cases.',
   'history.rerunFailedUntagged': 'Some failures carry no case id and cannot be re-selected',
-  'run.workers': 'Workers',
-  'run.workersHint': 'Parallel processes',
-  'run.repeatEach': 'Repeat each',
-  'run.repeatEachHint': 'Run every test N times (flake hunt)',
+  'run.workers': 'How many at once',
+  'run.workersHint': 'Parallel processes (workers)',
+  'run.repeatEach': 'Repeat to catch flaky tests',
+  'run.repeatEachHint': 'Run every test N times (repeatEach)',
+  'run.moreOptions': 'More options',
+  'run.moreOptionsCollapsed': 'collapsed',
+  'run.adminOptionsNote':
+    'Admin options (raw args, shell command, skip usage logging) live in advanced mode',
+  'run.resetSplit': 'Reset split',
   'run.autoDefault': 'auto',
   'run.discardReport': 'Discard report after the run',
   'run.discardReportHint':
@@ -261,6 +273,7 @@ export const en = {
   // Additional page titles
   'webhooks.title': 'Webhooks',
   'projects.addTools': 'Add other tools',
+  'projects.tabList': 'Projects',
   'projects.pullAll': 'Update All',
   'webhooks.newWebhook': 'New Webhook',
   'history.exportCsv': 'Export CSV',
@@ -348,6 +361,7 @@ export const en = {
   'projectRow.reveal': 'Reveal in file explorer',
   'projectRow.revealFailed': 'Reveal failed',
   'projectRow.makeStandalone': 'Make it standalone',
+  'projectRow.openGitRepo': 'Open git repository of',
 
   'projects.standaloneTitle': 'Make it standalone',
   'projects.standaloneDesc':
@@ -366,6 +380,8 @@ export const en = {
   // Tool lifecycle
   'tools.enable': 'Enable tool',
   'tools.disable': 'Disable tool',
+  'tools.switchEnabled': 'Enabled',
+  'tools.switchDisabled': 'Disabled',
   'tools.cloneProject': 'Import project',
   'tools.removeProjectsFirst': 'Remove its projects first',
   'tools.deletePermanently': 'Permanently delete',

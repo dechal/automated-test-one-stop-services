@@ -24,6 +24,7 @@ import {
   Button,
   Checkbox,
   Code,
+  Collapse,
   Group,
   NumberInput,
   Paper,
@@ -33,6 +34,7 @@ import {
   Text,
   TextInput,
   Tooltip,
+  UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure, useHotkeys } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,11 +43,13 @@ import {
   TbAlertTriangle,
   TbBookmarkPlus,
   TbChevronDown,
+  TbChevronRight,
   TbChevronUp,
   TbCopy,
   TbDeviceMobile,
   TbExternalLink,
   TbFolder,
+  TbLayoutColumns,
   TbPlayerPlay,
   TbPlayerStop,
   TbRefresh,
@@ -99,6 +103,8 @@ import { enabledTools, toolLabel, toolSelectData } from '~/utils/tool-label.js';
  *  preview can never show a width that will not be saved. */
 const SPLIT_MIN = 25;
 const SPLIT_MAX = 70;
+const SPLIT_DEFAULT = 40;
+const SPLIT_IDLE_FORM = 60;
 /** One arrow-key press on the divider moves the split by this many percent. */
 const SPLIT_STEP = 2;
 /** Terminal font bounds mirror the store's clamp, so A−/A+ can be disabled at
@@ -224,6 +230,8 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const activeRunIdRef = useRef<string | null>(activeRunId);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const moreOpen = prefs.runMoreOpen;
+  const toggleMore = () => prefs.setRunMoreOpen(!prefs.runMoreOpen);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [bookmarkName, setBookmarkName] = useState('');
   // Width while a drag is in flight; `null` means "use the saved percent". The
@@ -279,6 +287,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     </Tooltip>
   );
   const splitPercent = prefs.runSplitPercent;
+  const idleFormPercent = Math.max(splitPercent, SPLIT_IDLE_FORM);
   const fontSize = prefs.terminalFontSize;
   // The saved percent except mid-drag, when the preview follows the pointer.
   const columnPercent = dragPercent ?? splitPercent;
@@ -851,7 +860,10 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           narrow), the rows size to content instead of demanding 100% each. */}
       <Stack
         gap="xs"
-        w={{ base: '100%', md: `${columnPercent}%` }}
+        w={{
+          base: '100%',
+          md: `${runStatus === 'idle' && dragPercent === null ? idleFormPercent : columnPercent}%`,
+        }}
         h={{ base: 'auto', md: '100%' }}
         style={{ flexShrink: 0, minHeight: 0 }}
       >
@@ -972,75 +984,6 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                 {collapseToggle}
               </Group>
 
-              {/* Row 2 — HOW to run. Mode, display and the tuning numbers share one
-                  line; each was a near-empty block of its own before. */}
-              <SimpleGrid cols={{ base: 2, xs: Math.max(2, optionFieldCount) }} spacing="xs">
-                {/* Docker needs a running daemon and knowledge of the compose
-                    setup, so basic mode neither shows it nor uses it —
-                    `effectiveMode` pins the run to local. A visible-but-ignored
-                    select would be the worse half-measure. */}
-                {advancedMode && (
-                  <Select
-                    label={t('run.mode')}
-                    size="xs"
-                    disabled={isRunning}
-                    value={mode}
-                    onChange={(v) => v && setMode(v as RunMode)}
-                    data={[
-                      { value: 'local', label: t('run.modeLocal') },
-                      {
-                        value: 'docker',
-                        label: `Docker${!config.data?.dockerRunning ? ` (${t('run.notRunning')})` : ''}`,
-                        disabled: !config.data?.dockerRunning,
-                      },
-                    ]}
-                    allowDeselect={false}
-                  />
-                )}
-                {!sectionAxis && hasDisplay && (
-                  <Select
-                    label={t('run.display')}
-                    size="xs"
-                    disabled={isRunning}
-                    value={headless}
-                    onChange={(v) => v && setHeadless(v as HeadlessMode)}
-                    data={[
-                      { value: 'headless', label: t('run.headless') },
-                      { value: 'headed', label: t('run.headed') },
-                    ]}
-                    allowDeselect={false}
-                  />
-                )}
-                {!sectionAxis && supportsRunFlags && (
-                  <>
-                    <NumberInput
-                      label={t('run.workers')}
-                      size="xs"
-                      min={1}
-                      max={64}
-                      disabled={isRunning}
-                      value={workers ?? ''}
-                      onChange={(v: string | number) =>
-                        setWorkers(typeof v === 'number' ? v : null)
-                      }
-                      placeholder={t('run.autoDefault')}
-                    />
-                    <NumberInput
-                      label={t('run.repeatEach')}
-                      size="xs"
-                      min={1}
-                      max={50}
-                      disabled={isRunning}
-                      value={repeatEach ?? ''}
-                      onChange={(v: string | number) =>
-                        setRepeatEach(typeof v === 'number' ? v : null)
-                      }
-                      placeholder="1"
-                    />
-                  </>
-                )}
-              </SimpleGrid>
-
               {sectionAxis && project && (
                 <SimpleGrid cols={2} spacing="xs">
                   <SectionSelect
@@ -1090,61 +1033,175 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                 </Stack>
               )}
 
-              {advancedMode && !sectionAxis && (
-                <TextInput
-                  label={t('run.extraArgs')}
-                  size="xs"
-                  disabled={isRunning}
-                  value={extraArgs}
-                  onChange={(e) => setExtraArgs(e.currentTarget.value)}
-                  placeholder="--debug"
-                />
-              )}
-
-              <Group gap="lg" wrap="wrap">
-                {!config.data?.forceTrack && (
-                  <Checkbox
-                    size="xs"
-                    label={t('run.skipUsageLogging')}
-                    disabled={isRunning}
-                    checked={noTrack}
-                    onChange={(e) => setNoTrack(e.currentTarget.checked)}
+              <Stack gap="xs">
+                <UnstyledButton
+                  onClick={toggleMore}
+                  aria-expanded={moreOpen}
+                  aria-label={t('run.moreOptions')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderTop: '1px solid var(--mantine-color-default-border)',
+                    paddingTop: 'var(--mantine-spacing-xs)',
+                  }}
+                >
+                  <TbChevronRight
+                    size={14}
+                    style={{
+                      transform: moreOpen ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 150ms ease',
+                      opacity: 0.6,
+                    }}
                   />
-                )}
+                  <TbSettings size={14} style={{ opacity: 0.7 }} />
+                  <Text size="xs" fw={600} c="dimmed">
+                    {t('run.moreOptions')}
+                  </Text>
+                  {!moreOpen && (
+                    <Text size="xs" c="dimmed">
+                      ({t('run.moreOptionsCollapsed')})
+                    </Text>
+                  )}
+                </UnstyledButton>
+                <Collapse expanded={moreOpen}>
+                  <Stack gap="xs">
+                    {/* Row 2 — HOW to run. Mode, display and the tuning numbers share one
+                        line; each was a near-empty block of its own before. */}
+                    <SimpleGrid
+                      cols={{ base: 1, xs: 2, md: Math.min(3, Math.max(2, optionFieldCount)) }}
+                      spacing="sm"
+                    >
+                      {/* Docker needs a running daemon and knowledge of the compose
+                          setup, so basic mode neither shows it nor uses it —
+                          `effectiveMode` pins the run to local. A visible-but-ignored
+                          select would be the worse half-measure. */}
+                      {advancedMode && (
+                        <Select
+                          label={t('run.mode')}
+                          size="xs"
+                          disabled={isRunning}
+                          value={mode}
+                          onChange={(v) => v && setMode(v as RunMode)}
+                          data={[
+                            { value: 'local', label: t('run.modeLocal') },
+                            {
+                              value: 'docker',
+                              label: `Docker${!config.data?.dockerRunning ? ` (${t('run.notRunning')})` : ''}`,
+                              disabled: !config.data?.dockerRunning,
+                            },
+                          ]}
+                          allowDeselect={false}
+                        />
+                      )}
+                      {!sectionAxis && hasDisplay && (
+                        <Select
+                          label={t('run.display')}
+                          size="xs"
+                          disabled={isRunning}
+                          value={headless}
+                          onChange={(v) => v && setHeadless(v as HeadlessMode)}
+                          data={[
+                            { value: 'headless', label: t('run.headless') },
+                            { value: 'headed', label: t('run.headed') },
+                          ]}
+                          allowDeselect={false}
+                        />
+                      )}
+                      {!sectionAxis && supportsRunFlags && (
+                        <>
+                          <NumberInput
+                            label={t('run.workers')}
+                            size="xs"
+                            min={1}
+                            max={64}
+                            disabled={isRunning}
+                            value={workers ?? ''}
+                            onChange={(v: string | number) =>
+                              setWorkers(typeof v === 'number' ? v : null)
+                            }
+                            placeholder={t('run.autoDefault')}
+                          />
+                          <NumberInput
+                            label={t('run.repeatEach')}
+                            size="xs"
+                            min={1}
+                            max={50}
+                            disabled={isRunning}
+                            value={repeatEach ?? ''}
+                            onChange={(v: string | number) =>
+                              setRepeatEach(typeof v === 'number' ? v : null)
+                            }
+                            placeholder="1"
+                          />
+                        </>
+                      )}
+                    </SimpleGrid>
 
-                <Checkbox
-                  size="xs"
-                  label={t('run.silentMode')}
-                  disabled={isRunning}
-                  checked={silent}
-                  onChange={(e) => setSilent(e.currentTarget.checked)}
-                />
+                    {advancedMode && !sectionAxis && (
+                      <TextInput
+                        label={t('run.extraArgs')}
+                        size="xs"
+                        disabled={isRunning}
+                        value={extraArgs}
+                        onChange={(e) => setExtraArgs(e.currentTarget.value)}
+                        placeholder="--debug"
+                      />
+                    )}
 
-                {/* Silent already discards the report, so the narrower option is
-                    redundant (and misleading) while it is on. */}
-                <Tooltip label={t('run.discardReportHint')} withArrow multiline w={280}>
-                  <Checkbox
-                    size="xs"
-                    label={t('run.discardReport')}
-                    disabled={isRunning || silent}
-                    checked={discardReport && !silent}
-                    onChange={(e) => setDiscardReport(e.currentTarget.checked)}
-                  />
-                </Tooltip>
+                    <Group gap="lg" wrap="wrap">
+                      {!config.data?.forceTrack && (
+                        <Checkbox
+                          size="xs"
+                          label={t('run.skipUsageLogging')}
+                          disabled={isRunning}
+                          checked={noTrack}
+                          onChange={(e) => setNoTrack(e.currentTarget.checked)}
+                        />
+                      )}
 
-                {/* Only useful when a report survives the run; disabled (and
-                    force-read as off) under silent / discard so it never
-                    promises to open a report that will not exist. */}
-                <Tooltip label={t('run.openReportAfterHint')} withArrow multiline w={280}>
-                  <Checkbox
-                    size="xs"
-                    label={t('run.openReportAfter')}
-                    disabled={isRunning || !reportSurvives}
-                    checked={autoOpenReport && reportSurvives}
-                    onChange={(e) => setAutoOpenReport(e.currentTarget.checked)}
-                  />
-                </Tooltip>
-              </Group>
+                      <Checkbox
+                        size="xs"
+                        label={t('run.silentMode')}
+                        disabled={isRunning}
+                        checked={silent}
+                        onChange={(e) => setSilent(e.currentTarget.checked)}
+                      />
+
+                      {/* Silent already discards the report, so the narrower option
+                          is redundant (and misleading) while it is on. */}
+                      <Tooltip label={t('run.discardReportHint')} withArrow multiline w={280}>
+                        <Checkbox
+                          size="xs"
+                          label={t('run.discardReport')}
+                          disabled={isRunning || silent}
+                          checked={discardReport && !silent}
+                          onChange={(e) => setDiscardReport(e.currentTarget.checked)}
+                        />
+                      </Tooltip>
+
+                      {/* Only useful when a report survives the run; disabled (and
+                          force-read as off) under silent / discard so it never
+                          promises to open a report that will not exist. */}
+                      <Tooltip label={t('run.openReportAfterHint')} withArrow multiline w={280}>
+                        <Checkbox
+                          size="xs"
+                          label={t('run.openReportAfter')}
+                          disabled={isRunning || !reportSurvives}
+                          checked={autoOpenReport && reportSurvives}
+                          onChange={(e) => setAutoOpenReport(e.currentTarget.checked)}
+                        />
+                      </Tooltip>
+                    </Group>
+
+                    {!advancedMode && (
+                      <Text size="xs" c="dimmed">
+                        {t('run.adminOptionsNote')}
+                      </Text>
+                    )}
+                  </Stack>
+                </Collapse>
+              </Stack>
             </Stack>
           )}
           {gatingAlerts}
@@ -1365,6 +1422,19 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                   </ActionIcon>
                 </Tooltip>
               </Group>
+              <Tooltip label={t('run.resetSplit')} withArrow>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="gray"
+                  visibleFrom="md"
+                  onClick={() => prefs.setRunSplitPercent(SPLIT_DEFAULT)}
+                  disabled={splitPercent === SPLIT_DEFAULT}
+                  aria-label={t('run.resetSplit')}
+                >
+                  <TbLayoutColumns size={14} />
+                </ActionIcon>
+              </Tooltip>
               <Button
                 size="compact-xs"
                 variant="subtle"

@@ -5,6 +5,7 @@ import {
   createRoute,
   createRouter,
   lazyRouteComponent,
+  redirect,
 } from '@tanstack/react-router';
 import { qActiveRuns, qDoctor, qProjects, qRunsHistory } from './api/queries.js';
 import { queryClient } from './api/query-client.js';
@@ -100,10 +101,12 @@ const projectsRoute = createRoute({
   pendingComponent: ListPending,
 });
 
-const envProfilesRoute = createRoute({
+const envProfilesRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/env-profiles',
-  component: lazyRouteComponent(() => import('./pages/EnvProfiles.js'), 'EnvProfilesPage'),
+  beforeLoad: () => {
+    throw redirect({ to: '/projects' });
+  },
   pendingComponent: ListPending,
 });
 
@@ -128,17 +131,21 @@ const insightsRoute = createRoute({
   pendingComponent: ListPending,
 });
 
-const dockerRoute = createRoute({
+const dockerRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/docker',
-  component: lazyRouteComponent(() => import('./pages/DockerServices.js'), 'DockerServicesPage'),
+  beforeLoad: () => {
+    throw redirect({ to: '/settings' });
+  },
   pendingComponent: GridPending,
 });
 
-const webhooksRoute = createRoute({
+const webhooksRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/webhooks',
-  component: lazyRouteComponent(() => import('./pages/Webhooks.js'), 'WebhooksPage'),
+  beforeLoad: () => {
+    throw redirect({ to: '/settings' });
+  },
   pendingComponent: ListPending,
 });
 
@@ -181,12 +188,12 @@ const routeTree = rootRoute.addChildren([
   schedulesRoute,
   projectsRoute,
   testcasesRoute,
-  envProfilesRoute,
+  envProfilesRedirectRoute,
   reportsRoute,
   artifactsRoute,
   insightsRoute,
-  dockerRoute,
-  webhooksRoute,
+  dockerRedirectRoute,
+  webhooksRedirectRoute,
   settingsRoute,
 ]);
 

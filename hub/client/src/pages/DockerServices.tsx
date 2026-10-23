@@ -42,6 +42,16 @@ const SERVICE_INFO: Record<string, { label: string; port: number; descKey: Trans
 
 export function DockerServicesPage() {
   const t = useT();
+  return (
+    <Stack gap="md">
+      <PageHeader title={t('nav.docker')} description={t('nav.docker.desc')} />
+      <DockerServicesBody />
+    </Stack>
+  );
+}
+
+export function DockerServicesBody() {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const status = useQuery({
@@ -144,8 +154,6 @@ export function DockerServicesPage() {
 
   return (
     <Stack gap="md">
-      <PageHeader title={t('nav.docker')} description={t('nav.docker.desc')} />
-
       {/* Probing Docker can take a few seconds. Mirror the real layout (status
           card → bulk actions → service cards) so the page never looks stuck and
           nothing jumps when the data lands. */}

@@ -1,5 +1,5 @@
 import type { ToolView } from '@hub/shared';
-import { Button, Group, Switch, Tooltip } from '@mantine/core';
+import { Button, Group, Switch, Text } from '@mantine/core';
 import { useState } from 'react';
 import { TbGitFork } from 'react-icons/tb';
 import { toast } from '~/components/Toast.js';
@@ -43,7 +43,7 @@ export function ToolSectionActions({ tool, onCloneProject }: ToolSectionActionsP
 
   return (
     <Group gap={6} wrap="nowrap">
-      <Tooltip label={tool.status === 'enabled' ? t('tools.disable') : t('tools.enable')} withArrow>
+      <Group gap={6} wrap="nowrap">
         <Switch
           size="xs"
           checked={tool.status === 'enabled'}
@@ -51,7 +51,10 @@ export function ToolSectionActions({ tool, onCloneProject }: ToolSectionActionsP
           onChange={(e) => toggle.mutate({ id: tool.id, enabled: e.currentTarget.checked })}
           aria-label={tool.status === 'enabled' ? t('tools.disable') : t('tools.enable')}
         />
-      </Tooltip>
+        <Text size="xs" c="dimmed">
+          {tool.status === 'enabled' ? t('tools.switchEnabled') : t('tools.switchDisabled')}
+        </Text>
+      </Group>
 
       <Button
         size="compact-xs"

@@ -91,6 +91,7 @@ export function ProjectRow({
                 rel="noopener noreferrer"
                 variant="subtle"
                 size="sm"
+                aria-label={`${t('projectRow.openGitRepo')} ${name}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <TbBrandGit size={14} />
