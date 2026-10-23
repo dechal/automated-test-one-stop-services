@@ -13,12 +13,11 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TbFolderPlus, TbPlus, TbRocket, TbX } from 'react-icons/tb';
-import { api } from '~/api/client.js';
-import { qProjects } from '~/api/queries.js';
+import { qActiveRuns, qProjects } from '~/api/queries.js';
 import { BookmarkLoadModal } from '~/components/BookmarkPanel.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
@@ -52,13 +51,11 @@ export function RunPage() {
   const navigate = useNavigate();
   const tools = useTools().data ?? [];
   const t = useT();
+  const queryClient = useQueryClient();
 
   // Detect first-time / no-projects state so we can guide the user instead of
   // showing an empty configuration form they cannot fill in.
-  const projectsQ = useQuery({
-    ...qProjects(),
-    staleTime: 30_000,
-  });
+  const projectsQ = useQuery(qProjects());
   const noProjects = !projectsQ.isLoading && (projectsQ.data?.length ?? 0) === 0;
 
   // Handle external config injection (from dashboard/spotlight). The effect
@@ -87,7 +84,7 @@ export function RunPage() {
   useEffect(() => {
     async function reconnect() {
       try {
-        const activeRuns: RunRecord[] = await api.get('/api/runs/active');
+        const activeRuns: RunRecord[] = await queryClient.fetchQuery(qActiveRuns());
         const state = useRunSessions.getState();
         const known = new Set(
           state.tabs.flatMap((tab) => [tab.reconnectRunId, state.sessions[tab.id]?.activeRunId]),
@@ -121,7 +118,7 @@ export function RunPage() {
       }
     }
     reconnect();
-  }, [setSessions, setActiveId, markInitialized]);
+  }, [setSessions, setActiveId, markInitialized, queryClient]);
 
   function addSession(config?: RunRequest) {
     const id = genId();

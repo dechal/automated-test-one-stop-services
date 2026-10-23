@@ -1,4 +1,4 @@
-import type { CompareCategory, CompareSide, RunCompareResult } from '@hub/shared';
+import type { CompareCategory, CompareSide } from '@hub/shared';
 import {
   Badge,
   Card,
@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { TbAlertTriangle, TbGitCompare } from 'react-icons/tb';
-import { api } from '~/api/client.js';
+import { qCompare } from '~/api/queries.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { InlineAlert } from '~/components/InlineAlert.js';
 import { PageHeader } from '~/components/PageHeader.js';
@@ -87,11 +87,7 @@ function SideCard({ label, side }: { label: string; side: CompareSide }) {
 export function ComparePage() {
   const t = useT();
   const { a, b } = compareRoute.useSearch();
-  const query = useQuery<RunCompareResult>({
-    queryKey: ['compare', a, b],
-    queryFn: () => api.get(`/api/runs/compare?a=${a}&b=${b}`),
-    enabled: !!a && !!b,
-  });
+  const query = useQuery(qCompare(a, b));
 
   const header = <PageHeader title={t('compare.title')} description={t('compare.desc')} />;
   const empty = (message: string) => (

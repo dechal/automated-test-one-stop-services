@@ -3,7 +3,7 @@ import { BarsList, type BarsListBarData } from '@mantine/charts';
 import { SegmentedControl, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { api } from '~/api/client.js';
+import { qRunsHistory } from '~/api/queries.js';
 import { useT } from '~/i18n/index.js';
 
 type Mode = 'project' | 'tool';
@@ -30,10 +30,7 @@ export function TopProjectsBars() {
   const t = useT();
   const [mode, setMode] = useState<Mode>('project');
 
-  const history = useQuery<RunRecord[]>({
-    queryKey: ['runs-history'],
-    queryFn: () => api.get('/api/runs/history'),
-  });
+  const history = useQuery(qRunsHistory());
 
   const data = useMemo(() => aggregate(history.data ?? [], mode), [history.data, mode]);
 

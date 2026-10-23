@@ -8,7 +8,6 @@
  */
 // biome-ignore-all lint/correctness/useExhaustiveDependencies: remaining effects intentionally omit the stable prefs store; see note above.
 import type {
-  DoctorReport,
   HeadlessMode,
   PerformanceType,
   RunMode,
@@ -58,7 +57,16 @@ import {
   TbX,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
-import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
+import {
+  qAppiumStatus,
+  qConfig,
+  qDoctor,
+  qEnvDefault,
+  qEnvProfilesByProject,
+  qProjectEnv,
+  qRunReport,
+  queryRoots,
+} from '~/api/queries.js';
 import { useSaveBookmark } from '~/components/BookmarkPanel.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EnvDrawer } from '~/components/env-profiles/EnvDrawer.js';
@@ -352,22 +360,11 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     if (tool && type && project) prefs.setLastProject(tool, type, project);
   }, [tool, type, project]);
 
-  const config = useQuery<{ forceTrack: boolean; dockerRunning: boolean }>({
-    queryKey: ['config'],
-    queryFn: () => api.get('/api/config'),
-    gcTime: Infinity,
-    // Config (forceTrack/dockerRunning) is stable within a session; without a
-    // staleTime it refetched on every session mount / window refocus.
-    staleTime: Infinity,
-  });
+  const config = useQuery(qConfig());
 
   // Full doctor report (shares the ['doctor'] cache with the Dashboard panel).
   // Drives both the credentials notice and the per-tool run-requirement gate.
-  const doctorQ = useQuery<DoctorReport>({
-    queryKey: ['doctor'],
-    queryFn: () => api.get('/api/doctor'),
-    staleTime: 10_000,
-  });
+  const doctorQ = useQuery(qDoctor());
 
   // Force mode to local if Docker is not running
   useEffect(() => {
@@ -468,10 +465,8 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // Mobile (Robot type=mobile) needs the host Appium server running. Gate the
   // Run button on it and offer a one-click start (Option A: host appium).
   const isMobile = effectiveType === 'mobile';
-  const appiumQ = useQuery<{ running: boolean; installed: boolean }>({
-    queryKey: ['appium-status'],
-    queryFn: () => api.get('/api/appium/status'),
-    enabled: isMobile,
+  const appiumQ = useQuery({
+    ...qAppiumStatus(isMobile),
     refetchInterval: isMobile ? 5000 : false,
   });
   const appiumRunning = appiumQ.data?.running ?? false;
@@ -479,7 +474,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     mutationFn: () => api.post('/api/appium/start'),
     onSuccess: () => {
       toast.success(t('run.appiumStarting'));
-      queryClient.invalidateQueries({ queryKey: ['appium-status'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.appiumStatus] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -606,8 +601,8 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       term.writeln(`\x1b[32m[Started]\x1b[0m Run ${record.id}`);
       term.writeln(`\x1b[90m$ ${record.command}\x1b[0m\n`);
       send({ kind: 'subscribe', runId: record.id, replay: true });
-      queryClient.invalidateQueries({ queryKey: ['queue'] });
-      queryClient.invalidateQueries({ queryKey: ['activeRuns'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.queue] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.activeRuns] });
     },
   });
 
@@ -720,12 +715,9 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // runner never writes RunRecord.reportPath, so the server matches it from the
   // reports listing — see GET /api/runs/:id/report. Only queried once the run
   // has finished and could have left a report.
-  const reportQuery = useQuery<{ reportPath: string; favorite: boolean }>({
-    queryKey: ['run-report', reportRunId],
-    queryFn: () => api.get(`/api/runs/${reportRunId}/report`),
+  const reportQuery = useQuery({
+    ...qRunReport(reportRunId),
     enabled: isFinished && reportSurvives && !!reportRunId,
-    retry: false,
-    meta: { silentError: true },
   });
   const reportPath = reportQuery.data?.reportPath;
 
@@ -762,7 +754,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       toast.success(t('reports.reportDeleted'), {
         id: `report-del-${reportRunId}-${Date.now()}`,
       });
-      queryClient.removeQueries({ queryKey: ['run-report', reportRunId] });
+      queryClient.removeQueries({ queryKey: qRunReport(reportRunId).queryKey });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     } catch (err) {
       const code = (err as Error & { code?: string }).code;

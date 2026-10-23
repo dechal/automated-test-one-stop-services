@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { CredentialStatus } from '@hub/shared';
 import { SCRIPTS_DIR } from '../config.js';
 import { SAFE_ID } from '../lib/safe-id.js';
 
@@ -22,13 +23,6 @@ const CREDENTIALS_FILENAME = 'credentials.json';
  * from `credentials.json` (the app credentials the user uploads).
  */
 const TOKEN_FILENAME = 'token.json';
-
-export interface CredentialStatus {
-  /** Third-party tool folder name (e.g. "google"). */
-  readonly tool: string;
-  /** True once a `credentials.json` exists in the tool's credentials folder. */
-  readonly hasCredentials: boolean;
-}
 
 /** Resolve a tool's credentials directory, guarding against path traversal. */
 function credentialsDir(tool: string): string {

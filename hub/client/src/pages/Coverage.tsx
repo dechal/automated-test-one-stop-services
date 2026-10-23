@@ -18,6 +18,7 @@ import { qAllCoverage } from '~/api/queries.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
+import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { toolLabel } from '~/utils/tool-label.js';
@@ -49,7 +50,6 @@ export function CoveragePage() {
   const t = useT();
   const tools = useTools().data ?? [];
   const [q, setQ] = useState('');
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const allQ = useQuery(qAllCoverage());
   const reports = allQ.data ?? [];
@@ -66,16 +66,8 @@ export function CoveragePage() {
   }, [reports, query, tools]);
 
   const searching = query.length > 0;
-  const isCollapsed = (key: string) => !searching && collapsed.has(key);
+  const { isCollapsed, toggle } = useCollapsedGroups({ searching });
   const groupKey = (r: CoverageReport) => `${r.tool}|${r.type}|${r.project}`;
-  function toggle(key: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   return (
     <Stack gap="md">

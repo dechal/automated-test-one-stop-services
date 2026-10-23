@@ -33,9 +33,11 @@ import {
   TbX,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
+import { qBookmarks, queryRoots } from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { toast } from '~/components/Toast.js';
+import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { toolLabel } from '~/utils/tool-label.js';
@@ -58,7 +60,7 @@ export function useSaveBookmark() {
     mutationFn: (payload: SaveBookmarkPayload) => api.post<Bookmark>('/api/bookmarks', payload),
     onSuccess: () => {
       toast.success(t('bookmark.saved'));
-      queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.bookmarks] });
     },
   });
 }
@@ -159,25 +161,23 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
   const queryClient = useQueryClient();
   const [opened, setOpened] = useState(false);
   const [q, setQ] = useState('');
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const bookmarks = useQuery<BookmarkWithStatus[]>({
-    queryKey: ['bookmarks'],
-    queryFn: () => api.get('/api/bookmarks'),
+  const bookmarks = useQuery({
+    ...qBookmarks(),
     enabled: opened,
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/bookmarks/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bookmarks'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryRoots.bookmarks] }),
   });
 
   const migrateMutation = useMutation({
     mutationFn: (id: string) => api.post<BookmarkWithStatus>(`/api/bookmarks/${id}/migrate`),
     onSuccess: () => {
       toast.success(t('bookmark.migrated'));
-      queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.bookmarks] });
     },
     onError: () => toast.error(t('bookmark.scanUnavailable')),
   });
@@ -193,20 +193,11 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
   // must not stay hidden. Clear the manual collapse set whenever the query is
   // non-empty so every match is visible without a click.
   const searching = q.trim().length > 0;
-  const isCollapsed = (key: string) => !searching && collapsed.has(key);
-
-  function toggleGroup(key: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
+  const { isCollapsed, isMarked, toggle: toggleGroup, setAll } = useCollapsedGroups({ searching });
 
   function openModal() {
     setQ('');
-    setCollapsed(new Set());
+    setAll([]);
     setEditingId(null);
     setOpened(true);
   }
@@ -229,10 +220,10 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
     }
   }
 
-  const allCollapsed = groups.length > 0 && groups.every((g) => collapsed.has(g.key));
+  const allCollapsed = groups.length > 0 && groups.every((g) => isMarked(g.key));
   function toggleAll() {
-    if (allCollapsed) setCollapsed(new Set());
-    else setCollapsed(new Set(groups.map((g) => g.key)));
+    if (allCollapsed) setAll([]);
+    else setAll(groups.map((g) => g.key));
   }
 
   return (
@@ -491,7 +482,7 @@ function InlineEdit({
       api.put(`/api/bookmarks/${bookmark.id}`, body),
     onSuccess: () => {
       toast.success(t('bookmark.updated'));
-      queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.bookmarks] });
       onDone();
     },
   });

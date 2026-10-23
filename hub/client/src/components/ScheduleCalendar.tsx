@@ -1,4 +1,4 @@
-import type { RunRequest } from '@hub/shared';
+import type { ScheduleEntry } from '@hub/shared';
 import { Group, Paper, SegmentedControl, Stack, Text } from '@mantine/core';
 import type { DateStringValue } from '@mantine/dates';
 import {
@@ -13,13 +13,7 @@ import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { useT } from '~/i18n/index.js';
 
-interface ScheduleItem {
-  id: string;
-  name: string;
-  cron: string;
-  config: RunRequest;
-  enabled: boolean;
-}
+type ScheduleItem = Pick<ScheduleEntry, 'id' | 'name' | 'cron' | 'config' | 'enabled'>;
 
 interface ScheduleCalendarProps {
   schedules: ScheduleItem[];

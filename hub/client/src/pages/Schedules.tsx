@@ -1,4 +1,4 @@
-import type { CustomCommand } from '@hub/shared';
+import type { CustomCommand, ScheduleEntry } from '@hub/shared';
 import {
   ActionIcon,
   Badge,
@@ -29,13 +29,14 @@ import {
   TbTrash,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
+import { qSchedules, queryRoots } from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { InlineAlert } from '~/components/InlineAlert.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { ScheduleCalendar } from '~/components/ScheduleCalendar.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
-import { type Schedule, ScheduleForm } from '~/components/schedule-form/ScheduleForm.js';
+import { ScheduleForm } from '~/components/schedule-form/ScheduleForm.js';
 import { toast } from '~/components/Toast.js';
 import { useToolOptions } from '~/hooks/useTools.js';
 import { useI18nStore, useT } from '~/i18n/index.js';
@@ -59,8 +60,8 @@ export function SchedulesPage() {
   const locale = useI18nStore((s) => s.locale);
   const queryClient = useQueryClient();
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
-  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
-  const [duplicateFrom, setDuplicateFrom] = useState<Schedule | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<ScheduleEntry | null>(null);
+  const [duplicateFrom, setDuplicateFrom] = useState<ScheduleEntry | null>(null);
 
   /**
    * Which KIND of schedule the list shows. A custom schedule carries `command`;
@@ -77,21 +78,18 @@ export function SchedulesPage() {
   const [groupBy, setGroupBy] = useState<'none' | 'tool' | 'project'>('none');
   const toolOptions = useToolOptions();
 
-  const schedules = useQuery<Schedule[]>({
-    queryKey: ['schedules'],
-    queryFn: () => api.get('/api/schedules'),
-  });
+  const schedules = useQuery(qSchedules());
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => api.post(`/api/schedules/${id}/toggle`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedules'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryRoots.schedules] }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/schedules/${id}`),
     onSuccess: () => {
       toast.success(t('schedule.deleted'));
-      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.schedules] });
     },
   });
 
@@ -122,9 +120,9 @@ export function SchedulesPage() {
     return true;
   });
 
-  function getGroups(): { label: string; items: Schedule[] }[] {
+  function getGroups(): { label: string; items: ScheduleEntry[] }[] {
     if (groupBy === 'none') return [{ label: '', items: filtered }];
-    const grouped: Record<string, Schedule[]> = {};
+    const grouped: Record<string, ScheduleEntry[]> = {};
     for (const s of filtered) {
       const key = groupBy === 'tool' ? s.config.tool : s.config.project;
       if (!grouped[key]) grouped[key] = [];
@@ -419,7 +417,7 @@ export function SchedulesPage() {
         onSuccess={() => {
           closeCreate();
           setDuplicateFrom(null);
-          queryClient.invalidateQueries({ queryKey: ['schedules'] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.schedules] });
         }}
       />
 
@@ -429,7 +427,7 @@ export function SchedulesPage() {
         onClose={() => setEditingSchedule(null)}
         onSuccess={() => {
           setEditingSchedule(null);
-          queryClient.invalidateQueries({ queryKey: ['schedules'] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.schedules] });
         }}
       />
     </Stack>

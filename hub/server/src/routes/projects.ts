@@ -7,6 +7,7 @@ import { getEnabledTools } from '../services/manifest-registry.js';
 import { rejectStandaloneTarget } from '../services/path-guard.js';
 import { type ProjectCleanupResult, removeProjectCascade } from '../services/project-cleanup.js';
 import { exportProjectStandalone, isStandaloneSupported } from '../services/project-standalone.js';
+import { invalidateProjectTagsCache } from '../services/project-tags.js';
 import {
   invalidateProjectCache,
   listAllProjects,
@@ -137,6 +138,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         };
       }
       invalidateProjectCache();
+      invalidateProjectTagsCache();
       return { success: true, output: res.output };
     },
   );
@@ -196,6 +198,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         };
       }
       invalidateProjectCache();
+      invalidateProjectTagsCache();
       return { success: true, output: res.output };
     },
   );
@@ -243,6 +246,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         removeProjectCascade({ tool, type, project }),
       );
       invalidateProjectCache();
+      invalidateProjectTagsCache();
       return result;
     },
   );

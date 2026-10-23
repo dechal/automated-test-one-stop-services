@@ -15,6 +15,7 @@ import { runChild } from './exec.js';
  * a service the user just stopped as running.
  */
 let dockerRunningCache: { value: boolean; checkedAt: number } | null = null;
+let dockerRunningInFlight: Promise<boolean> | null = null;
 const DOCKER_CACHE_TTL_MS = 30_000;
 
 /**
@@ -22,6 +23,7 @@ const DOCKER_CACHE_TTL_MS = 30_000;
  * checks 3 services at once) reuse a single subprocess invocation.
  */
 let composeStatusCache: { value: Map<string, ServiceStatus>; checkedAt: number } | null = null;
+let composeStatusInFlight: Promise<Map<string, ServiceStatus>> | null = null;
 const COMPOSE_CACHE_TTL_MS = 30_000;
 
 /**
@@ -34,16 +36,26 @@ export async function isDockerRunning(): Promise<boolean> {
   if (dockerRunningCache && now - dockerRunningCache.checkedAt < DOCKER_CACHE_TTL_MS) {
     return dockerRunningCache.value;
   }
-  const res = await runChild('docker', ['info'], { timeoutMs: 5_000 });
-  const value = res.ok;
-  dockerRunningCache = { value, checkedAt: now };
-  return value;
+  if (dockerRunningInFlight) return dockerRunningInFlight;
+  dockerRunningInFlight = (async () => {
+    try {
+      const res = await runChild('docker', ['info'], { timeoutMs: 5_000 });
+      const value = res.ok;
+      dockerRunningCache = { value, checkedAt: Date.now() };
+      return value;
+    } finally {
+      dockerRunningInFlight = null;
+    }
+  })();
+  return dockerRunningInFlight;
 }
 
 /** Force the next call to re-probe (used after `docker desktop start`). */
 export function invalidateDockerStatusCache(): void {
   dockerRunningCache = null;
+  dockerRunningInFlight = null;
   composeStatusCache = null;
+  composeStatusInFlight = null;
 }
 
 export type ServiceStatus = 'running' | 'stopped' | 'unknown';
@@ -110,8 +122,20 @@ async function fetchAllComposeStatuses(): Promise<Map<string, ServiceStatus>> {
  */
 export async function getComposeServiceStatus(service: string): Promise<ServiceStatus> {
   const now = Date.now();
-  if (!composeStatusCache || now - composeStatusCache.checkedAt >= COMPOSE_CACHE_TTL_MS) {
-    composeStatusCache = { value: await fetchAllComposeStatuses(), checkedAt: now };
+  if (composeStatusCache && now - composeStatusCache.checkedAt < COMPOSE_CACHE_TTL_MS) {
+    return composeStatusCache.value.get(service) ?? 'stopped';
   }
-  return composeStatusCache.value.get(service) ?? 'stopped';
+  if (!composeStatusInFlight) {
+    composeStatusInFlight = (async () => {
+      try {
+        const value = await fetchAllComposeStatuses();
+        composeStatusCache = { value, checkedAt: Date.now() };
+        return value;
+      } finally {
+        composeStatusInFlight = null;
+      }
+    })();
+  }
+  const value = await composeStatusInFlight;
+  return value.get(service) ?? 'stopped';
 }

@@ -1,27 +1,12 @@
+import type { UsageLoggingStatus } from '@hub/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '~/api/client.js';
+import { qUsageLogging, queryRoots } from '~/api/queries.js';
 
-/**
- * Google Sheet usage-logging readiness + on/off state (GET
- * /api/usage-logging/status). Readiness is DERIVED (credentials uploaded +
- * SPREADSHEET_ID set) — the user never edits config by hand.
- */
-export interface UsageLoggingStatus {
-  readonly hasCredentials: boolean;
-  readonly hasSpreadsheetId: boolean;
-  /** A Google token.json exists — the account has been connected at least once. */
-  readonly hasToken: boolean;
-  readonly forceTrack: boolean;
-  readonly ready: boolean;
-  readonly sheetName: string;
-}
+export type { UsageLoggingStatus };
 
 export function useUsageLogging() {
-  return useQuery({
-    queryKey: ['usage-logging'],
-    queryFn: () => api.get<UsageLoggingStatus>('/api/usage-logging/status'),
-    staleTime: 15_000,
-  });
+  return useQuery(qUsageLogging());
 }
 
 /**
@@ -36,10 +21,10 @@ export function useAuthenticateGoogle() {
     onSuccess: () => {
       // Auth can flip FORCE_TRACK + creates token.json — refresh everything
       // derived from usage-logging state (badge, credentials, scripts/.env, config).
-      qc.invalidateQueries({ queryKey: ['usage-logging'] });
-      qc.invalidateQueries({ queryKey: ['credentials'] });
-      qc.invalidateQueries({ queryKey: ['env'] });
-      qc.invalidateQueries({ queryKey: ['config'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.usageLogging] });
+      qc.invalidateQueries({ queryKey: [queryRoots.credentials] });
+      qc.invalidateQueries({ queryKey: [queryRoots.env] });
+      qc.invalidateQueries({ queryKey: [queryRoots.config] });
     },
   });
 }
@@ -54,9 +39,9 @@ export function useSetUsageLogging() {
       // The toggle writes FORCE_TRACK into scripts/.env, so refresh everything
       // derived from it: this badge, the scripts/.env editor (['env', …]), and
       // the Run page's /api/config forceTrack (['config']).
-      qc.invalidateQueries({ queryKey: ['usage-logging'] });
-      qc.invalidateQueries({ queryKey: ['env'] });
-      qc.invalidateQueries({ queryKey: ['config'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.usageLogging] });
+      qc.invalidateQueries({ queryKey: [queryRoots.env] });
+      qc.invalidateQueries({ queryKey: [queryRoots.config] });
     },
   });
 }

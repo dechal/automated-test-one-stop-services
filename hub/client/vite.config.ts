@@ -58,6 +58,7 @@ function pickChunk(id: string): string | undefined {
   if (pkg('@mantine/schedule')) return 'mantine-schedule';
   if (pkg('@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-search')) return 'xterm';
   if (pkg('@tanstack/react-query', '@tanstack/react-router')) return 'query';
+  if (pkg('cron-parser', 'luxon', 'cronstrue')) return undefined;
   // Remaining third-party code shares one vendor chunk instead of being folded
   // into a feature chunk it has nothing to do with.
   if (id.includes('node_modules')) return 'vendor';

@@ -10,6 +10,24 @@ import { qActiveRuns, qDoctor, qProjects, qRunsHistory } from './api/queries.js'
 import { queryClient } from './api/query-client.js';
 import { AppLayout } from './components/AppLayout.js';
 import { PageLoader } from './components/PageLoader.js';
+import { GridSkeleton, ListSkeleton, StatCardsSkeleton } from './components/Skeletons.js';
+
+function DashboardPending() {
+  return (
+    <>
+      <StatCardsSkeleton />
+      <ListSkeleton />
+    </>
+  );
+}
+
+function GridPending() {
+  return <GridSkeleton />;
+}
+
+function ListPending() {
+  return <ListSkeleton />;
+}
 
 // ---------------------------------------------------------------------------
 // Router context — gives every route loader access to the shared QueryClient
@@ -37,86 +55,98 @@ const dashboardRoute = createRoute({
   path: '/',
   // Prefetch the three dashboard queries in parallel at navigation time so the
   // page renders with data already in cache (no render-then-fetch waterfall).
-  loader: ({ context }) =>
-    Promise.all([
-      context.queryClient.ensureQueryData(qDoctor()),
-      context.queryClient.ensureQueryData(qProjects()),
-      context.queryClient.ensureQueryData(qRunsHistory()),
-    ]),
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(qDoctor());
+    void context.queryClient.prefetchQuery(qProjects());
+    void context.queryClient.prefetchQuery(qRunsHistory());
+  },
   component: lazyRouteComponent(() => import('./pages/Dashboard.js'), 'DashboardPage'),
+  pendingComponent: DashboardPending,
 });
 
 const runRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/run',
   // Run page gates on whether any projects exist and reconnects to active runs.
-  loader: ({ context }) =>
-    Promise.all([
-      context.queryClient.ensureQueryData(qProjects()),
-      context.queryClient.ensureQueryData(qActiveRuns()),
-    ]),
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(qProjects());
+    void context.queryClient.prefetchQuery(qActiveRuns());
+  },
   component: lazyRouteComponent(() => import('./pages/Run.js'), 'RunPage'),
+  pendingComponent: ListPending,
 });
 
 const historyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/history',
-  loader: ({ context }) => context.queryClient.ensureQueryData(qRunsHistory()),
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(qRunsHistory());
+  },
   component: lazyRouteComponent(() => import('./pages/History.js'), 'HistoryPage'),
+  pendingComponent: ListPending,
 });
 
 const schedulesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/schedules',
   component: lazyRouteComponent(() => import('./pages/Schedules.js'), 'SchedulesPage'),
+  pendingComponent: ListPending,
 });
 
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/projects',
   component: lazyRouteComponent(() => import('./pages/Projects.js'), 'ProjectsPage'),
+  pendingComponent: ListPending,
 });
 
 const envProfilesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/env-profiles',
   component: lazyRouteComponent(() => import('./pages/EnvProfiles.js'), 'EnvProfilesPage'),
+  pendingComponent: ListPending,
 });
 
 const reportsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/reports',
   component: lazyRouteComponent(() => import('./pages/Reports.js'), 'ReportsPage'),
+  pendingComponent: ListPending,
 });
 
 const artifactsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/artifacts',
   component: lazyRouteComponent(() => import('./pages/Artifacts.js'), 'ArtifactsPage'),
+  pendingComponent: GridPending,
 });
 
 const insightsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/insights',
   component: lazyRouteComponent(() => import('./pages/Insights.js'), 'InsightsPage'),
+  pendingComponent: ListPending,
 });
 
 const dockerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/docker',
   component: lazyRouteComponent(() => import('./pages/DockerServices.js'), 'DockerServicesPage'),
+  pendingComponent: GridPending,
 });
 
 const webhooksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/webhooks',
   component: lazyRouteComponent(() => import('./pages/Webhooks.js'), 'WebhooksPage'),
+  pendingComponent: ListPending,
 });
 
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
   component: lazyRouteComponent(() => import('./pages/Settings.js'), 'SettingsPage'),
+  pendingComponent: ListPending,
 });
 
 // Contextual view (no nav item): reached from History by selecting two runs.
@@ -129,12 +159,14 @@ export const compareRoute = createRoute({
     b: typeof search.b === 'string' ? search.b : undefined,
   }),
   component: lazyRouteComponent(() => import('./pages/Compare.js'), 'ComparePage'),
+  pendingComponent: ListPending,
 });
 
 const testcasesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/testcases',
   component: lazyRouteComponent(() => import('./pages/Testcases.js'), 'TestCasesPage'),
+  pendingComponent: ListPending,
 });
 
 // ---------------------------------------------------------------------------
@@ -172,9 +204,16 @@ export const router = createRouter({
   // immediately rather than after the 1s default (navigations are local cache
   // hits, so this won't flash on route changes).
   defaultPendingComponent: () => <PageLoader boot />,
-  defaultPendingMs: 0,
+  defaultPendingMs: 150,
+  defaultPendingMinMs: 0,
   context: { queryClient },
 });
+
+export function preloadAllRouteChunks(): void {
+  for (const route of router.routeTree.children ?? []) {
+    void router.loadRouteChunk(route);
+  }
+}
 
 // Type-safe router declaration
 declare module '@tanstack/react-router' {

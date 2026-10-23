@@ -1,4 +1,4 @@
-import type { EnvEntry } from '@hub/shared';
+import type { EnvEntry, UsageLoggingStatus } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { WORKSPACE_ROOT } from '../config.js';
 import { hasToken, listCredentialStatus } from '../services/credentials.js';
@@ -27,21 +27,6 @@ const GOOGLE_TOOL = 'google';
 
 /** Interactive OAuth can involve a browser consent screen — allow the user time. */
 const AUTH_TIMEOUT_MS = 180_000;
-
-interface UsageLoggingStatus {
-  /** Google credentials.json has been uploaded. */
-  hasCredentials: boolean;
-  /** SPREADSHEET_ID is set in scripts/.env. */
-  hasSpreadsheetId: boolean;
-  /** A Google token.json exists — the account has been connected at least once. */
-  hasToken: boolean;
-  /** FORCE_TRACK=true — logging runs without prompting. */
-  forceTrack: boolean;
-  /** All prerequisites present — the toggle may be turned on. */
-  ready: boolean;
-  /** Effective sheet tab name (defaults to "logs"). */
-  sheetName: string;
-}
 
 /** Trimmed value of an env key from the scripts/.env entries, or ''. */
 function envValue(entries: EnvEntry[], key: string): string {

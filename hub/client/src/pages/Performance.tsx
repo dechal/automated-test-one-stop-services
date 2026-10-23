@@ -27,11 +27,13 @@ import {
   TbX,
 } from 'react-icons/tb';
 import { api } from '~/api/client';
+import { qK6Trends, queryRoots } from '~/api/queries.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { K6TrendChart } from '~/components/K6TrendChart.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
+import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 
@@ -79,23 +81,19 @@ export function PerformancePage() {
   const t = useT();
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const toolsQuery = useTools();
   const k6Installed = (toolsQuery.data ?? []).some(
     (tv) => tv.id === 'k6' && tv.status === 'enabled',
   );
 
-  const allQ = useQuery<K6TrendData[]>({
-    queryKey: ['k6-trends'],
-    queryFn: () => api.get('/api/k6-trends'),
-  });
+  const allQ = useQuery(qK6Trends());
 
   const refreshMutation = useMutation({
     mutationFn: () => api.post('/api/k6-trends/refresh'),
     onSuccess: () => {
       toast.success(t('performance.refreshed'));
-      queryClient.invalidateQueries({ queryKey: ['k6-trends'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.k6Trends] });
     },
     onError: () => toast.error(t('performance.refreshFailed')),
   });
@@ -112,15 +110,7 @@ export function PerformancePage() {
   );
 
   const searching = query.length > 0;
-  const isCollapsed = (key: string) => !searching && collapsed.has(key);
-  function toggle(key: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
+  const { isCollapsed, toggle } = useCollapsedGroups({ searching });
 
   return (
     <Stack gap="md">

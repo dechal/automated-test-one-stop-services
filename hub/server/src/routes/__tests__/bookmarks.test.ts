@@ -113,6 +113,33 @@ describe('GET /api/bookmarks — list + persistence round-trip', () => {
   });
 });
 
+describe('GET /api/bookmarks?annotate=0 — raw list, no scan', () => {
+  it('returns Bookmark[] in the same id order without scanning tags', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/bookmarks',
+      payload: { name: 'first', config: baseConfig },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/bookmarks',
+      payload: { name: 'second', config: { ...baseConfig, project: 'other' } },
+    });
+    const annotated = (await app.inject({ method: 'GET', url: '/api/bookmarks' })).json<
+      Bookmark[]
+    >();
+
+    mockResolveProjectTags.mockClear();
+    const raw = (await app.inject({ method: 'GET', url: '/api/bookmarks?annotate=0' })).json<
+      Bookmark[]
+    >();
+
+    expect(raw.map((b) => b.id)).toEqual(annotated.map((b) => b.id));
+    expect(raw[0] && 'staleTags' in raw[0]).toBe(false);
+    expect(mockResolveProjectTags).not.toHaveBeenCalled();
+  });
+});
+
 describe('PUT /api/bookmarks/:id — edit', () => {
   it('renames a bookmark while preserving id/createdAt/config', async () => {
     const created = (

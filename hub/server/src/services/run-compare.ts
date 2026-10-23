@@ -1,142 +1,27 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import {
   type CompareCategory,
   type CompareRow,
   type CompareSide,
   classifyTag,
+  type FailedRunSelection,
   type RunCompareResult,
   type RunRecord,
   type TestStatus,
 } from '@hub/shared';
+import { type RunOutcome, readRunResults } from './results-json.js';
 
-/** Minimal shape of the Playwright JSON reporter output we read. */
-interface PwError {
-  message?: string;
-}
-interface PwAttachment {
-  name?: string;
-  path?: string;
-}
-interface PwTestResult {
-  error?: PwError;
-  errors?: PwError[];
-  /** Files the reporter wrote for this attempt (trace / video / screenshot). */
-  attachments?: PwAttachment[];
-}
-interface PwTest {
-  results?: PwTestResult[];
-}
-interface PwSpec {
-  ok?: boolean;
-  title?: string;
-  id?: string;
-  line?: number;
-  tags?: string[];
-  tests?: PwTest[];
-}
-interface PwSuite {
-  file?: string;
-  specs?: PwSpec[];
-  suites?: PwSuite[];
-}
-
-/** One test's outcome, extracted from a run's result file. */
-export interface RunOutcome {
-  key: string;
-  title: string;
-  file?: string;
-  status: TestStatus;
-  /** Playwright tags on the spec (includes cover tags like `TC-<docId>`). */
-  tags?: string[];
-  /** First line of the failure message, when the test failed. */
-  error?: string;
-}
-
-/** Max length of the failure summary we carry into a test-case doc cell. */
-const MAX_ERROR_CHARS = 500;
-// biome-ignore lint/suspicious/noControlCharactersInRegex: strip terminal colour codes from reporter output
-const ANSI_RE = /\u001B\[[0-9;]*m/g;
-
-/**
- * First line of a failed spec's error message, stripped of ANSI colour codes and
- * capped — enough to fill a doc's "Actual Result" without pasting a whole stack.
- * Returns undefined when the reporter recorded no message.
- */
-function firstErrorMessage(spec: PwSpec): string | undefined {
-  for (const test of spec.tests ?? []) {
-    for (const result of test.results ?? []) {
-      const raw = result.error?.message ?? result.errors?.find((e) => e.message)?.message;
-      if (!raw) continue;
-      const line = raw.replace(ANSI_RE, '').split('\n')[0]?.trim();
-      if (line) return line.slice(0, MAX_ERROR_CHARS);
-    }
-  }
-  return undefined;
-}
-
-const MAX_RESULTS_JSON_BYTES = 25 * 1024 * 1024;
-
-function collectOutcomes(suite: PwSuite, fileHint: string | undefined, out: RunOutcome[]): void {
-  const file = suite.file ?? fileHint;
-  for (const spec of suite.specs ?? []) {
-    const title = spec.title ?? '(untitled)';
-    // spec.id is a stable hash across runs of the same test; fall back to
-    // file::title when a reporter omits it.
-    const key = spec.id || `${file ?? ''}::${title}`;
-    const error = spec.ok ? undefined : firstErrorMessage(spec);
-    out.push({
-      key,
-      title,
-      file,
-      status: spec.ok ? 'passed' : 'failed',
-      tags: spec.tags ?? [],
-      ...(error ? { error } : {}),
-    });
-  }
-  for (const child of suite.suites ?? []) collectOutcomes(child, file, out);
-}
+export type { RunOutcome };
 
 /**
  * Parse per-test outcomes from a run's Playwright `results.json` (written by the
  * `json` reporter into the run's time dir, sibling of `html-results/`).
  * `reportPath` is `.../<time>/html-results/index.html`; `results.json` sits in
- * `<time>/`. Best-effort: returns `null` when the path shape is unexpected or
- * the file is missing / oversized / unparseable.
+ * `<time>/`. Derivation + caching live in `results-json.ts`, read once per file
+ * version across every consumer. Best-effort: returns `null` when the path
+ * shape is unexpected or the file is missing / oversized / unparseable.
  */
 export function parseRunOutcomes(reportPath: string | undefined): RunOutcome[] | null {
-  const json = readResultsJson(reportPath);
-  if (!json) return null;
-  const out: RunOutcome[] = [];
-  for (const suite of json.suites ?? []) collectOutcomes(suite, undefined, out);
-  return out;
-}
-
-/**
- * Read and parse a run's `results.json` (the `json` reporter writes it into the
- * run's time dir, sibling of `html-results/`). `reportPath` is
- * `.../<time>/html-results/index.html`.
- *
- * Single reader for every consumer so the size cap and the best-effort contract
- * are not re-implemented per call site. Returns `null` when the path shape is
- * unexpected or the file is missing / oversized / unparseable.
- */
-function readResultsJson(reportPath: string | undefined): { suites?: PwSuite[] } | null {
-  if (!reportPath) return null;
-  const timeDir = path.dirname(path.dirname(reportPath));
-  const resultsJsonPath = path.join(timeDir, 'results.json');
-  let stat: fs.Stats;
-  try {
-    stat = fs.statSync(resultsJsonPath);
-  } catch {
-    return null;
-  }
-  if (stat.size > MAX_RESULTS_JSON_BYTES) return null;
-  try {
-    return JSON.parse(fs.readFileSync(resultsJsonPath, 'utf8')) as { suites?: PwSuite[] };
-  } catch {
-    return null;
-  }
+  return readRunResults(reportPath).outcomes;
 }
 
 /** What the Hub can say about the test that produced an artifact directory. */
@@ -197,52 +82,35 @@ export function artifactTestIndex(
 function parseArtifactOutcomes(
   reportPath: string | undefined,
 ): { dirs: string[]; info: ArtifactTestInfo }[] | null {
-  const json = readResultsJson(reportPath);
-  if (!json) return null;
+  const outcomes = parseRunOutcomes(reportPath);
+  if (!outcomes) return null;
   const out: { dirs: string[]; info: ArtifactTestInfo }[] = [];
-  const walk = (suite: PwSuite, fileHint: string | undefined): void => {
-    const file = suite.file ?? fileHint;
-    for (const spec of suite.specs ?? []) {
-      const title = spec.title ?? '(untitled)';
-      const tags = spec.tags ?? [];
-      const dirs = new Set<string>();
-      for (const test of spec.tests ?? []) {
-        for (const result of test.results ?? []) {
-          for (const attachment of result.attachments ?? []) {
-            if (!attachment.path) continue;
-            const dir = path.basename(path.dirname(attachment.path.replace(/\\/g, '/')));
-            if (dir) dirs.add(dir);
-          }
-        }
-      }
-      if (dirs.size === 0) continue;
-      out.push({
-        dirs: [...dirs],
-        info: {
-          title,
-          status: spec.ok ? 'passed' : 'failed',
-          tags,
-          ...(caseIdOf(title, tags) ? { caseId: caseIdOf(title, tags) } : {}),
-          ...(file ? { file } : {}),
-          ...(spec.line ? { line: spec.line } : {}),
-        },
-      });
-    }
-    for (const child of suite.suites ?? []) walk(child, file);
-  };
-  for (const suite of json.suites ?? []) walk(suite, undefined);
+  for (const outcome of outcomes) {
+    const dirs = outcome.artifactDirs ?? [];
+    if (dirs.length === 0) continue;
+    const title = outcome.title;
+    const tags = outcome.tags ?? [];
+    out.push({
+      dirs,
+      info: {
+        title,
+        status: outcome.status,
+        tags,
+        ...(caseIdOf(title, tags) ? { caseId: caseIdOf(title, tags) } : {}),
+        ...(outcome.file ? { file: outcome.file } : {}),
+        ...(outcome.line ? { line: outcome.line } : {}),
+      },
+    });
+  }
   return out;
 }
 
-/** What a "re-run only the failures" action can select from a finished run. */
-export interface FailedSelection {
-  /** Case-id tags of the failed tests — the selector a re-run greps on. */
-  caseIds: string[];
-  /** Titles of failed tests carrying no case-id tag, so they cannot be re-selected. */
-  unidentified: string[];
-  total: number;
-  failed: number;
-}
+/**
+ * What a "re-run only the failures" action can select from a finished run — the
+ * selectable fields of {@link FailedRunSelection} without the run identity the
+ * route adds back (`runId`, `request`).
+ */
+export type FailedSelection = Omit<FailedRunSelection, 'runId' | 'request'>;
 
 /**
  * Failed tests of a finished run, reduced to the case-id tags that can select

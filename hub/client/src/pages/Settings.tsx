@@ -35,6 +35,8 @@ import {
   TbUser,
 } from 'react-icons/tb';
 import { api } from '~/api/client';
+import { waitForHealth } from '~/api/health.js';
+import { qCleanupHistory, qConcurrency, qRetention, queryRoots } from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog';
 import { ImportExportPanel } from '~/components/ImportExportPanel';
 import { PageHeader } from '~/components/PageHeader.js';
@@ -49,24 +51,6 @@ import { useResyncWorkspace, useToolOptions } from '~/hooks/useTools.js';
 import { type Locale, useI18nStore, useT } from '~/i18n';
 import { usePreferences } from '~/stores/hub.js';
 import { formatShort } from '~/utils/datetime.js';
-
-/**
- * Poll /api/health until it succeeds or timeout. Used during system update
- * to detect when the server is back online after a Hub restart.
- */
-async function waitForHealth(timeoutMs: number): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch('/api/health', { cache: 'no-store' });
-      if (res.ok) return true;
-    } catch {
-      // server still down; ignore
-    }
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  return false;
-}
 
 interface UpdateStatusResponse {
   running: boolean;
@@ -135,14 +119,7 @@ export function SettingsPage() {
   }, [hubUser.user]);
 
   // Concurrency
-  const concurrencyQ = useQuery<{
-    maxConcurrency: number;
-    activeCount: number;
-    queueLength: number;
-  }>({
-    queryKey: ['concurrency'],
-    queryFn: () => api.get('/api/runs/concurrency'),
-  });
+  const concurrencyQ = useQuery(qConcurrency());
   const [concurrencyInput, setConcurrencyInput] = useState<number | ''>(
     concurrencyQ.data?.maxConcurrency ?? 2,
   );
@@ -150,7 +127,7 @@ export function SettingsPage() {
     mutationFn: (n: number) => api.put('/api/runs/concurrency', { maxConcurrency: n }),
     onSuccess: () => {
       toast.success(t('settings.concurrencyUpdated'));
-      queryClient.invalidateQueries({ queryKey: ['concurrency'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.concurrency] });
     },
     onError: () => toast.error(t('settings.concurrencyFailed')),
   });
@@ -164,10 +141,7 @@ export function SettingsPage() {
   }, [concurrencyQ.data]);
 
   // Cleanup — load from server
-  const retentionQ = useQuery<{ retentionDays: number; autoCleanup: boolean }>({
-    queryKey: ['retention'],
-    queryFn: () => api.get('/api/system/retention'),
-  });
+  const retentionQ = useQuery(qRetention());
   const [cleanupDays, setCleanupDays] = useState<number | ''>(30);
   const [autoCleanup, setAutoCleanup] = useState(false);
 
@@ -186,7 +160,7 @@ export function SettingsPage() {
       api.put('/api/system/retention', settings),
     onSuccess: () => {
       toast.success(t('settings.retentionSaved'));
-      queryClient.invalidateQueries({ queryKey: ['retention'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.retention] });
     },
     onError: () => toast.error(t('settings.retentionFailed')),
   });
@@ -198,24 +172,13 @@ export function SettingsPage() {
         `${t('settings.cleanupDeletedPrefix')} ${data.deleted} — ${t('settings.cleanupOlderThan')} ${cleanupDays}${t('settings.daysSuffix')}`,
       );
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-      queryClient.invalidateQueries({ queryKey: ['cleanup-history'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.cleanupHistory] });
     },
     onError: () => toast.error(t('settings.cleanupFailed')),
   });
 
   // Cleanup history
-  const cleanupHistoryQ = useQuery<
-    Array<{
-      timestamp: string;
-      deleted: number;
-      total: number;
-      retentionDays: number;
-      trigger: 'manual' | 'auto';
-    }>
-  >({
-    queryKey: ['cleanup-history'],
-    queryFn: () => api.get('/api/system/cleanup-history'),
-  });
+  const cleanupHistoryQ = useQuery(qCleanupHistory());
   const [historyOpen, setHistoryOpen] = useState(false);
 
   // System update state

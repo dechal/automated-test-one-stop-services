@@ -5,7 +5,7 @@ import { useElementSize } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
-import { api } from '~/api/client.js';
+import { qRunsHistory } from '~/api/queries.js';
 import { useT } from '~/i18n/index.js';
 import { formatDate, monthShortNames, weekdayShortName } from '~/utils/datetime.js';
 
@@ -48,10 +48,7 @@ export function RunHeatmap() {
   const [metric, setMetric] = useState<Metric>('total');
   const { ref, width } = useElementSize();
 
-  const history = useQuery<RunRecord[]>({
-    queryKey: ['runs-history'],
-    queryFn: () => api.get('/api/runs/history'),
-  });
+  const history = useQuery(qRunsHistory());
 
   const buckets = useMemo(() => aggregate(history.data ?? []), [history.data]);
 

@@ -1,8 +1,8 @@
-import type { Bookmark, ProjectSummary } from '@hub/shared';
+import type { Bookmark } from '@hub/shared';
 import { Spotlight, type SpotlightActionData } from '@mantine/spotlight';
 import { useQuery } from '@tanstack/react-query';
 import { TbBookmark, TbFolderFilled } from 'react-icons/tb';
-import { api } from '~/api/client.js';
+import { qBookmarkList, qProjects } from '~/api/queries.js';
 import {
   NAV_CATEGORIES,
   type PagePath,
@@ -20,15 +20,8 @@ interface SpotlightSearchProps {
 export function SpotlightSearch({ onNavigate, onLoadBookmark }: SpotlightSearchProps) {
   const t = useT();
 
-  const projects = useQuery<ProjectSummary[]>({
-    queryKey: ['projects'],
-    queryFn: () => api.get('/api/projects'),
-  });
-
-  const bookmarks = useQuery<Bookmark[]>({
-    queryKey: ['bookmarks'],
-    queryFn: () => api.get('/api/bookmarks'),
-  });
+  const projects = useQuery(qProjects());
+  const bookmarks = useQuery(qBookmarkList());
 
   const navActions: SpotlightActionData[] = [
     ...NAV_CATEGORIES.flatMap((c) => c.items),

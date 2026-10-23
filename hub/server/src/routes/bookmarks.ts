@@ -70,10 +70,12 @@ export async function bookmarkRoutes(app: FastifyInstance): Promise<void> {
    *  tag scan is batched per distinct tool|type|project and bounded to 4 in
    *  flight; one group's scan failure marks only its bookmarks `scanFailed`,
    *  never the whole list. */
-  app.get('/api/bookmarks', async (_req, reply) => {
+  app.get<{ Querystring: { annotate?: string } }>('/api/bookmarks', async (req, reply) => {
     try {
       const enabledIds = await getEnabledToolIds();
       const bookmarks = getBookmarks().filter((b) => enabledIds.has(b.config.tool));
+
+      if (req.query.annotate === '0') return bookmarks;
 
       const groupKey = (c: RunRequest) => `${c.tool}|${c.type}|${c.project}`;
       const keys = [...new Set(bookmarks.map((b) => groupKey(b.config)))];

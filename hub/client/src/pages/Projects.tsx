@@ -1,4 +1,4 @@
-import type { EnvFile, ProjectSummary, ToolId } from '@hub/shared';
+import type { ProjectSummary, ToolId } from '@hub/shared';
 import {
   Button,
   Group,
@@ -15,6 +15,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { TbDownload, TbPlus, TbPuzzle } from 'react-icons/tb';
 import { api } from '~/api/client.js';
+import { waitForHealth } from '~/api/health.js';
+import { qEnv, qGitStatus, qProjects, qRunsLastStatus, queryRoots } from '~/api/queries.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { ErrorState } from '~/components/ErrorState.js';
 import { PageHeader } from '~/components/PageHeader.js';
@@ -61,40 +63,6 @@ interface PullAllStatus {
   finishedAt?: string;
 }
 
-/**
- * Poll /api/health until it succeeds or timeout. Used during pull-all
- * to detect when the server is back online after a Hub restart.
- */
-async function waitForHealth(timeoutMs: number): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch('/api/health', { cache: 'no-store' });
-      if (res.ok) return true;
-    } catch {
-      // server still down; ignore
-    }
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  return false;
-}
-
-interface GitStatusItem {
-  project: string;
-  tool: string;
-  type: string;
-  branch: string;
-  localHash: string;
-  remoteHash: string;
-  hasUpdate: boolean;
-  error?: string;
-}
-
-interface GitStatusResponse {
-  items: GitStatusItem[];
-  anyUpdate: boolean;
-}
-
 type EditingEnv = (EnvModalEditingTarget & { tool: ToolId | 'scripts' }) | null;
 
 /**
@@ -137,15 +105,8 @@ export function ProjectsPage() {
     seededExpanded.current = true;
     setExpandedTools(new Set(['scripts', ...tools.data.map((t) => t.id)]));
   }, [tools.data]);
-  const projects = useQuery<ProjectSummary[]>({
-    queryKey: ['projects'],
-    queryFn: () => api.get('/api/projects'),
-  });
-
-  const lastRunStatus = useQuery<Record<string, { status: string; endedAt: string }>>({
-    queryKey: ['runs-last-status'],
-    queryFn: () => api.get('/api/runs/last-status'),
-  });
+  const projects = useQuery(qProjects());
+  const lastRunStatus = useQuery(qRunsLastStatus());
 
   // Remove a project + cascade-clean everything tied to it. The confirm string
   // is `tool/type/project`; the modal only enables its button on an exact match,
@@ -162,16 +123,16 @@ export function ProjectsPage() {
       toast.success(t('projects.removed'));
       setRemoveTarget(null);
       for (const key of [
-        ['projects'],
-        ['tools'],
-        ['runs-last-status'],
-        ['runs-history'],
-        ['bookmarks'],
-        ['schedules'],
-        ['webhooks'],
-        ['env-profiles'],
+        [queryRoots.projects],
+        [queryRoots.tools],
+        [queryRoots.runsLastStatus],
+        [queryRoots.runsHistory],
+        [queryRoots.bookmarks],
+        [queryRoots.schedules],
+        [queryRoots.webhooks],
+        [queryRoots.envProfiles],
         ['artifacts'],
-        ['git-status'],
+        [queryRoots.gitStatus],
       ]) {
         queryClient.invalidateQueries({ queryKey: key });
       }
@@ -179,9 +140,8 @@ export function ProjectsPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : t('projects.removeFailed')),
   });
 
-  const gitStatus = useQuery<GitStatusResponse>({
-    queryKey: ['git-status'],
-    queryFn: () => api.get('/api/git/status'),
+  const gitStatus = useQuery({
+    ...qGitStatus(),
     // Refresh every 5 minutes; caller can also manually invalidate after pulls.
     refetchInterval: 5 * 60_000,
     refetchOnWindowFocus: true,
@@ -264,8 +224,8 @@ export function ProjectsPage() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['git-status'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.projects] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.gitStatus] });
     },
     onError: () => toast.error(t('projects.pullAllFailed')),
   });
@@ -289,7 +249,7 @@ export function ProjectsPage() {
             .replace('{output}', () => data.output),
         );
       }
-      queryClient.invalidateQueries({ queryKey: ['git-status'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.gitStatus] });
     },
     onError: () => {
       setPullingProject(null);
@@ -297,24 +257,7 @@ export function ProjectsPage() {
     },
   });
 
-  const envQuery = useQuery<EnvFile>({
-    queryKey: ['env', editingEnv],
-    queryFn: () => {
-      if (!editingEnv)
-        return Promise.resolve({
-          path: '',
-          exists: false,
-          hasTemplate: false,
-          entries: [],
-          missingKeys: [],
-        });
-      if (editingEnv.tool === 'scripts') return api.get('/api/env/scripts');
-      return api.get(
-        `/api/env/project?tool=${editingEnv.tool}&type=${editingEnv.type}&project=${editingEnv.project}`,
-      );
-    },
-    enabled: !!editingEnv,
-  });
+  const envQuery = useQuery(qEnv(editingEnv, !!editingEnv));
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -331,11 +274,11 @@ export function ProjectsPage() {
     onSuccess: () => {
       toast.success(t('projects.envSaved'));
       setEditingEnv(null);
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['env'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.projects] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.env] });
       // Editing scripts/.env (SPREADSHEET_ID / FORCE_TRACK) changes usage-logging
       // readiness — refresh its badge/toggle too.
-      queryClient.invalidateQueries({ queryKey: ['usage-logging'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.usageLogging] });
     },
     onError: () => toast.error(t('projects.envSaveFailed')),
   });
@@ -556,7 +499,7 @@ export function ProjectsPage() {
         onClose={closeCreate}
         onSuccess={() => {
           closeCreate();
-          queryClient.invalidateQueries({ queryKey: ['projects'] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.projects] });
         }}
       />
 
@@ -566,7 +509,7 @@ export function ProjectsPage() {
         initialTool={cloneTool}
         onSuccess={() => {
           closeClone();
-          queryClient.invalidateQueries({ queryKey: ['projects'] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.projects] });
         }}
       />
 
@@ -574,8 +517,8 @@ export function ProjectsPage() {
         opened={addToolsOpen}
         onClose={closeAddTools}
         onInstalled={() => {
-          queryClient.invalidateQueries({ queryKey: ['tools'] });
-          queryClient.invalidateQueries({ queryKey: ['projects'] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.tools] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.projects] });
         }}
       />
 

@@ -1,10 +1,10 @@
-import type { QueueStatus } from '@hub/shared';
 import { ActionIcon, Badge, Group, Stack, Text, Tooltip } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { TbArrowUp, TbPlayerPlay, TbX } from 'react-icons/tb';
 import { api } from '~/api/client';
+import { qQueue, queryRoots } from '~/api/queries.js';
 import { CollapsibleCard } from '~/components/CollapsibleCard.js';
 import { toast } from '~/components/Toast';
 import { useTools } from '~/hooks/useTools.js';
@@ -24,16 +24,15 @@ export function RunQueuePanel() {
   const tools = useTools();
   const queryClient = useQueryClient();
 
-  const queue = useQuery<QueueStatus>({
-    queryKey: ['queue'],
-    queryFn: () => api.get('/api/queue'),
+  const queue = useQuery({
+    ...qQueue(),
     refetchInterval: (query) => {
       const data = query.state.data;
       return data && (data.activeCount > 0 || data.queueLength > 0) ? POLL_ACTIVE_MS : POLL_IDLE_MS;
     },
   });
 
-  const refreshQueue = () => queryClient.invalidateQueries({ queryKey: ['queue'] });
+  const refreshQueue = () => queryClient.invalidateQueries({ queryKey: [queryRoots.queue] });
 
   const promote = useMutation({
     mutationFn: (id: string) => api.post(`/api/queue/promote/${id}`),

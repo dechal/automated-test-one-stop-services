@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { type ReactNode, useMemo, useState } from 'react';
 import { TbCheck, TbChevronDown, TbChevronRight, TbSearch, TbTag, TbX } from 'react-icons/tb';
+import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useT } from '~/i18n/index.js';
 import { getTagLevel, matchTests } from '~/utils/tag-selection';
 
@@ -136,7 +137,10 @@ export function TagSelector({
 }: TagSelectorProps) {
   const t = useT();
   const [search, setSearch] = useState('');
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set(INITIALLY_COLLAPSED));
+  const { isCollapsed, toggle: toggleGroup } = useCollapsedGroups({
+    searching: false,
+    initial: INITIALLY_COLLAPSED,
+  });
   const [showMatchedTests, setShowMatchedTests] = useState(false);
 
   const tests = tags?.tests ?? [];
@@ -207,15 +211,6 @@ export function TagSelector({
     }
     onExcludeChange?.(excluded.filter((x) => x !== tag));
     onChange([...new Set([...selectedTags, tag])]);
-  }
-
-  function toggleGroup(kind: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(kind)) next.delete(kind);
-      else next.add(kind);
-      return next;
-    });
   }
 
   // Sort groups in stable order, after lifting loop tags out of the server
@@ -423,7 +418,7 @@ export function TagSelector({
         <Stack gap={0}>
           {filteredGroups.map((group) => {
             const color = GROUP_COLORS[group.kind] ?? 'teal';
-            const isCollapsed = collapsed.has(group.kind);
+            const groupCollapsed = isCollapsed(group.kind);
             const selectedInGroup = group.tags.filter((tag) => selectedTags.includes(tag)).length;
             const excludedInGroup = group.tags.filter((tag) => excluded.includes(tag)).length;
 
@@ -447,7 +442,7 @@ export function TagSelector({
                     <TbChevronRight
                       size={12}
                       style={{
-                        transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                        transform: groupCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
                         transition: 'transform 150ms',
                       }}
                     />
@@ -498,7 +493,7 @@ export function TagSelector({
                 </UnstyledButton>
 
                 {/* Group tags */}
-                <Collapse expanded={!isCollapsed}>
+                <Collapse expanded={!groupCollapsed}>
                   <Group gap={6} px="sm" pb="xs" wrap="wrap">
                     {group.tags.map((tag) => {
                       const state = stateOf(tag);

@@ -29,7 +29,13 @@ import {
   TbTrash,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
-import { qEnvProfilesByProject } from '~/api/queries.js';
+import {
+  qEnvDefault,
+  qEnvProfilesActive,
+  qEnvProfilesByProject,
+  qEnvProfilesTemplate,
+  queryRoots,
+} from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { FormModal } from '~/components/FormModal.js';
@@ -61,24 +67,17 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
   const [appliedId, setAppliedId] = useState<string | null>(null);
 
   const profiles = useQuery(qEnvProfilesByProject(tool, type, project));
-
-  const activeProfile = useQuery<{ activeId: string | null }>({
-    queryKey: ['env-profiles-active', tool, type, project],
-    queryFn: () => api.get(`/api/env-profiles/active?tool=${tool}&type=${type}&project=${project}`),
-    enabled: !!tool && !!type && !!project,
-  });
-
-  const defaultProfile = useQuery<{ defaultId: string | null }>({
-    queryKey: ['env-profiles-default', tool, type, project],
-    queryFn: () =>
-      api.get(`/api/env-profiles/default?tool=${tool}&type=${type}&project=${project}`),
-    enabled: !!tool && !!type && !!project,
-  });
+  const activeProfile = useQuery(qEnvProfilesActive(tool, type, project));
+  const defaultProfile = useQuery(qEnvDefault(tool, type, project));
 
   function invalidateAll() {
-    queryClient.invalidateQueries({ queryKey: ['env-profiles', tool, type, project] });
-    queryClient.invalidateQueries({ queryKey: ['env-profiles-default', tool, type, project] });
-    queryClient.invalidateQueries({ queryKey: ['env-profiles-active', tool, type, project] });
+    queryClient.invalidateQueries({ queryKey: [queryRoots.envProfiles, tool, type, project] });
+    queryClient.invalidateQueries({
+      queryKey: [queryRoots.envProfilesDefault, tool, type, project],
+    });
+    queryClient.invalidateQueries({
+      queryKey: [queryRoots.envProfilesActive, tool, type, project],
+    });
   }
 
   const defaultMutation = useMutation({
@@ -93,7 +92,9 @@ export function EnvProfileManager({ tool, type, project }: EnvProfileManagerProp
       toast.success(t('envProfiles.applied'), { id: `env-apply-${id}-${Date.now()}` });
       setAppliedId(id);
       setTimeout(() => setAppliedId((cur) => (cur === id ? null : cur)), 4000);
-      queryClient.invalidateQueries({ queryKey: ['env-profiles-active', tool, type, project] });
+      queryClient.invalidateQueries({
+        queryKey: [queryRoots.envProfilesActive, tool, type, project],
+      });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -369,12 +370,7 @@ function ProfileFormModal({
 
   // Template drives both the pre-fill button and the live key-sync feedback, so
   // it is fetched whenever the modal is open (not only for create).
-  const template = useQuery<Record<string, string>>({
-    queryKey: ['env-profiles-template', tool, type, project],
-    queryFn: () =>
-      api.get(`/api/env-profiles/template?tool=${tool}&type=${type}&project=${project}`),
-    enabled: !!tool && !!type && !!project && opened,
-  });
+  const template = useQuery(qEnvProfilesTemplate(tool, type, project, opened));
 
   // Key-sync feedback mirrors the server's validate(): missing keys warn,
   // extra keys gate on the allow-outside switch.

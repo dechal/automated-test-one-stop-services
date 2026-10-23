@@ -1,4 +1,4 @@
-import type { ToolId, WebhookScope } from '@hub/shared';
+import type { ToolId, WebhookConfig, WebhookScope } from '@hub/shared';
 import {
   ActionIcon,
   Badge,
@@ -28,6 +28,7 @@ import {
   TbWebhook,
 } from 'react-icons/tb';
 import { api } from '~/api/client';
+import { queryRoots, qWebhooks } from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { FormModal } from '~/components/FormModal.js';
@@ -38,24 +39,6 @@ import { useProjectList, useProjectTypes } from '~/hooks/useProjectQueries';
 import { useToolOptions, useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { formatRelative, formatShort } from '~/utils/datetime.js';
-
-interface Webhook {
-  id: string;
-  name: string;
-  platform: 'slack' | 'discord' | 'teams' | 'line' | 'generic';
-  url: string;
-  token?: string;
-  recipientId?: string;
-  events: string[];
-  /** Optional run scope. Empty fields = "any". */
-  scope?: WebhookScope;
-  /** @deprecated legacy — server migrates into `scope` automatically. */
-  projectFilter?: string[];
-  enabled: boolean;
-  lastTriggeredAt?: string;
-  lastStatus?: 'success' | 'error';
-  createdAt: string;
-}
 
 const PLATFORM_OPTIONS = [
   { value: 'slack', label: 'Slack' },
@@ -96,28 +79,25 @@ export function WebhooksPage() {
   const t = useT();
   const queryClient = useQueryClient();
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
-  const [editing, setEditing] = useState<Webhook | null>(null);
+  const [editing, setEditing] = useState<WebhookConfig | null>(null);
 
-  const webhooks = useQuery<Webhook[]>({
-    queryKey: ['webhooks'],
-    queryFn: () => api.get('/api/webhooks'),
-  });
+  const webhooks = useQuery(qWebhooks());
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => api.post(`/api/webhooks/${id}/toggle`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['webhooks'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryRoots.webhooks] }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/webhooks/${id}`),
     onSuccess: () => {
       toast.success(t('webhook.deleted'));
-      queryClient.invalidateQueries({ queryKey: ['webhooks'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.webhooks] });
     },
   });
 
   const testMutation = useMutation({
-    mutationFn: (w: Webhook) => {
+    mutationFn: (w: WebhookConfig) => {
       const params = new URLSearchParams();
       if (w.scope?.tool) params.set('tool', w.scope.tool);
       if (w.scope?.type) params.set('type', w.scope.type);
@@ -262,7 +242,7 @@ export function WebhooksPage() {
         onClose={closeCreate}
         onSuccess={() => {
           closeCreate();
-          queryClient.invalidateQueries({ queryKey: ['webhooks'] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.webhooks] });
         }}
       />
 
@@ -273,7 +253,7 @@ export function WebhooksPage() {
         onClose={() => setEditing(null)}
         onSuccess={() => {
           setEditing(null);
-          queryClient.invalidateQueries({ queryKey: ['webhooks'] });
+          queryClient.invalidateQueries({ queryKey: [queryRoots.webhooks] });
         }}
       />
     </Stack>
@@ -287,14 +267,14 @@ function WebhookFormModal({
   onSuccess,
 }: {
   opened: boolean;
-  webhook?: Webhook | null;
+  webhook?: WebhookConfig | null;
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const isEdit = !!webhook;
   const t = useT();
   const [name, setName] = useState(webhook?.name ?? '');
-  const [platform, setPlatform] = useState<Webhook['platform']>(webhook?.platform ?? 'slack');
+  const [platform, setPlatform] = useState<WebhookConfig['platform']>(webhook?.platform ?? 'slack');
   const [url, setUrl] = useState(webhook?.url ?? '');
   const [token, setToken] = useState(webhook?.token ?? '');
   const [recipientId, setRecipientId] = useState(webhook?.recipientId ?? '');
@@ -399,7 +379,7 @@ function WebhookFormModal({
       <Select
         label={t('webhook.platform')}
         value={platform}
-        onChange={(v) => v && setPlatform(v as Webhook['platform'])}
+        onChange={(v) => v && setPlatform(v as WebhookConfig['platform'])}
         data={PLATFORM_OPTIONS}
         allowDeselect={false}
       />

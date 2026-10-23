@@ -35,6 +35,7 @@ import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast.js';
 import { TestCaseGridEditor } from '~/components/testcases/TestCaseGridEditor.js';
+import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useToolOptions, useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { toolLabel } from '~/utils/tool-label.js';
@@ -82,7 +83,6 @@ export function TestCasesPage() {
   const [filterType, setFilterType] = useState('');
   const [filterProject, setFilterProject] = useState('');
   const [q, setQ] = useState('');
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const [openDoc, setOpenDoc] = useState<TestCaseDocGrouped | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -160,19 +160,11 @@ export function TestCasesPage() {
   // A live search re-expands everything so a collapsed group whose doc matched
   // is not hidden; manual collapse only applies when not searching.
   const searching = query.length > 0;
-  const isCollapsed = (key: string) => !searching && collapsed.has(key);
-  function toggleGroup(key: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-  const allCollapsed = groups.length > 0 && groups.every((g) => collapsed.has(g.key));
+  const { isCollapsed, isMarked, toggle: toggleGroup, setAll } = useCollapsedGroups({ searching });
+  const allCollapsed = groups.length > 0 && groups.every((g) => isMarked(g.key));
   function toggleAll() {
-    if (allCollapsed) setCollapsed(new Set());
-    else setCollapsed(new Set(groups.map((g) => g.key)));
+    if (allCollapsed) setAll([]);
+    else setAll(groups.map((g) => g.key));
   }
 
   const moduleOptions = (modulesQ.data ?? []).map((m: TestCaseModule) => ({

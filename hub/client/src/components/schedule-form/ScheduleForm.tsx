@@ -4,6 +4,7 @@ import type {
   PerformanceType,
   RunMode,
   RunRequest,
+  ScheduleEntry,
   ToolId,
 } from '@hub/shared';
 import {
@@ -59,31 +60,12 @@ function parseTagExpression(tool: string, tag: string | undefined): TagSelection
   return parseTagQuery(tool, tag);
 }
 
-// ---------------------------------------------------------------------------
-// Schedule shape (mirror of server-side type)
-// ---------------------------------------------------------------------------
-
-export interface Schedule {
-  id: string;
-  name: string;
-  cron: string;
-  config: RunRequest;
-  /** Present ⇒ a CUSTOM schedule (a plain shell command); absent ⇒ a tool run. */
-  command?: CustomCommand;
-  /** Env profile applied before each cron fire; `__current__`/absent ⇒ .env on disk. */
-  envProfileId?: string;
-  enabled: boolean;
-  createdAt: string;
-  lastRunAt?: string;
-  lastStatus?: string;
-}
-
 export interface ScheduleFormProps {
   /** When `mode === 'edit'`, a non-null schedule is required. */
   mode: 'create' | 'edit';
   /** Required for edit mode; modal stays closed when null in edit mode. */
-  schedule?: Schedule | null;
-  duplicateFrom?: Schedule | null;
+  schedule?: ScheduleEntry | null;
+  duplicateFrom?: ScheduleEntry | null;
   /** External `opened` flag for create mode (edit derives from `schedule != null`). */
   opened?: boolean;
   onClose: () => void;

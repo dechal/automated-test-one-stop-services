@@ -14,6 +14,7 @@ import { type RunChildResult, runChild } from './exec.js';
  */
 const APPIUM_PORT = Number.parseInt(process.env.APPIUM_PORT || '4723', 10);
 const MAX_LOG_LINES = 200;
+const APPIUM_INSTALLED_CACHE_TTL_MS = 5 * 60_000;
 // Appium ships as `appium.cmd` on Windows, which spawn can't resolve without a
 // shell; npm/driver installs need the same treatment.
 const USE_SHELL = process.platform === 'win32';
@@ -31,6 +32,7 @@ class AppiumServerService {
   private logs: string[] = [];
   private startedAt: string | null = null;
   private busy = false;
+  private installedCache: { value: boolean; checkedAt: number } | null = null;
 
   get running(): boolean {
     return this.child !== null && this.child.exitCode === null && !this.child.killed;
@@ -48,7 +50,15 @@ class AppiumServerService {
 
   /** True when the `appium` CLI is installed on the host. */
   async isInstalled(): Promise<boolean> {
+    const now = Date.now();
+    if (
+      this.installedCache &&
+      now - this.installedCache.checkedAt < APPIUM_INSTALLED_CACHE_TTL_MS
+    ) {
+      return this.installedCache.value;
+    }
     const res = await runChild('appium', ['--version'], { timeoutMs: 10_000, shell: USE_SHELL });
+    this.installedCache = { value: res.ok, checkedAt: now };
     return res.ok;
   }
 
@@ -121,10 +131,12 @@ class AppiumServerService {
         shell: USE_SHELL,
       });
       if (!npmInstall.ok) return npmInstall;
-      return await runChild('appium', ['driver', 'install', 'uiautomator2'], {
+      const driverInstall = await runChild('appium', ['driver', 'install', 'uiautomator2'], {
         timeoutMs: 300_000,
         shell: USE_SHELL,
       });
+      if (driverInstall.ok) this.installedCache = null;
+      return driverInstall;
     } finally {
       this.busy = false;
     }

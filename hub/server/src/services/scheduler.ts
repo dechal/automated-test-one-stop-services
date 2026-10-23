@@ -1,4 +1,10 @@
-import type { CustomCommand, RunRecord, RunRequest, RunStatus, WsServerEvent } from '@hub/shared';
+import type {
+  CustomCommand,
+  RunRecord,
+  RunRequest,
+  ScheduleEntry,
+  WsServerEvent,
+} from '@hub/shared';
 import { nanoid } from 'nanoid';
 import cron from 'node-cron';
 import { buildTaskCommand } from './command-builder.js';
@@ -31,22 +37,7 @@ function deriveFailureMessage(record: RunRecord): string | undefined {
   }
 }
 
-export interface Schedule {
-  id: string;
-  name: string;
-  cron: string;
-  config: RunRequest;
-  /**
-   * Present ⇒ a CUSTOM schedule: the cron tick runs this shell command instead of
-   * a tool run, and the enabled-tool gate is skipped. Absent ⇒ a tool run, which
-   * behaves exactly as it did before this field existed.
-   */
-  command?: CustomCommand;
-  enabled: boolean;
-  createdAt: string;
-  lastRunAt?: string;
-  /** Final status of the most recent triggered run (passed/failed/cancelled). */
-  lastStatus?: RunStatus | 'pending';
+export type Schedule = ScheduleEntry & {
   /** Run id of the most recent trigger — used to gate overlap firings. */
   lastRunId?: string;
   /**
@@ -55,12 +46,7 @@ export interface Schedule {
    * but not yet exposed in the create form (always seeded `true`).
    */
   noOverlap?: boolean;
-  /**
-   * Env profile applied before the cron tick fires. Absent / `__current__` ⇒
-   * run with the project's `.env` on disk. Only meaningful for a tool schedule.
-   */
-  envProfileId?: string;
-}
+};
 
 /** Sentinel for "use the project's .env on disk, apply no profile". */
 const CURRENT_ENV = '__current__';

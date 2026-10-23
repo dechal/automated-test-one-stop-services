@@ -1,3 +1,4 @@
+import type { GitStatusItem, PullResult } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { WORKSPACE_ROOT } from '../config.js';
 import { mapPool } from '../lib/map-pool.js';
@@ -5,31 +6,30 @@ import { runChild } from '../services/exec.js';
 import { rebuildHub, scheduleHubRestart } from '../services/hub-rebuild.js';
 import { listAllProjects } from '../services/scanner.js';
 
-interface PullResult {
-  project: string;
-  tool: string;
-  type: string;
-  success: boolean;
-  output: string;
-}
-
-interface GitStatusItem {
-  project: string;
-  tool: string;
-  type: string;
-  branch: string;
-  localHash: string;
-  remoteHash: string;
-  hasUpdate: boolean;
-  error?: string;
-}
-
 /** Concurrency cap for fanned-out git operations across many projects. */
 const GIT_OP_CONCURRENCY = 4;
 
+const GIT_STATUS_CACHE_TTL_MS = 5 * 60_000;
+
+const GIT_PROBE_TIMEOUT_MS = 15_000;
+
+interface GitStatusResponse {
+  items: GitStatusItem[];
+  anyUpdate: boolean;
+}
+
+const gitStatusState: {
+  cache: { value: GitStatusResponse; at: number } | null;
+  inflight: Promise<GitStatusResponse> | null;
+} = { cache: null, inflight: null };
+
+function invalidateGitStatusCache(): void {
+  gitStatusState.cache = null;
+}
+
 /** Run a `git ...` invocation in argv form — no shell, no injection. */
 function git(cwd: string, args: string[]) {
-  return runChild('git', args, { cwd });
+  return runChild('git', args, { cwd, timeoutMs: GIT_PROBE_TIMEOUT_MS });
 }
 
 /**
@@ -44,6 +44,9 @@ async function checkGitStatus(cwd: string): Promise<{
   error?: string;
 }> {
   const branchRes = await git(cwd, ['symbolic-ref', '--short', 'HEAD']);
+  if (branchRes.timedOut) {
+    return { branch: '', localHash: '', remoteHash: '', hasUpdate: false, error: 'timeout' };
+  }
   const branch = branchRes.ok ? branchRes.stdout.trim() : '';
   if (!branch) {
     return {
@@ -60,6 +63,15 @@ async function checkGitStatus(cwd: string): Promise<{
     git(cwd, ['ls-remote', 'origin', `refs/heads/${branch}`]),
   ]);
 
+  if (localRes.timedOut || remoteRes.timedOut) {
+    return {
+      branch,
+      localHash: localRes.ok ? localRes.stdout.trim() : '',
+      remoteHash: '',
+      hasUpdate: false,
+      error: 'timeout',
+    };
+  }
   if (!localRes.ok) {
     return {
       branch,
@@ -98,29 +110,52 @@ async function gitPull(cwd: string): Promise<{ success: boolean; output: string 
   return { success: res.ok, output: res.output.trim() };
 }
 
+async function buildGitStatus(): Promise<GitStatusResponse> {
+  const items: GitStatusItem[] = [];
+
+  const rootStatus = await checkGitStatus(WORKSPACE_ROOT);
+  items.push({
+    project: '(workspace)',
+    tool: 'root',
+    type: '',
+    ...rootStatus,
+  });
+
+  const projects = (await listAllProjects()).filter((p) => p.isGitRepo);
+  // Bounded concurrency — each call spawns 2-3 git processes; an
+  // unbounded fan-out can saturate CPU and trip ssh-key dialogs.
+  const subResults = await mapPool(projects, GIT_OP_CONCURRENCY, async (p) => {
+    const s = await checkGitStatus(p.path);
+    return { project: p.name, tool: p.tool, type: p.type, ...s };
+  });
+  items.push(...subResults);
+
+  return { items, anyUpdate: items.some((i) => i.hasUpdate) };
+}
+
+async function getGitStatus(): Promise<GitStatusResponse> {
+  const now = Date.now();
+  const cached = gitStatusState.cache;
+  if (cached && now - cached.at < GIT_STATUS_CACHE_TTL_MS) {
+    return cached.value;
+  }
+  if (gitStatusState.inflight) return gitStatusState.inflight;
+
+  gitStatusState.inflight = buildGitStatus()
+    .then((value) => {
+      gitStatusState.cache = { value, at: Date.now() };
+      return value;
+    })
+    .finally(() => {
+      gitStatusState.inflight = null;
+    });
+  return gitStatusState.inflight;
+}
+
 export async function gitRoutes(app: FastifyInstance): Promise<void> {
   /** GET /api/git/status — compare local HEAD vs remote tip without fetching */
   app.get('/api/git/status', async () => {
-    const items: GitStatusItem[] = [];
-
-    const rootStatus = await checkGitStatus(WORKSPACE_ROOT);
-    items.push({
-      project: '(workspace)',
-      tool: 'root',
-      type: '',
-      ...rootStatus,
-    });
-
-    const projects = (await listAllProjects()).filter((p) => p.isGitRepo);
-    // Bounded concurrency — each call spawns 2-3 git processes; an
-    // unbounded fan-out can saturate CPU and trip ssh-key dialogs.
-    const subResults = await mapPool(projects, GIT_OP_CONCURRENCY, async (p) => {
-      const s = await checkGitStatus(p.path);
-      return { project: p.name, tool: p.tool, type: p.type, ...s };
-    });
-    items.push(...subResults);
-
-    return { items, anyUpdate: items.some((i) => i.hasUpdate) };
+    return getGitStatus();
   });
 
   // ---------------------------------------------------------------------------
@@ -160,6 +195,7 @@ export async function gitRoutes(app: FastifyInstance): Promise<void> {
 
       if (tool === 'root') {
         const r = await gitPull(WORKSPACE_ROOT);
+        if (r.success) invalidateGitStatusCache();
         return {
           project: '(workspace)',
           tool: 'root',
@@ -177,6 +213,7 @@ export async function gitRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const r = await gitPull(match.path);
+      if (r.success) invalidateGitStatusCache();
       return {
         project: match.name,
         tool: match.tool,
@@ -234,6 +271,7 @@ function runPullAllInBackground(): void {
 
       // 2. Pull workspace root
       const rootResult = await gitPull(WORKSPACE_ROOT);
+      if (rootResult.success) invalidateGitStatusCache();
       pullAllState.results.push({
         project: '(workspace)',
         tool: 'root',
@@ -256,6 +294,7 @@ function runPullAllInBackground(): void {
           };
         });
         pullAllState.results.push(...subResults);
+        if (subResults.some((r) => r.success)) invalidateGitStatusCache();
       }
 
       // 4. Check if hub-related files changed — rebuild if so

@@ -3,11 +3,11 @@ import type {
   ManifestPreview,
   ProvisionResult,
   PythonInstallResult,
-  ToolRegistryView,
   ToolView,
 } from '@hub/shared';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '~/api/client.js';
+import { qToolRegistry, qTools, queryRoots } from '~/api/queries.js';
 
 /**
  * Every query whose results depend on WHICH tools are enabled/installed.
@@ -17,16 +17,16 @@ import { api } from '~/api/client.js';
  * until the user manually refreshes.
  */
 const TOOL_DEPENDENT_KEYS: readonly (readonly string[])[] = [
-  ['tools'],
-  ['projects'],
+  [queryRoots.tools],
+  [queryRoots.projects],
   ['reports'],
   ['artifacts'],
-  ['runs-history'],
-  ['runs-last-status'],
-  ['bookmarks'],
-  ['schedules'],
-  ['webhooks'],
-  ['env-profiles'],
+  [queryRoots.runsHistory],
+  [queryRoots.runsLastStatus],
+  [queryRoots.bookmarks],
+  [queryRoots.schedules],
+  [queryRoots.webhooks],
+  [queryRoots.envProfiles],
 ];
 
 /**
@@ -42,11 +42,7 @@ function invalidateToolDependent(qc: QueryClient): void {
 
 /** Fetches the list of discovered tools (GET /api/tools). */
 export function useTools() {
-  return useQuery({
-    queryKey: ['tools'],
-    queryFn: () => api.get<readonly ToolView[]>('/api/tools'),
-    staleTime: 15_000,
-  });
+  return useQuery(qTools());
 }
 
 /**
@@ -77,12 +73,7 @@ export function useToggleTool() {
  *  remote git URLs server-side — is only fetched when actually needed, not on
  *  every Projects page load. */
 export function useRegistry(enabled = true) {
-  return useQuery({
-    queryKey: ['tool-registry'],
-    queryFn: () => api.get<ToolRegistryView>('/api/tool-registry'),
-    staleTime: 60_000,
-    enabled,
-  });
+  return useQuery(qToolRegistry(enabled));
 }
 
 /** Two-phase install: step 1 (dry-run) returns ManifestPreview. */
@@ -91,7 +82,7 @@ export function useInstallTool() {
   return useMutation({
     mutationFn: (name: string) => api.post<ManifestPreview>('/api/tools/install', { name }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tool-registry'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.toolRegistry] });
     },
   });
 }
@@ -104,7 +95,7 @@ export function useConfirmInstall() {
       api.post<LifecycleResult<ToolView>>('/api/tools/install', { name, confirm: true }),
     onSuccess: () => {
       invalidateToolDependent(qc);
-      qc.invalidateQueries({ queryKey: ['tool-registry'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.toolRegistry] });
     },
   });
 }
@@ -126,7 +117,7 @@ export function useUpdateTool() {
     mutationFn: ({ id, ref }: { id: string; ref?: string }) =>
       api.post<LifecycleResult<{ from: string; to: string }>>(`/api/tools/${id}/update`, { ref }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tools'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.tools] });
     },
   });
 }
@@ -151,8 +142,8 @@ export function useProvisionTool() {
     mutationFn: (id: string) =>
       api.post<ProvisionResult>(`/api/tools/${id}/provision`, undefined, { timeout: 300_000 }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['doctor'] });
-      qc.invalidateQueries({ queryKey: ['tools'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.doctor] });
+      qc.invalidateQueries({ queryKey: [queryRoots.tools] });
     },
   });
 }
@@ -174,8 +165,7 @@ export function useInstallPython() {
         timeout: 300_000,
       }),
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['doctor'] });
-      qc.invalidateQueries({ queryKey: ['doctor-nav'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.doctor] });
     },
   });
 }
@@ -191,8 +181,8 @@ export function useResyncWorkspace() {
   return useMutation({
     mutationFn: () => api.post<{ regeneratedFiles: string[] }>('/api/workspace/resync'),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tools'] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: [queryRoots.tools] });
+      qc.invalidateQueries({ queryKey: [queryRoots.projects] });
     },
   });
 }

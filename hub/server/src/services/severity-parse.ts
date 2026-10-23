@@ -1,85 +1,27 @@
-import fs from 'node:fs';
 import path from 'node:path';
-import {
-  emptySeverityBreakdown,
-  SEVERITY_LEVELS,
-  type SeverityBreakdown,
-  type SeverityLevel,
-} from '@hub/shared';
+import type { SeverityBreakdown } from '@hub/shared';
+import { readRunResults } from './results-json.js';
 
 // ===========================================================================
 // Per-severity pass/fail tally parsed from a Playwright `results.json`.
 // Shared by the report listing (reports.ts) and the run history route so both
-// derive the severity-weighted score from the same source, mtime-cached.
+// derive the severity-weighted score from the same source. Parsing + caching
+// live in `results-json.ts`, which derives severity in one pass with pne and
+// outcomes so the file is read once per version across all three consumers.
 // ===========================================================================
-
-/** Minimal shape of the Playwright JSON reporter output we read. */
-interface PwSpec {
-  ok?: boolean;
-  tags?: string[];
-}
-interface PwSuite {
-  specs?: PwSpec[];
-  suites?: PwSuite[];
-}
-
-const SEVERITY_SET = new Set<string>(SEVERITY_LEVELS);
-
-/** First severity tag on a spec (tags come with or without a leading `@`). */
-function severityOf(tags: string[] | undefined): SeverityLevel | undefined {
-  for (const raw of tags ?? []) {
-    const tag = raw.replace(/^@/, '').toLowerCase();
-    if (SEVERITY_SET.has(tag)) return tag as SeverityLevel;
-  }
-  return undefined;
-}
-
-function collectSpecs(suite: PwSuite, out: PwSpec[]): void {
-  for (const spec of suite.specs ?? []) out.push(spec);
-  for (const child of suite.suites ?? []) collectSpecs(child, out);
-}
-
-const severityCache = new Map<string, { mtimeMs: number; breakdown: SeverityBreakdown | null }>();
-const MAX_RESULTS_JSON_BYTES = 25 * 1024 * 1024;
 
 /**
  * Parse the per-severity passed/failed tally from a Playwright `results.json`.
- * Cached by file mtime because the file can be large and callers re-scan often.
+ * `resultsJsonPath` points directly at the `results.json`; the shared reader
+ * expects the report HTML path, so reconstruct it (`<dir>/html-results/
+ * index.html`) — `readRunResults` only uses it to re-derive the same
+ * `results.json` path.
  * Best-effort: a missing/oversized/malformed file yields `null` (the caller
  * falls back to a plain pass rate) rather than throwing.
  */
 export function parseSeverityBreakdown(resultsJsonPath: string): SeverityBreakdown | null {
-  let stat: fs.Stats;
-  try {
-    stat = fs.statSync(resultsJsonPath);
-  } catch {
-    return null;
-  }
-  const cached = severityCache.get(resultsJsonPath);
-  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.breakdown;
-
-  let breakdown: SeverityBreakdown | null = null;
-  if (stat.size <= MAX_RESULTS_JSON_BYTES) {
-    try {
-      const json = JSON.parse(fs.readFileSync(resultsJsonPath, 'utf8')) as { suites?: PwSuite[] };
-      const specs: PwSpec[] = [];
-      for (const suite of json.suites ?? []) collectSpecs(suite, specs);
-      const acc = emptySeverityBreakdown();
-      let any = false;
-      for (const spec of specs) {
-        const level = severityOf(spec.tags);
-        if (!level) continue;
-        any = true;
-        if (spec.ok) acc[level].passed += 1;
-        else acc[level].failed += 1;
-      }
-      breakdown = any ? acc : null;
-    } catch {
-      breakdown = null;
-    }
-  }
-  severityCache.set(resultsJsonPath, { mtimeMs: stat.mtimeMs, breakdown });
-  return breakdown;
+  const timeDir = path.dirname(resultsJsonPath);
+  return readRunResults(path.join(timeDir, 'html-results', 'index.html')).severity;
 }
 
 /**
@@ -90,7 +32,5 @@ export function parseSeverityBreakdown(resultsJsonPath: string): SeverityBreakdo
  * missing/unparseable.
  */
 export function severityFromReportPath(reportPath: string | undefined): SeverityBreakdown | null {
-  if (!reportPath) return null;
-  const timeDir = path.dirname(path.dirname(reportPath));
-  return parseSeverityBreakdown(path.join(timeDir, 'results.json'));
+  return readRunResults(reportPath).severity;
 }

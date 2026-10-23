@@ -36,6 +36,17 @@ vi.mock('../manifest-registry.js', () => ({
   getToolManifest: async (id: string) => hoisted.manifests.find((m) => m.id === id),
 }));
 
+const execHoisted = vi.hoisted(() => ({
+  runChild: vi.fn(async () => ({
+    ok: true,
+    code: 0,
+    stdout: 'git@example.com:org/repo.git',
+    stderr: '',
+    output: 'git@example.com:org/repo.git',
+  })),
+}));
+vi.mock('../exec.js', () => ({ runChild: execHoisted.runChild }));
+
 import { listAllProjects, listProjects, listSections, listTypes } from '../scanner.js';
 
 const cypressProjects = {
@@ -126,5 +137,42 @@ describe('scanner (manifest-driven, non-built-in tool)', () => {
     // Sorted, slash-joined leaf paths; the bare `ta` / `no-spec-parent` parents
     // are excluded because they have no spec.
     expect(await listSections('load-app')).toEqual(['checkout', 'ta/domestic', 'ta/inter']);
+  });
+});
+
+describe('scanner git-remote memoization (d1j)', () => {
+  beforeEach(async () => {
+    const { invalidateProjectCache } = await import('../scanner.js');
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    invalidateProjectCache();
+    hoisted.toolsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scanner-remote-'));
+    hoisted.manifests = [{ id: 'cypress', projects: cypressProjects }];
+    const proj = path.join(hoisted.toolsDir, 'cypress', 'projects', 'e2e', 'repo-app');
+    fs.mkdirSync(path.join(proj, '.git'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    const { invalidateProjectCache } = await import('../scanner.js');
+    vi.useRealTimers();
+    invalidateProjectCache();
+    fs.rmSync(hoisted.toolsDir, { recursive: true, force: true });
+  });
+
+  it('a warm remote cache means a rebuild after the project TTL does not re-spawn git remote', async () => {
+    const { invalidateProjectCache } = await import('../scanner.js');
+    const first = await listAllProjects();
+    expect(first.map((p) => p.gitRemoteUrl)).toEqual(['git@example.com:org/repo.git']);
+    expect(execHoisted.runChild).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(31_000);
+    const second = await listAllProjects();
+    expect(second.map((p) => p.gitRemoteUrl)).toEqual(['git@example.com:org/repo.git']);
+    expect(execHoisted.runChild).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(10 * 60_000 + 1_000);
+    invalidateProjectCache();
+    await listAllProjects();
+    expect(execHoisted.runChild).toHaveBeenCalledTimes(2);
   });
 });

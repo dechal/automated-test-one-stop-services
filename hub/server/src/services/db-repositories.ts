@@ -7,7 +7,6 @@ import type {
   EnvProfile,
   ReportAnnotation,
   RunRecord,
-  RunRequest,
   RunStatus,
   WebhookConfig,
   WebhookEvent,
@@ -25,6 +24,7 @@ import {
   type SqlValue,
   strCol,
 } from './db-schema.js';
+import type { Schedule } from './scheduler.js';
 
 /**
  * Per-domain repositories: row <-> object mappers for the normalized schema.
@@ -66,21 +66,12 @@ export interface DocRepo<T> {
   clear(db: DatabaseSync): void;
 }
 
-/** Persisted schedule shape (superset of `ScheduleEntry`, see scheduler.ts). */
-export interface PersistedSchedule {
-  id: string;
-  name: string;
-  cron: string;
-  config: RunRequest;
-  enabled: boolean;
-  createdAt: string;
-  lastRunAt?: string;
-  lastStatus?: RunStatus | 'pending';
-  lastRunId?: string;
-  nextRunAt?: string;
-  noOverlap?: boolean;
-  envProfileId?: string;
-}
+/**
+ * Persisted schedule shape: the runtime {@link Schedule} without `command`,
+ * which has no column in the `schedules` table (P1 gap — see the D1 findings).
+ * The type reflects the gap; it does NOT fix it.
+ */
+export type PersistedSchedule = Omit<Schedule, 'command'>;
 
 /** Persisted retention settings (see routes/system.ts). */
 export interface RetentionDoc {

@@ -22,7 +22,7 @@ import { useDisclosure, useHotkeys, useMediaQuery } from '@mantine/hooks';
 import { spotlight } from '@mantine/spotlight';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { Suspense, useCallback, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import {
   TbAdjustmentsHorizontal,
   TbChevronDown,
@@ -50,6 +50,7 @@ import { UserNameGate } from '~/components/UserNameGate.js';
 import { useRunFinishedNotifier } from '~/hooks/useRunFinishedNotifier.js';
 import { useScheduleToasts } from '~/hooks/useScheduleToasts.js';
 import { useT } from '~/i18n/index.js';
+import { preloadAllRouteChunks } from '~/router.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
 
@@ -101,6 +102,16 @@ export function AppLayout() {
   // App-level Corner_Toast listener for `schedule-finished`.
   // Surfaces schedule completion toasts on any page; ephemeral, never persisted.
   useScheduleToasts();
+
+  useEffect(() => {
+    const ric = window.requestIdleCallback;
+    if (typeof ric === 'function') {
+      const handle = ric(() => preloadAllRouteChunks());
+      return () => window.cancelIdleCallback?.(handle);
+    }
+    const timer = window.setTimeout(() => preloadAllRouteChunks(), 1);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Global running indicator
   const activeRuns = useQuery({

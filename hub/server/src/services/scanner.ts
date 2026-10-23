@@ -10,6 +10,7 @@ import { getEnabledTools, getToolManifest } from './manifest-registry.js';
 const PROJECT_CACHE_TTL_MS = 30_000;
 /** Concurrency cap for the per-project `git remote get-url` probes. */
 const GIT_PROBE_CONCURRENCY = 6;
+const GIT_REMOTE_CACHE_TTL_MS = 10 * 60_000;
 
 function listDirs(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -105,14 +106,21 @@ function projectSummaryBase(
   };
 }
 
+const gitRemoteCache = new Map<string, { value: string | undefined; at: number }>();
+
 async function readGitRemote(projectDir: string): Promise<string | undefined> {
+  const cached = gitRemoteCache.get(projectDir);
+  if (cached && Date.now() - cached.at < GIT_REMOTE_CACHE_TTL_MS) return cached.value;
+
   const res = await runChild('git', ['remote', 'get-url', 'origin'], {
     cwd: projectDir,
     timeoutMs: 5000,
   });
   if (!res.ok) return undefined;
   const url = res.stdout.trim();
-  return url || undefined;
+  const value = url || undefined;
+  gitRemoteCache.set(projectDir, { value, at: Date.now() });
+  return value;
 }
 
 /**
@@ -173,6 +181,7 @@ export async function listAllProjects(): Promise<ProjectSummary[]> {
 /** Drop the project cache — call after project create/clone/delete. */
 export function invalidateProjectCache(): void {
   cache = null;
+  gitRemoteCache.clear();
 }
 
 /** Sections for a section-axis tool (e.g. k6 `automations/specs/<section>/`). */

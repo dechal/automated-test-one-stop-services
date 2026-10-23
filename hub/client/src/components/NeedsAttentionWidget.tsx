@@ -1,8 +1,7 @@
-import type { FlakyReport, ProjectSummary, RunRecord } from '@hub/shared';
 import { Button, Group, Paper, ScrollArea, Stack, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { TbAlertCircle, TbAlertTriangle, TbCircleCheck } from 'react-icons/tb';
-import { api } from '~/api/client';
+import { qFlaky, qProjects, qRunsHistory } from '~/api/queries.js';
 import { useT } from '~/i18n/index.js';
 
 interface AttentionItem {
@@ -15,20 +14,9 @@ interface AttentionItem {
 
 export function NeedsAttentionWidget({ onNavigate }: { onNavigate: (page: string) => void }) {
   const t = useT();
-  const projects = useQuery<ProjectSummary[]>({
-    queryKey: ['projects'],
-    queryFn: () => api.get('/api/projects'),
-  });
-
-  const history = useQuery<RunRecord[]>({
-    queryKey: ['runs-history'],
-    queryFn: () => api.get('/api/runs/history'),
-  });
-
-  const flaky = useQuery<FlakyReport>({
-    queryKey: ['flaky'],
-    queryFn: () => api.get('/api/flaky'),
-  });
+  const projects = useQuery(qProjects());
+  const history = useQuery(qRunsHistory());
+  const flaky = useQuery(qFlaky());
 
   const items: AttentionItem[] = [];
 

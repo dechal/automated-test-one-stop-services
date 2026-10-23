@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { TestSummary, ToolId } from '@hub/shared';
-import { BASH_PATH, WORKSPACE_ROOT } from '../config.js';
+import { BASH_PATH, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { buildPlaywrightListCommand, buildTagsCommand } from './command-builder.js';
 import { runChild } from './exec.js';
 import { getToolCapabilities } from './manifest-registry.js';
+import { listAllProjects } from './scanner.js';
 
 interface ReporterPayload {
   tool?: ToolId;
@@ -103,6 +104,84 @@ function tagsFromTests(tests: TestSummary[]): Set<string> {
   return tags;
 }
 
+export const TAGS_CACHE_MAX_AGE_MS = 10 * 60_000;
+
+interface TagsCacheEntry {
+  fingerprint: string;
+  at: number;
+  result: Extract<ProjectTagsResult, { ok: true }>;
+}
+
+const tagsCache = new Map<string, TagsCacheEntry>();
+const tagsInflight = new Map<string, Promise<ProjectTagsResult>>();
+
+function cacheKey(tool: ToolId, type: string, project: string): string {
+  return `${tool}|${type}|${project}`;
+}
+
+function foldStat(st: fs.Stats, agg: { count: number; maxMtime: number; size: number }): void {
+  agg.count += 1;
+  agg.size += st.size;
+  if (st.mtimeMs > agg.maxMtime) agg.maxMtime = st.mtimeMs;
+}
+
+function foldTree(dir: string, agg: { count: number; maxMtime: number; size: number }): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      foldTree(full, agg);
+    } else if (entry.isFile()) {
+      try {
+        foldStat(fs.statSync(full), agg);
+      } catch {}
+    }
+  }
+}
+
+function foldTopLevel(dir: string, agg: { count: number; maxMtime: number; size: number }): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    try {
+      foldStat(fs.statSync(path.join(dir, entry.name)), agg);
+    } catch {}
+  }
+}
+
+async function findProjectDir(tool: ToolId, type: string, project: string): Promise<string | null> {
+  try {
+    const all = await listAllProjects();
+    const hit = all.find((p) => p.tool === tool && p.type === type && p.name === project);
+    if (hit) return hit.path;
+  } catch {}
+  return null;
+}
+
+async function computeTagsFingerprint(
+  tool: ToolId,
+  type: string,
+  project: string,
+): Promise<string | null> {
+  const projectDir = await findProjectDir(tool, type, project);
+  if (!projectDir) return null;
+  const agg = { count: 0, maxMtime: 0, size: 0 };
+  foldTree(path.join(projectDir, 'automations'), agg);
+  foldTopLevel(projectDir, agg);
+  foldTopLevel(path.join(TOOLS_DIR, tool), agg);
+  return `${agg.count}\u0000${agg.maxMtime}\u0000${agg.size}`;
+}
+
 /**
  * Resolve the tags a project actually emits right now, scoped to one
  * tool+type+project. Primary path parses the reporter sentinel block; the
@@ -110,7 +189,7 @@ function tagsFromTests(tests: TestSummary[]): Set<string> {
  * emitted. Never throws for a scan miss — returns `ok: false` instead, so both
  * the bookmark list and the migrate mutation branch deterministically.
  */
-export async function resolveProjectTags(
+async function scanProjectTags(
   tool: ToolId,
   type: string,
   project: string,
@@ -141,4 +220,46 @@ export async function resolveProjectTags(
   } catch {
     return { ok: false };
   }
+}
+
+export async function resolveProjectTags(
+  tool: ToolId,
+  type: string,
+  project: string,
+): Promise<ProjectTagsResult> {
+  const key = cacheKey(tool, type, project);
+
+  const inflight = tagsInflight.get(key);
+  if (inflight) return inflight;
+
+  const run = (async (): Promise<ProjectTagsResult> => {
+    const fingerprint = await computeTagsFingerprint(tool, type, project);
+    if (fingerprint !== null) {
+      const cached = tagsCache.get(key);
+      if (
+        cached &&
+        cached.fingerprint === fingerprint &&
+        Date.now() - cached.at < TAGS_CACHE_MAX_AGE_MS
+      ) {
+        return cached.result;
+      }
+    }
+
+    const result = await scanProjectTags(tool, type, project);
+    if (result.ok && fingerprint !== null) {
+      tagsCache.set(key, { fingerprint, at: Date.now(), result });
+    }
+    return result;
+  })();
+
+  tagsInflight.set(key, run);
+  try {
+    return await run;
+  } finally {
+    tagsInflight.delete(key);
+  }
+}
+
+export function invalidateProjectTagsCache(): void {
+  tagsCache.clear();
 }

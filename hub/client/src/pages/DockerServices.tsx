@@ -20,6 +20,7 @@ import {
   TbServer,
 } from 'react-icons/tb';
 import { api } from '~/api/client';
+import { qAppiumStatus, qDockerStatus, queryRoots } from '~/api/queries.js';
 import { ErrorState } from '~/components/ErrorState.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { GridSkeleton } from '~/components/Skeletons.js';
@@ -34,18 +35,6 @@ import { type TranslationKey, useT } from '~/i18n/index.js';
  */
 const STATUS_POLL_MS = 10_000;
 
-interface DockerStatus {
-  dockerRunning: boolean;
-  services: Record<string, string>;
-}
-
-interface AppiumStatus {
-  running: boolean;
-  pid: number | null;
-  port: number;
-  installed: boolean;
-}
-
 const SERVICE_INFO: Record<string, { label: string; port: number; descKey: TranslationKey }> = {
   influxdb: { label: 'InfluxDB', port: 8086, descKey: 'docker.influxDesc' },
   grafana: { label: 'Grafana', port: 3000, descKey: 'docker.grafanaDesc' },
@@ -55,9 +44,8 @@ export function DockerServicesPage() {
   const t = useT();
   const queryClient = useQueryClient();
 
-  const status = useQuery<DockerStatus>({
-    queryKey: ['docker-status'],
-    queryFn: () => api.get('/api/docker/status'),
+  const status = useQuery({
+    ...qDockerStatus(),
     refetchInterval: STATUS_POLL_MS,
   });
 
@@ -67,7 +55,7 @@ export function DockerServicesPage() {
     mutationFn: () => api.post('/api/docker/start-desktop'),
     onSuccess: () => {
       toast.success(t('docker.desktopStarting'));
-      queryClient.invalidateQueries({ queryKey: ['docker-status'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.dockerStatus] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -75,9 +63,8 @@ export function DockerServicesPage() {
   const startService = useMutation({
     mutationFn: (name: string) => api.post('/api/docker/service/start', { service: name }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['docker-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.dockerStatus] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.doctor] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -85,9 +72,8 @@ export function DockerServicesPage() {
   const stopService = useMutation({
     mutationFn: (name: string) => api.post('/api/docker/service/stop', { service: name }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['docker-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.dockerStatus] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.doctor] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -96,9 +82,8 @@ export function DockerServicesPage() {
     mutationFn: (name: string) => api.post('/api/docker/service/restart', { service: name }),
     onSuccess: () => {
       toast.success(t('docker.serviceRestarting'));
-      queryClient.invalidateQueries({ queryKey: ['docker-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.dockerStatus] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.doctor] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -107,9 +92,8 @@ export function DockerServicesPage() {
     mutationFn: () => api.post('/api/docker/start-all'),
     onSuccess: () => {
       toast.success(t('docker.startingAll'));
-      queryClient.invalidateQueries({ queryKey: ['docker-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.dockerStatus] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.doctor] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -118,24 +102,21 @@ export function DockerServicesPage() {
     mutationFn: () => api.post('/api/docker/stop-all'),
     onSuccess: () => {
       toast.success(t('docker.stoppingAll'));
-      queryClient.invalidateQueries({ queryKey: ['docker-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.dockerStatus] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.doctor] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
 
-  const appium = useQuery<AppiumStatus>({
-    queryKey: ['appium-status'],
-    queryFn: () => api.get('/api/appium/status'),
+  const appium = useQuery({
+    ...qAppiumStatus(),
     refetchInterval: STATUS_POLL_MS,
   });
   const appiumStart = useMutation({
     mutationFn: () => api.post('/api/appium/start'),
     onSuccess: () => {
       toast.success(t('docker.appiumStarting'));
-      queryClient.invalidateQueries({ queryKey: ['appium-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.appiumStatus] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -143,8 +124,7 @@ export function DockerServicesPage() {
     mutationFn: () => api.post('/api/appium/stop'),
     onSuccess: () => {
       toast.success(t('docker.appiumStopped'));
-      queryClient.invalidateQueries({ queryKey: ['appium-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.appiumStatus] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
@@ -152,8 +132,7 @@ export function DockerServicesPage() {
     mutationFn: () => api.post('/api/appium/install'),
     onSuccess: () => {
       toast.success(t('docker.appiumInstalled'));
-      queryClient.invalidateQueries({ queryKey: ['appium-status'] });
-      queryClient.invalidateQueries({ queryKey: ['doctor-nav'] });
+      queryClient.invalidateQueries({ queryKey: [queryRoots.appiumStatus] });
     },
     onError: (err) => toast.error((err as Error).message),
   });
