@@ -1,6 +1,7 @@
 import type { RunRecord, WsServerEvent } from '@hub/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { notifyRunFinished } from '~/hooks/useDesktopNotification.js';
+import { type HubSocketEvent, sendHubSocket, subscribeHubSocket } from '~/hooks/useHubSocket.js';
 import { useT } from '~/i18n/index.js';
 
 /**
@@ -20,28 +21,36 @@ import { useT } from '~/i18n/index.js';
  */
 export function useRunFinishedNotifier(activeRuns: RunRecord[]): void {
   const t = useT();
-  const socketRef = useRef<WebSocket | null>(null);
   const subscribedRef = useRef<Set<string>>(new Set());
   const notifiedRef = useRef<Set<string>>(new Set());
   const activeRunsRef = useRef<RunRecord[]>(activeRuns);
   activeRunsRef.current = activeRuns;
+  // Keep the translator in a ref so the subscription can read the latest value
+  // without re-subscribing (which would tear down and re-open the shared
+  // socket channel on every language change).
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const subscribe = useCallback((runId: string, replay: boolean) => {
-    const ws = socketRef.current;
-    if (ws?.readyState === WebSocket.OPEN && !subscribedRef.current.has(runId)) {
-      ws.send(JSON.stringify({ kind: 'subscribe', runId, replay }));
+    if (!subscribedRef.current.has(runId)) {
+      sendHubSocket({ kind: 'subscribe', runId, replay });
       subscribedRef.current.add(runId);
     }
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: subscribe exactly once; the listener reads live refs, not deps.
   useEffect(() => {
-    let closed = false;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleMessage = (ev: MessageEvent) => {
+    const onEvent = (event: HubSocketEvent) => {
+      if (event.type === 'open') {
+        // A fresh connection has no server-side subscriptions — re-subscribe to
+        // whatever is currently active (replay catches a just-finished run).
+        subscribedRef.current.clear();
+        for (const run of activeRunsRef.current) subscribe(run.id, true);
+        return;
+      }
       let msg: WsServerEvent;
       try {
-        msg = JSON.parse(String(ev.data)) as WsServerEvent;
+        msg = JSON.parse(event.data) as WsServerEvent;
       } catch {
         return;
       }
@@ -54,38 +63,14 @@ export function useRunFinishedNotifier(activeRuns: RunRecord[]): void {
       if (status !== 'passed' && status !== 'failed') return;
       notifiedRef.current.add(msg.runId);
       notifyRunFinished({
-        title: status === 'passed' ? t('run.testPassed') : t('run.testFailed'),
+        title:
+          status === 'passed' ? tRef.current('run.testPassed') : tRef.current('run.testFailed'),
         body: request.project,
         tag: `run-${msg.runId}`,
       });
     };
-
-    const connect = () => {
-      if (closed) return;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-      socketRef.current = ws;
-      ws.onopen = () => {
-        // A fresh connection has no server-side subscriptions — re-subscribe to
-        // whatever is currently active (replay catches a just-finished run).
-        subscribedRef.current.clear();
-        for (const run of activeRunsRef.current) subscribe(run.id, true);
-      };
-      ws.onmessage = handleMessage;
-      ws.onclose = () => {
-        if (!closed) reconnectTimer = setTimeout(connect, 2000);
-      };
-      ws.onerror = () => ws.close();
-    };
-    connect();
-
-    return () => {
-      closed = true;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      socketRef.current?.close();
-      socketRef.current = null;
-    };
-  }, [t, subscribe]);
+    return subscribeHubSocket(onEvent);
+  }, []);
 
   // Subscribe to active runs as the poll surfaces them (covers a run already in
   // flight when this hook mounted). Idempotent via `subscribedRef`.
