@@ -5,8 +5,10 @@ import {
   Button,
   Collapse,
   Divider,
+  Flex,
   Group,
   Modal,
+  NavLink,
   NumberInput,
   Paper,
   ScrollArea,
@@ -23,13 +25,19 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
+  TbBell,
   TbBrandDocker,
   TbChevronRight,
+  TbDatabase,
+  TbInfoCircle,
   TbMoonStars,
+  TbPlayerPlay,
   TbQrcode,
   TbRefresh,
+  TbServer,
+  TbSettings,
   TbSun,
   TbTrash,
   TbUser,
@@ -49,9 +57,10 @@ import {
 import { useHubUser, useSaveHubUser } from '~/hooks/useHubUser.js';
 import { useNotificationSound } from '~/hooks/useNotificationSound.js';
 import { useResyncWorkspace, useToolOptions } from '~/hooks/useTools.js';
-import { type Locale, useI18nStore, useT } from '~/i18n';
+import { type Locale, type TranslationKey, useI18nStore, useT } from '~/i18n';
 import { DockerServicesBody } from '~/pages/DockerServices.js';
 import { WebhooksBody } from '~/pages/Webhooks.js';
+import { settingsRoute } from '~/router';
 import { usePreferences } from '~/stores/hub.js';
 import { formatShort } from '~/utils/datetime.js';
 
@@ -61,6 +70,25 @@ interface UpdateStatusResponse {
   error?: string;
   finishedAt?: string;
 }
+
+export type SettingsCategory =
+  | 'general'
+  | 'execution'
+  | 'notifications'
+  | 'data'
+  | 'system'
+  | 'about';
+
+const SIDEBAR_WIDTH = 220;
+
+const CATEGORIES: { id: SettingsCategory; labelKey: TranslationKey; icon: ReactNode }[] = [
+  { id: 'general', labelKey: 'settings.sectionGeneral', icon: <TbSettings size={18} /> },
+  { id: 'execution', labelKey: 'settings.categoryExecution', icon: <TbPlayerPlay size={18} /> },
+  { id: 'notifications', labelKey: 'settings.sectionNotifications', icon: <TbBell size={18} /> },
+  { id: 'data', labelKey: 'settings.sectionData', icon: <TbDatabase size={18} /> },
+  { id: 'system', labelKey: 'settings.categorySystem', icon: <TbServer size={18} /> },
+  { id: 'about', labelKey: 'settings.categoryAbout', icon: <TbInfoCircle size={18} /> },
+];
 
 /**
  * Poll /api/system/update/status until the server reports the build is done
@@ -93,15 +121,16 @@ async function pollUpdateStatus(
 
 export function SettingsPage() {
   const t = useT();
+  const search = settingsRoute.useSearch();
+  const [category, setCategory] = useState<SettingsCategory>(search.cat ?? 'general');
   const { colorScheme, setColorScheme } = useMantineColorScheme();
-  const { enabled: soundEnabled, toggle: toggleSound } = useNotificationSound();
-  const desktopEnabled = useDesktopNotification((s) => s.enabled);
-  const setDesktopEnabled = useDesktopNotification((s) => s.setEnabled);
   const { locale, setLocale } = useI18nStore();
   const lastTool = usePreferences((s) => s.lastTool);
   const defaultMode = usePreferences((s) => s.defaultMode);
   const defaultHeadless = usePreferences((s) => s.defaultHeadless);
   const showOnboarding = usePreferences((s) => s.showOnboarding);
+  const advancedMode = usePreferences((s) => s.advancedMode);
+  const setAdvancedMode = usePreferences((s) => s.setAdvancedMode);
   const setLastTool = usePreferences((s) => s.setLastTool);
   const setDefaultMode = usePreferences((s) => s.setDefaultMode);
   const setDefaultHeadless = usePreferences((s) => s.setDefaultHeadless);
@@ -110,6 +139,25 @@ export function SettingsPage() {
   const resync = useResyncWorkspace();
   const toolOptions = useToolOptions();
   const [qrOpened, { open: openQr, close: closeQr }] = useDisclosure(false);
+  const { enabled: soundEnabled, toggle: toggleSound } = useNotificationSound();
+  const desktopEnabled = useDesktopNotification((s) => s.enabled);
+  const setDesktopEnabled = useDesktopNotification((s) => s.setEnabled);
+
+  // Enabling desktop notifications requires an OS permission grant; request it
+  // on enable and revert the toggle (with a hint) if the browser blocks it.
+  const handleToggleDesktop = async (checked: boolean) => {
+    if (!checked) {
+      setDesktopEnabled(false);
+      return;
+    }
+    const permission = await requestDesktopPermission();
+    if (permission === 'granted') {
+      setDesktopEnabled(true);
+    } else {
+      setDesktopEnabled(false);
+      toast.error(t('settings.desktopPermissionDenied'));
+    }
+  };
 
   // Identity — the name stamped into test-case "Edited By". Seeded from the
   // server once loaded so the field shows the current name, not a blank.
@@ -255,627 +303,679 @@ export function SettingsPage() {
     }
   };
 
-  // Enabling desktop notifications requires an OS permission grant; request it
-  // on enable and revert the toggle (with a hint) if the browser blocks it.
-  const handleToggleDesktop = async (checked: boolean) => {
-    if (!checked) {
-      setDesktopEnabled(false);
-      return;
-    }
-    const permission = await requestDesktopPermission();
-    if (permission === 'granted') {
-      setDesktopEnabled(true);
-    } else {
-      setDesktopEnabled(false);
-      toast.error(t('settings.desktopPermissionDenied'));
-    }
-  };
-
   return (
     <Stack gap="md">
       <PageHeader title={t('nav.settings')} description={t('nav.settings.desc')} />
 
-      <Title order={2} size="h4" c="dimmed">
-        {t('settings.sectionGeneral')}
-      </Title>
+      <Flex gap="lg" align="flex-start">
+        <Stack gap={4} w={SIDEBAR_WIDTH} style={{ flexShrink: 0 }}>
+          {CATEGORIES.map((c) => (
+            <NavLink
+              key={c.id}
+              active={category === c.id}
+              label={t(c.labelKey)}
+              leftSection={c.icon}
+              variant="filled"
+              onClick={() => setCategory(c.id)}
+            />
+          ))}
+        </Stack>
 
-      {/* Two cards, not three. Theme and language are the same concern (how the
+        <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
+          {category === 'general' && (
+            <>
+              {/* Two cards, not three. Theme and language are the same concern (how the
           Hub presents itself) and each held a single row, so in a 3-up grid they
           were stretched to the height of the 2-row Notifications card and carried
           ~100px of empty space each. Merged, both columns hold two rows and the
           row has no dead space. */}
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        {/* Display — theme + language */}
-        <Paper p="md" withBorder>
-          <Title order={2} size="h5" mb="sm">
-            {t('settings.appearance')}
-          </Title>
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.colorScheme')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.colorSchemeDesc')}
-                </Text>
-              </Stack>
-              <Select
-                size="xs"
-                w={140}
-                value={colorScheme}
-                onChange={(v) => v && setColorScheme(v as 'light' | 'dark' | 'auto')}
-                data={[
-                  { value: 'dark', label: t('settings.dark') },
-                  { value: 'light', label: t('settings.light') },
-                  { value: 'auto', label: t('settings.system') },
-                ]}
-                allowDeselect={false}
-                leftSection={
-                  colorScheme === 'dark' ? <TbMoonStars size={14} /> : <TbSun size={14} />
-                }
-              />
-            </Group>
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.interfaceLanguage')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.interfaceLanguageDesc')}
-                </Text>
-              </Stack>
-              <Select
-                size="xs"
-                w={140}
-                value={locale}
-                onChange={(v) => v && setLocale(v as Locale)}
-                data={[
-                  { value: 'en', label: 'English' },
-                  { value: 'th', label: 'ไทย' },
-                ]}
-                allowDeselect={false}
-              />
-            </Group>
-          </Stack>
-        </Paper>
-        {/* Notifications */}
-        <Paper p="md" withBorder>
-          <Title order={2} size="h5" mb="sm">
-            {t('settings.notifications')}
-          </Title>
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.soundNotifications')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.soundNotificationsDesc')}
-                </Text>
-              </Stack>
-              <Switch checked={soundEnabled} onChange={toggleSound} size="md" />
-            </Group>
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.desktopNotifications')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.desktopNotificationsDesc')}
-                </Text>
-              </Stack>
-              <Switch
-                checked={desktopEnabled}
-                onChange={(e) => handleToggleDesktop(e.currentTarget.checked)}
-                size="md"
-              />
-            </Group>
-          </Stack>
-        </Paper>
-      </SimpleGrid>
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                {/* Display — theme + language */}
+                <Paper p="md" withBorder>
+                  <Title order={2} size="h5" mb="sm">
+                    {t('settings.appearance')}
+                  </Title>
+                  <Stack gap="sm">
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="sm">{t('settings.colorScheme')}</Text>
+                        <Text size="xs" c="dimmed">
+                          {t('settings.colorSchemeDesc')}
+                        </Text>
+                      </Stack>
+                      <Select
+                        size="xs"
+                        w={140}
+                        value={colorScheme}
+                        onChange={(v) => v && setColorScheme(v as 'light' | 'dark' | 'auto')}
+                        data={[
+                          { value: 'dark', label: t('settings.dark') },
+                          { value: 'light', label: t('settings.light') },
+                          { value: 'auto', label: t('settings.system') },
+                        ]}
+                        allowDeselect={false}
+                        leftSection={
+                          colorScheme === 'dark' ? <TbMoonStars size={14} /> : <TbSun size={14} />
+                        }
+                      />
+                    </Group>
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="sm">{t('settings.interfaceLanguage')}</Text>
+                        <Text size="xs" c="dimmed">
+                          {t('settings.interfaceLanguageDesc')}
+                        </Text>
+                      </Stack>
+                      <Select
+                        size="xs"
+                        w={140}
+                        value={locale}
+                        onChange={(v) => v && setLocale(v as Locale)}
+                        data={[
+                          { value: 'en', label: 'English' },
+                          { value: 'th', label: 'ไทย' },
+                        ]}
+                        allowDeselect={false}
+                      />
+                    </Group>
+                  </Stack>
+                </Paper>
 
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        {/* Identity — the name stamped into test-case "Edited By" */}
-        <Paper p="md" withBorder>
-          <Title order={2} size="h5" mb="sm">
-            {t('user.identity')}
-          </Title>
-          <Stack gap="sm">
-            <Stack gap={2}>
-              <Text size="sm">{t('user.name')}</Text>
-              <Text size="xs" c="dimmed">
-                {t('user.nameDesc')}
-              </Text>
-            </Stack>
-            {hubUser.isLoading ? (
-              <Skeleton height={30} radius="sm" aria-hidden />
-            ) : (
-              <Group gap="xs" wrap="nowrap">
-                <TextInput
-                  size="xs"
-                  style={{ flex: 1 }}
-                  leftSection={<TbUser size={14} />}
-                  placeholder={t('user.namePlaceholder')}
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.currentTarget.value)}
-                  error={saveUser.error ? saveUser.error.message : null}
-                />
-                <Button
-                  size="xs"
-                  loading={saveUser.isPending}
-                  disabled={
-                    nameInput.trim() === '' || nameInput.trim() === (hubUser.user?.name ?? '')
-                  }
-                  onClick={() =>
-                    saveUser.mutate(nameInput.trim(), {
-                      onSuccess: (res) =>
-                        toast.success(
-                          res.rowsRenamed > 0
-                            ? `${t('user.renamed')} — ${res.rowsRenamed} ${t('user.rowsUpdated')}`
-                            : t('user.saved'),
-                        ),
-                    })
-                  }
-                >
-                  {t('common.save')}
-                </Button>
-              </Group>
-            )}
-          </Stack>
-        </Paper>
-
-        {/* Execution */}
-        <Paper p="md" withBorder>
-          <Title order={2} size="h5" mb="sm">
-            {t('settings.execution')}
-          </Title>
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.maxConcurrent')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.maxConcurrentDesc')}
-                  {concurrencyQ.data && concurrencyQ.data.queueLength > 0 && (
-                    <Text span c="blue">
-                      {' '}
-                      ({concurrencyQ.data.queueLength} {t('settings.queued')})
+                <Paper p="md" withBorder>
+                  <Group justify="space-between" mb="sm" wrap="nowrap" align="flex-start">
+                    <Title order={2} size="h5">
+                      {t('common.advancedMode')}
+                    </Title>
+                    <Switch
+                      size="md"
+                      checked={advancedMode}
+                      onChange={(e) => setAdvancedMode(e.currentTarget.checked)}
+                      aria-label={t('common.advancedMode')}
+                    />
+                  </Group>
+                  <Stack gap="xs">
+                    <Text size="xs" c="dimmed">
+                      {advancedMode ? t('common.advancedModeOn') : t('common.advancedModeOff')}
                     </Text>
+                    <Text size="xs" c="dimmed">
+                      {t('settings.advancedModeReveals')}
+                    </Text>
+                    <Stack gap={4} component="ul" pl="md" style={{ margin: 0 }}>
+                      <Text size="xs" c="dimmed" component="li">
+                        {t('settings.advancedModeRevealRun')}
+                      </Text>
+                      <Text size="xs" c="dimmed" component="li">
+                        {t('settings.advancedModeRevealColumns')}
+                      </Text>
+                      <Text size="xs" c="dimmed" component="li">
+                        {t('settings.advancedModeRevealDoctor')}
+                      </Text>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              </SimpleGrid>
+
+              {/* Identity — the name stamped into test-case "Edited By" */}
+              <Paper p="md" withBorder>
+                <Title order={2} size="h5" mb="sm">
+                  {t('user.identity')}
+                </Title>
+                <Stack gap="sm">
+                  <Stack gap={2}>
+                    <Text size="sm">{t('user.name')}</Text>
+                    <Text size="xs" c="dimmed">
+                      {t('user.nameDesc')}
+                    </Text>
+                  </Stack>
+                  {hubUser.isLoading ? (
+                    <Skeleton height={30} radius="sm" aria-hidden />
+                  ) : (
+                    <Group gap="xs" wrap="nowrap">
+                      <TextInput
+                        size="xs"
+                        style={{ flex: 1 }}
+                        leftSection={<TbUser size={14} />}
+                        placeholder={t('user.namePlaceholder')}
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.currentTarget.value)}
+                        error={saveUser.error ? saveUser.error.message : null}
+                      />
+                      <Button
+                        size="xs"
+                        loading={saveUser.isPending}
+                        disabled={
+                          nameInput.trim() === '' || nameInput.trim() === (hubUser.user?.name ?? '')
+                        }
+                        onClick={() =>
+                          saveUser.mutate(nameInput.trim(), {
+                            onSuccess: (res) =>
+                              toast.success(
+                                res.rowsRenamed > 0
+                                  ? `${t('user.renamed')} — ${res.rowsRenamed} ${t('user.rowsUpdated')}`
+                                  : t('user.saved'),
+                              ),
+                          })
+                        }
+                      >
+                        {t('common.save')}
+                      </Button>
+                    </Group>
                   )}
-                </Text>
-              </Stack>
-              {/* Reserve the control's space while the saved value loads —
+                </Stack>
+              </Paper>
+            </>
+          )}
+
+          {category === 'execution' && (
+            <>
+              {/* Execution */}
+              <Paper p="md" withBorder>
+                <Title order={2} size="h5" mb="sm">
+                  {t('settings.execution')}
+                </Title>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="sm">{t('settings.maxConcurrent')}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t('settings.maxConcurrentDesc')}
+                        {concurrencyQ.data && concurrencyQ.data.queueLength > 0 && (
+                          <Text span c="blue">
+                            {' '}
+                            ({concurrencyQ.data.queueLength} {t('settings.queued')})
+                          </Text>
+                        )}
+                      </Text>
+                    </Stack>
+                    {/* Reserve the control's space while the saved value loads —
                   otherwise the input renders empty and then snaps to a number. */}
-              {concurrencyQ.isLoading ? (
-                <Skeleton height={30} width={132} radius="sm" aria-hidden />
-              ) : (
-                <Group gap="xs">
-                  <NumberInput
-                    size="xs"
-                    w={80}
-                    min={1}
-                    max={10}
-                    value={concurrencyInput}
-                    onChange={(v) => setConcurrencyInput(typeof v === 'number' ? v : '')}
-                  />
-                  <Button
-                    size="xs"
-                    onClick={() => {
-                      if (typeof concurrencyInput === 'number')
-                        concurrencyMutation.mutate(concurrencyInput);
-                    }}
-                    loading={concurrencyMutation.isPending}
-                    disabled={
-                      !concurrencyInput || concurrencyInput === concurrencyQ.data?.maxConcurrency
-                    }
-                  >
-                    {t('common.save')}
-                  </Button>
-                </Group>
-              )}
-            </Group>
-          </Stack>
-        </Paper>
-      </SimpleGrid>
+                    {concurrencyQ.isLoading ? (
+                      <Skeleton height={30} width={132} radius="sm" aria-hidden />
+                    ) : (
+                      <Group gap="xs">
+                        <NumberInput
+                          size="xs"
+                          w={80}
+                          min={1}
+                          max={10}
+                          value={concurrencyInput}
+                          onChange={(v) => setConcurrencyInput(typeof v === 'number' ? v : '')}
+                        />
+                        <Button
+                          size="xs"
+                          onClick={() => {
+                            if (typeof concurrencyInput === 'number')
+                              concurrencyMutation.mutate(concurrencyInput);
+                          }}
+                          loading={concurrencyMutation.isPending}
+                          disabled={
+                            !concurrencyInput ||
+                            concurrencyInput === concurrencyQ.data?.maxConcurrency
+                          }
+                        >
+                          {t('common.save')}
+                        </Button>
+                      </Group>
+                    )}
+                  </Group>
+                </Stack>
+              </Paper>
 
-      {/* Run Defaults */}
-      <Paper p="md" withBorder>
-        <Title order={2} size="h5" mb="sm">
-          {t('settings.runDefaults')}
-        </Title>
-        <Stack gap="sm">
-          <Group justify="space-between">
-            <Stack gap={2}>
-              <Text size="sm">{t('settings.defaultTool')}</Text>
-              <Text size="xs" c="dimmed">
-                {t('settings.defaultToolDesc')}
-              </Text>
-            </Stack>
-            <Select
-              size="xs"
-              w={160}
-              value={lastTool}
-              onChange={(v) => v && setLastTool(v as ToolId)}
-              data={toolOptions}
-              allowDeselect={false}
-            />
-          </Group>
+              {/* Run Defaults */}
+              <Paper p="md" withBorder>
+                <Title order={2} size="h5" mb="sm">
+                  {t('settings.runDefaults')}
+                </Title>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="sm">{t('settings.defaultTool')}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t('settings.defaultToolDesc')}
+                      </Text>
+                    </Stack>
+                    <Select
+                      size="xs"
+                      w={160}
+                      value={lastTool}
+                      onChange={(v) => v && setLastTool(v as ToolId)}
+                      data={toolOptions}
+                      allowDeselect={false}
+                    />
+                  </Group>
 
-          <Group justify="space-between">
-            <Stack gap={2}>
-              <Text size="sm">{t('settings.defaultMode')}</Text>
-              <Text size="xs" c="dimmed">
-                {t('settings.defaultModeDesc')}
-              </Text>
-            </Stack>
-            <Select
-              size="xs"
-              w={140}
-              value={defaultMode}
-              onChange={(v) => v && setDefaultMode(v as 'local' | 'docker')}
-              data={[
-                { value: 'local', label: t('run.modeLocal') },
-                { value: 'docker', label: 'Docker' },
-              ]}
-              allowDeselect={false}
-            />
-          </Group>
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="sm">{t('settings.defaultMode')}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t('settings.defaultModeDesc')}
+                      </Text>
+                    </Stack>
+                    <Select
+                      size="xs"
+                      w={140}
+                      value={defaultMode}
+                      onChange={(v) => v && setDefaultMode(v as 'local' | 'docker')}
+                      data={[
+                        { value: 'local', label: t('run.modeLocal') },
+                        { value: 'docker', label: 'Docker' },
+                      ]}
+                      allowDeselect={false}
+                    />
+                  </Group>
 
-          <Group justify="space-between">
-            <Stack gap={2}>
-              <Text size="sm">{t('settings.defaultDisplay')}</Text>
-              <Text size="xs" c="dimmed">
-                {t('settings.defaultDisplayDesc')}
-              </Text>
-            </Stack>
-            <Select
-              size="xs"
-              w={140}
-              value={defaultHeadless}
-              onChange={(v) => v && setDefaultHeadless(v as 'headless' | 'headed')}
-              data={[
-                { value: 'headless', label: t('run.headless') },
-                { value: 'headed', label: t('run.headed') },
-              ]}
-              allowDeselect={false}
-            />
-          </Group>
-        </Stack>
-      </Paper>
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="sm">{t('settings.defaultDisplay')}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t('settings.defaultDisplayDesc')}
+                      </Text>
+                    </Stack>
+                    <Select
+                      size="xs"
+                      w={140}
+                      value={defaultHeadless}
+                      onChange={(v) => v && setDefaultHeadless(v as 'headless' | 'headed')}
+                      data={[
+                        { value: 'headless', label: t('run.headless') },
+                        { value: 'headed', label: t('run.headed') },
+                      ]}
+                      allowDeselect={false}
+                    />
+                  </Group>
+                </Stack>
+              </Paper>
+            </>
+          )}
 
-      <Title order={2} size="h4" c="dimmed" mt="lg">
-        {t('settings.sectionNotifications')}
-      </Title>
+          {category === 'notifications' && (
+            <>
+              {/* Notifications */}
+              <Paper p="md" withBorder>
+                <Title order={2} size="h5" mb="sm">
+                  {t('settings.notifications')}
+                </Title>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="sm">{t('settings.soundNotifications')}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t('settings.soundNotificationsDesc')}
+                      </Text>
+                    </Stack>
+                    <Switch
+                      checked={soundEnabled}
+                      onChange={toggleSound}
+                      size="md"
+                      aria-label={t('settings.soundNotifications')}
+                    />
+                  </Group>
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="sm">{t('settings.desktopNotifications')}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t('settings.desktopNotificationsDesc')}
+                      </Text>
+                    </Stack>
+                    <Switch
+                      checked={desktopEnabled}
+                      onChange={(e) => handleToggleDesktop(e.currentTarget.checked)}
+                      size="md"
+                      aria-label={t('settings.desktopNotifications')}
+                    />
+                  </Group>
+                </Stack>
+              </Paper>
 
-      <Paper p="md" withBorder>
-        <Stack gap={4} mb="sm">
-          <Title order={2} size="h5">
-            {t('settings.webhooks')}
-          </Title>
-          <Text size="xs" c="dimmed">
-            {t('settings.webhooksDesc')}
-          </Text>
-        </Stack>
-        <WebhooksBody />
-      </Paper>
+              <Paper p="md" withBorder>
+                <Stack gap={4} mb="sm">
+                  <Title order={2} size="h5">
+                    {t('settings.webhooks')}
+                  </Title>
+                  <Text size="xs" c="dimmed">
+                    {t('settings.webhooksDesc')}
+                  </Text>
+                </Stack>
+                <WebhooksBody />
+              </Paper>
+            </>
+          )}
 
-      <Title order={2} size="h4" c="dimmed" mt="lg">
-        {t('settings.sectionData')}
-      </Title>
+          {category === 'data' && (
+            <>
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                {/* Output Retention */}
+                <Paper p="md" withBorder>
+                  <Title order={2} size="h5" mb="sm">
+                    {t('settings.outputRetention')}
+                  </Title>
+                  <Stack gap="sm">
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="sm">{t('settings.retentionPeriod')}</Text>
+                        <Text size="xs" c="dimmed">
+                          {t('settings.retentionPeriodDesc')}
+                        </Text>
+                      </Stack>
+                      {retentionQ.isLoading ? (
+                        <Skeleton height={30} width={100} radius="sm" aria-hidden />
+                      ) : (
+                        <NumberInput
+                          size="xs"
+                          w={100}
+                          min={1}
+                          max={365}
+                          value={cleanupDays}
+                          onChange={(v) => setCleanupDays(typeof v === 'number' ? v : '')}
+                          suffix={t('settings.daysSuffix')}
+                        />
+                      )}
+                    </Group>
 
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        {/* Output Retention */}
-        <Paper p="md" withBorder>
-          <Title order={2} size="h5" mb="sm">
-            {t('settings.outputRetention')}
-          </Title>
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.retentionPeriod')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.retentionPeriodDesc')}
-                </Text>
-              </Stack>
-              {retentionQ.isLoading ? (
-                <Skeleton height={30} width={100} radius="sm" aria-hidden />
-              ) : (
-                <NumberInput
-                  size="xs"
-                  w={100}
-                  min={1}
-                  max={365}
-                  value={cleanupDays}
-                  onChange={(v) => setCleanupDays(typeof v === 'number' ? v : '')}
-                  suffix={t('settings.daysSuffix')}
-                />
-              )}
-            </Group>
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="sm">{t('settings.autoCleanup')}</Text>
+                        <Text size="xs" c="dimmed">
+                          {t('settings.autoCleanupDesc')}
+                        </Text>
+                      </Stack>
+                      <Switch
+                        checked={autoCleanup}
+                        onChange={(e) => setAutoCleanup(e.currentTarget.checked)}
+                        size="md"
+                      />
+                    </Group>
 
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.autoCleanup')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.autoCleanupDesc')}
-                </Text>
-              </Stack>
-              <Switch
-                checked={autoCleanup}
-                onChange={(e) => setAutoCleanup(e.currentTarget.checked)}
-                size="md"
-              />
-            </Group>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        onClick={() => {
+                          retentionMutation.mutate({
+                            retentionDays: typeof cleanupDays === 'number' ? cleanupDays : 30,
+                            autoCleanup,
+                          });
+                        }}
+                        loading={retentionMutation.isPending}
+                      >
+                        {t('settings.saveSettings')}
+                      </Button>
+                      <Button
+                        size="xs"
+                        color="red"
+                        variant="subtle"
+                        leftSection={<TbTrash size={12} />}
+                        onClick={() => cleanupMutation.mutate()}
+                        loading={cleanupMutation.isPending}
+                        disabled={!cleanupDays}
+                      >
+                        {t('settings.cleanupNow')}
+                      </Button>
+                    </Group>
 
-            <Group gap="xs">
-              <Button
-                size="xs"
-                onClick={() => {
-                  retentionMutation.mutate({
-                    retentionDays: typeof cleanupDays === 'number' ? cleanupDays : 30,
-                    autoCleanup,
-                  });
-                }}
-                loading={retentionMutation.isPending}
-              >
-                {t('settings.saveSettings')}
-              </Button>
-              <Button
-                size="xs"
-                color="red"
-                variant="subtle"
-                leftSection={<TbTrash size={12} />}
-                onClick={() => cleanupMutation.mutate()}
-                loading={cleanupMutation.isPending}
-                disabled={!cleanupDays}
-              >
-                {t('settings.cleanupNow')}
-              </Button>
-            </Group>
+                    {/* Cleanup History */}
+                    <Divider />
+                    <Group
+                      gap="xs"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setHistoryOpen((v) => !v)}
+                    >
+                      <TbChevronRight
+                        size={12}
+                        style={{
+                          transform: historyOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                          transition: 'transform 150ms',
+                        }}
+                      />
+                      <Text size="xs" fw={600} c="dimmed">
+                        {t('settings.cleanupHistory')} ({cleanupHistoryQ.data?.length ?? 0})
+                      </Text>
+                    </Group>
+                    <Collapse expanded={historyOpen}>
+                      {cleanupHistoryQ.data && cleanupHistoryQ.data.length > 0 ? (
+                        <ScrollArea.Autosize mah="25vh">
+                          <Table striped highlightOnHover verticalSpacing={4}>
+                            <Table.Thead>
+                              <Table.Tr>
+                                <Table.Th>
+                                  <Text size="xs">{t('settings.colWhen')}</Text>
+                                </Table.Th>
+                                <Table.Th>
+                                  <Text size="xs">{t('settings.colDeleted')}</Text>
+                                </Table.Th>
+                                <Table.Th>
+                                  <Text size="xs">{t('settings.colRetention')}</Text>
+                                </Table.Th>
+                                <Table.Th>
+                                  <Text size="xs">{t('settings.colTrigger')}</Text>
+                                </Table.Th>
+                              </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                              {cleanupHistoryQ.data.map((h) => (
+                                <Table.Tr key={h.timestamp}>
+                                  <Table.Td>
+                                    <Text size="xs">{formatShort(h.timestamp)}</Text>
+                                  </Table.Td>
+                                  <Table.Td>
+                                    <Text size="xs" fw={500} c={h.deleted > 0 ? 'red' : 'dimmed'}>
+                                      {h.deleted}
+                                    </Text>
+                                  </Table.Td>
+                                  <Table.Td>
+                                    <Text size="xs">{h.retentionDays}d</Text>
+                                  </Table.Td>
+                                  <Table.Td>
+                                    <Badge
+                                      size="xs"
+                                      color={h.trigger === 'auto' ? 'blue' : 'gray'}
+                                      variant="light"
+                                    >
+                                      {h.trigger}
+                                    </Badge>
+                                  </Table.Td>
+                                </Table.Tr>
+                              ))}
+                            </Table.Tbody>
+                          </Table>
+                        </ScrollArea.Autosize>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          {t('settings.noCleanup')}
+                        </Text>
+                      )}
+                    </Collapse>
+                  </Stack>
+                </Paper>
 
-            {/* Cleanup History */}
-            <Divider />
-            <Group gap="xs" style={{ cursor: 'pointer' }} onClick={() => setHistoryOpen((v) => !v)}>
-              <TbChevronRight
-                size={12}
-                style={{
-                  transform: historyOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                  transition: 'transform 150ms',
-                }}
-              />
-              <Text size="xs" fw={600} c="dimmed">
-                {t('settings.cleanupHistory')} ({cleanupHistoryQ.data?.length ?? 0})
-              </Text>
-            </Group>
-            <Collapse expanded={historyOpen}>
-              {cleanupHistoryQ.data && cleanupHistoryQ.data.length > 0 ? (
-                <ScrollArea.Autosize mah="25vh">
-                  <Table striped highlightOnHover verticalSpacing={4}>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>
-                          <Text size="xs">{t('settings.colWhen')}</Text>
-                        </Table.Th>
-                        <Table.Th>
-                          <Text size="xs">{t('settings.colDeleted')}</Text>
-                        </Table.Th>
-                        <Table.Th>
-                          <Text size="xs">{t('settings.colRetention')}</Text>
-                        </Table.Th>
-                        <Table.Th>
-                          <Text size="xs">{t('settings.colTrigger')}</Text>
-                        </Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {cleanupHistoryQ.data.map((h) => (
-                        <Table.Tr key={h.timestamp}>
-                          <Table.Td>
-                            <Text size="xs">{formatShort(h.timestamp)}</Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs" fw={500} c={h.deleted > 0 ? 'red' : 'dimmed'}>
-                              {h.deleted}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs">{h.retentionDays}d</Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge
-                              size="xs"
-                              color={h.trigger === 'auto' ? 'blue' : 'gray'}
-                              variant="light"
-                            >
-                              {h.trigger}
-                            </Badge>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea.Autosize>
-              ) : (
-                <Text size="xs" c="dimmed">
-                  {t('settings.noCleanup')}
-                </Text>
-              )}
-            </Collapse>
-          </Stack>
-        </Paper>
+                {/* Data */}
+                <Paper p="md" withBorder>
+                  <Title order={2} size="h5" mb="sm">
+                    {t('settings.dataStorage')}
+                  </Title>
+                  <Stack gap="sm">
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="sm">{t('settings.showOnboarding')}</Text>
+                        <Text size="xs" c="dimmed">
+                          {t('settings.showOnboardingDesc')}
+                        </Text>
+                      </Stack>
+                      <Switch
+                        checked={showOnboarding}
+                        onChange={() => toggleOnboarding()}
+                        size="md"
+                      />
+                    </Group>
 
-        {/* Data */}
-        <Paper p="md" withBorder>
-          <Title order={2} size="h5" mb="sm">
-            {t('settings.dataStorage')}
-          </Title>
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.showOnboarding')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.showOnboardingDesc')}
-                </Text>
-              </Stack>
-              <Switch checked={showOnboarding} onChange={() => toggleOnboarding()} size="md" />
-            </Group>
+                    <Divider />
 
-            <Divider />
-
-            {/* Projects/tools added outside the Hub (git clone, file copy) are
+                    {/* Projects/tools added outside the Hub (git clone, file copy) are
                 invisible until the workspace is re-scanned. Exposing it here
                 saves a terminal trip. */}
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.resync')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.resyncDesc')}
-                </Text>
-              </Stack>
-              <Button
-                size="xs"
-                variant="light"
-                leftSection={<TbRefresh size={14} />}
-                loading={resync.isPending}
-                onClick={() =>
-                  resync.mutate(undefined, {
-                    onSuccess: () => toast.success(t('settings.resyncDone')),
-                  })
-                }
-              >
-                {t('settings.resyncAction')}
-              </Button>
-            </Group>
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="sm">{t('settings.resync')}</Text>
+                        <Text size="xs" c="dimmed">
+                          {t('settings.resyncDesc')}
+                        </Text>
+                      </Stack>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<TbRefresh size={14} />}
+                        loading={resync.isPending}
+                        onClick={() =>
+                          resync.mutate(undefined, {
+                            onSuccess: () => toast.success(t('settings.resyncDone')),
+                          })
+                        }
+                      >
+                        {t('settings.resyncAction')}
+                      </Button>
+                    </Group>
 
-            <Divider />
+                    <Divider />
 
-            <Group justify="space-between">
-              <Stack gap={2}>
-                <Text size="sm">{t('settings.resetPrefs')}</Text>
-                <Text size="xs" c="dimmed">
-                  {t('settings.resetPrefsDesc')}
-                </Text>
-              </Stack>
-              <Button
-                size="xs"
-                color="red"
-                variant="subtle"
-                onClick={async () => {
-                  const ok = await confirmDialog({
-                    title: t('settings.resetTitle'),
-                    message: t('settings.resetConfirm'),
-                    confirmLabel: t('settings.reset'),
-                    danger: true,
-                  });
-                  if (!ok) return;
-                  localStorage.removeItem('hub-preferences');
-                  localStorage.removeItem('hub-notification-sound');
-                  localStorage.removeItem('hub-desktop-notification');
-                  window.location.reload();
-                }}
-              >
-                {t('settings.resetAll')}
-              </Button>
-            </Group>
-          </Stack>
-        </Paper>
-      </SimpleGrid>
+                    <Group justify="space-between">
+                      <Stack gap={2}>
+                        <Text size="sm">{t('settings.resetPrefs')}</Text>
+                        <Text size="xs" c="dimmed">
+                          {t('settings.resetPrefsDesc')}
+                        </Text>
+                      </Stack>
+                      <Button
+                        size="xs"
+                        color="red"
+                        variant="subtle"
+                        onClick={async () => {
+                          const ok = await confirmDialog({
+                            title: t('settings.resetTitle'),
+                            message: t('settings.resetConfirm'),
+                            confirmLabel: t('settings.reset'),
+                            danger: true,
+                          });
+                          if (!ok) return;
+                          localStorage.removeItem('hub-preferences');
+                          localStorage.removeItem('hub-notification-sound');
+                          localStorage.removeItem('hub-desktop-notification');
+                          window.location.reload();
+                        }}
+                      >
+                        {t('settings.resetAll')}
+                      </Button>
+                    </Group>
+                  </Stack>
+                </Paper>
+              </SimpleGrid>
 
-      {/* Import / Export */}
-      <ImportExportPanel />
+              {/* Import / Export */}
+              <ImportExportPanel />
+            </>
+          )}
 
-      <UsageLoggingSetup />
+          {category === 'system' && (
+            <>
+              {/* System Update */}
+              <Paper p="md" withBorder>
+                <Title order={2} size="h5" mb="sm">
+                  {t('settings.systemUpdate')}
+                </Title>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Stack gap={2}>
+                      <Text size="sm">{t('settings.updateHub')}</Text>
+                      <Text size="xs" c="dimmed">
+                        {t('settings.updateHubDesc')}
+                      </Text>
+                      {updateStatus && (
+                        <Text size="xs" c="blue" fw={500}>
+                          {updateStatus}
+                        </Text>
+                      )}
+                    </Stack>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="blue"
+                      leftSection={<TbRefresh size={14} />}
+                      loading={isUpdating}
+                      disabled={isUpdating}
+                      onClick={runUpdate}
+                    >
+                      {isUpdating ? t('settings.updating') : t('settings.update')}
+                    </Button>
+                  </Group>
+                </Stack>
+              </Paper>
 
-      {/* System Update */}
-      <Paper p="md" withBorder>
-        <Title order={2} size="h5" mb="sm">
-          {t('settings.systemUpdate')}
-        </Title>
-        <Stack gap="sm">
-          <Group justify="space-between">
-            <Stack gap={2}>
-              <Text size="sm">{t('settings.updateHub')}</Text>
-              <Text size="xs" c="dimmed">
-                {t('settings.updateHubDesc')}
-              </Text>
-              {updateStatus && (
-                <Text size="xs" c="blue" fw={500}>
-                  {updateStatus}
-                </Text>
-              )}
-            </Stack>
-            <Button
-              size="xs"
-              variant="light"
-              color="blue"
-              leftSection={<TbRefresh size={14} />}
-              loading={isUpdating}
-              disabled={isUpdating}
-              onClick={runUpdate}
-            >
-              {isUpdating ? t('settings.updating') : t('settings.update')}
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
+              <UsageLoggingSetup />
 
-      <Title order={2} size="h4" c="dimmed" mt="lg">
-        {t('settings.sectionExtras')}
-      </Title>
+              <Paper p="md" withBorder>
+                <Stack gap={4} mb="sm">
+                  <Group gap="xs">
+                    <TbBrandDocker size={18} />
+                    <Title order={2} size="h5">
+                      {t('settings.dockerServices')}
+                    </Title>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    {t('settings.dockerServicesDesc')}
+                  </Text>
+                </Stack>
+                <DockerServicesBody />
+              </Paper>
+            </>
+          )}
 
-      <Paper p="md" withBorder>
-        <Stack gap={4} mb="sm">
-          <Group gap="xs">
-            <TbBrandDocker size={18} />
-            <Title order={2} size="h5">
-              {t('settings.dockerServices')}
-            </Title>
-          </Group>
-          <Text size="xs" c="dimmed">
-            {t('settings.dockerServicesDesc')}
-          </Text>
-        </Stack>
-        <DockerServicesBody />
-      </Paper>
+          {category === 'about' && (
+            <>
+              {/* About */}
+              <Paper p="md" withBorder>
+                <Title order={2} size="h5" mb="sm">
+                  {t('settings.about')}
+                </Title>
+                <Stack gap={4}>
+                  <Text size="xs" c="dimmed">
+                    AutoQA Hub v{import.meta.env.VITE_APP_VERSION} — Test Execution Manager
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Copyright © 2026-present{' '}
+                    <Anchor
+                      href="https://www.linkedin.com/in/decha-laowraddecha-56b686232/"
+                      target="_blank"
+                      underline="always"
+                    >
+                      Decha_L
+                    </Anchor>
+                    . {t('settings.allRightsReserved')}
+                  </Text>
+                </Stack>
+              </Paper>
 
-      <Title order={2} size="h4" c="dimmed" mt="lg">
-        {t('settings.sectionAbout')}
-      </Title>
-
-      {/* About */}
-      <Paper p="md" withBorder>
-        <Title order={2} size="h5" mb="sm">
-          {t('settings.about')}
-        </Title>
-        <Stack gap={4}>
-          <Text size="xs" c="dimmed">
-            AutoQA Hub v{import.meta.env.VITE_APP_VERSION} — Test Execution Manager
-          </Text>
-          <Text size="xs" c="dimmed">
-            Copyright © 2026-present{' '}
-            <Anchor
-              href="https://www.linkedin.com/in/decha-laowraddecha-56b686232/"
-              target="_blank"
-              underline="always"
-            >
-              Decha_L
-            </Anchor>
-            . {t('settings.allRightsReserved')}
-          </Text>
-        </Stack>
-      </Paper>
-
-      {/* Support / Donate — drop your PromptPay QR image at
+              {/* Support / Donate — drop your PromptPay QR image at
           hub/client/public/promptpay-qr.png (served at /promptpay-qr.png). */}
-      <Paper p="md" withBorder>
-        <Title order={2} size="h5" mb="sm">
-          {t('settings.support')}
-        </Title>
-        <Stack gap={6}>
-          <Text size="sm">{t('settings.supportDesc')}</Text>
-          <Button
-            variant="subtle"
-            size="compact-sm"
-            px={0}
-            leftSection={<TbQrcode size={16} />}
-            onClick={openQr}
-            style={{ alignSelf: 'flex-start' }}
-          >
-            {t('settings.scanToDonate')}
-          </Button>
+              <Paper p="md" withBorder>
+                <Title order={2} size="h5" mb="sm">
+                  {t('settings.support')}
+                </Title>
+                <Stack gap={6}>
+                  <Text size="sm">{t('settings.supportDesc')}</Text>
+                  <Button
+                    variant="subtle"
+                    size="compact-sm"
+                    px={0}
+                    leftSection={<TbQrcode size={16} />}
+                    onClick={openQr}
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    {t('settings.scanToDonate')}
+                  </Button>
+                </Stack>
+              </Paper>
+            </>
+          )}
         </Stack>
-      </Paper>
+      </Flex>
 
       <Modal opened={qrOpened} onClose={closeQr} title={t('settings.support')} centered size="auto">
         <Stack align="center" gap="sm">

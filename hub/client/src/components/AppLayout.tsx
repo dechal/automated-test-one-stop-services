@@ -11,7 +11,6 @@ import {
   Kbd,
   NavLink,
   ScrollArea,
-  Switch,
   Text,
   Title,
   Tooltip,
@@ -65,8 +64,6 @@ export function AppLayout() {
 
   const [opened, { toggle, close }] = useDisclosure();
   const [floatingOpen, setFloatingOpen] = useState(false);
-  const advancedMode = usePreferences((s) => s.advancedMode);
-  const setAdvancedMode = usePreferences((s) => s.setAdvancedMode);
   const navRailCollapsed = usePreferences((s) => s.navRailCollapsed);
   const setNavRailCollapsed = usePreferences((s) => s.setNavRailCollapsed);
   // The rail only applies where the navbar is a static column. Below the
@@ -307,30 +304,6 @@ export function AppLayout() {
                 >
                   {t('common.search')}
                 </Button>
-              </Tooltip>
-              <Tooltip
-                label={advancedMode ? t('common.advancedModeOn') : t('common.advancedModeOff')}
-                withArrow
-                multiline
-                w={260}
-              >
-                <Switch
-                  size="sm"
-                  labelPosition="left"
-                  // The text label is dropped below md so the header cannot
-                  // crowd on a laptop width; the tooltip + aria-label carry the
-                  // meaning when only the switch is visible.
-                  label={
-                    <Text size="xs" visibleFrom="md">
-                      {t('common.advancedMode')}
-                    </Text>
-                  }
-                  aria-label={t('common.advancedMode')}
-                  checked={advancedMode}
-                  onChange={(e) => {
-                    setAdvancedMode(e.currentTarget.checked);
-                  }}
-                />
               </Tooltip>
               <LanguageToggle />
               <NotificationCenter />

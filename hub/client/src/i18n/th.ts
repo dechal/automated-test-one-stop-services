@@ -84,6 +84,9 @@ export const th: Record<TranslationKey, string> = {
   'settings.sectionData': 'ข้อมูลและพื้นที่',
   'settings.sectionExtras': 'บริการเสริม',
   'settings.sectionAbout': 'เกี่ยวกับ',
+  'settings.categoryExecution': 'การทำงาน',
+  'settings.categorySystem': 'ระบบ',
+  'settings.categoryAbout': 'เกี่ยวกับ',
   'settings.dockerServices': 'Docker Services',
   'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana สำหรับงานมือถือและทดสอบประสิทธิภาพ',
   'settings.manageDocker': 'จัดการ Docker',
@@ -1089,6 +1092,13 @@ export const th: Record<TranslationKey, string> = {
   'common.advancedMode': 'โหมดขั้นสูง',
   'common.advancedModeOn': 'เปิดโหมดขั้นสูง — แสดงคอลัมน์และช่องกรอกเชิงเทคนิคครบทุกอย่าง',
   'common.advancedModeOff': 'มุมมองแบบง่าย — ซ่อนรายละเอียดเชิงเทคนิคไว้ ไม่ได้ลบข้อมูลทิ้ง',
+  'settings.advancedModeReveals': 'เปิดแล้วจะเห็นเพิ่ม:',
+  'settings.advancedModeRevealRun':
+    'หน้า Run — ช่อง CLI args ดิบ แถบ shell command คำสั่งที่กำลังรัน และโหมดรันแบบ Docker หรือ local (มุมมองแบบง่ายล็อกให้รันบน local)',
+  'settings.advancedModeRevealColumns':
+    'ตาราง — คอลัมน์ Tool กับ Mode ในหน้า Reports และคอลัมน์ Exit code ในหน้า History',
+  'settings.advancedModeRevealDoctor':
+    'Doctor — รายการตรวจ infrastructure เสริม (Docker, InfluxDB, Grafana)',
   'run.technicalOutput': 'ผลการรัน',
   'run.verdictAllPassed': 'ผ่านทั้งหมด {total} ข้อ',
   'run.verdictFailed': 'ไม่ผ่าน {failed} จาก {total} ข้อ',

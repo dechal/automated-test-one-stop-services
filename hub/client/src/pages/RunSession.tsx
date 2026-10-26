@@ -961,26 +961,34 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                   <Select
                     label={t('run.environment')}
                     size="xs"
+                    radius="xl"
                     disabled={isRunning || !project}
                     value={envProfileId}
                     onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
                     data={envOptions}
                     allowDeselect={false}
                     searchable
+                    rightSectionPointerEvents="auto"
+                    rightSectionWidth={34}
+                    rightSection={
+                      <Tooltip label={t('run.manageEnv')} withArrow>
+                        <ActionIcon
+                          size="sm"
+                          variant="subtle"
+                          color="gray"
+                          disabled={isRunning || !project}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEnvDrawer();
+                          }}
+                          aria-label={t('run.manageEnv')}
+                        >
+                          <TbSettings size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    }
                   />
                 </SimpleGrid>
-                <Tooltip label={t('run.manageEnv')} withArrow>
-                  <ActionIcon
-                    size="lg"
-                    variant="default"
-                    disabled={isRunning || !project}
-                    onClick={openEnvDrawer}
-                    aria-label={t('run.manageEnv')}
-                    style={{ flex: 'none' }}
-                  >
-                    <TbSettings size={18} />
-                  </ActionIcon>
-                </Tooltip>
                 {collapseToggle}
               </Group>
 
@@ -1136,18 +1144,17 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                           />
                         </>
                       )}
+                      {advancedMode && !sectionAxis && (
+                        <TextInput
+                          label={t('run.extraArgs')}
+                          size="xs"
+                          disabled={isRunning}
+                          value={extraArgs}
+                          onChange={(e) => setExtraArgs(e.currentTarget.value)}
+                          placeholder="--debug"
+                        />
+                      )}
                     </SimpleGrid>
-
-                    {advancedMode && !sectionAxis && (
-                      <TextInput
-                        label={t('run.extraArgs')}
-                        size="xs"
-                        disabled={isRunning}
-                        value={extraArgs}
-                        onChange={(e) => setExtraArgs(e.currentTarget.value)}
-                        placeholder="--debug"
-                      />
-                    )}
 
                     <Group gap="lg" wrap="wrap">
                       {!config.data?.forceTrack && (

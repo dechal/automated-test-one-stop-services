@@ -135,7 +135,7 @@ const dockerRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/docker',
   beforeLoad: () => {
-    throw redirect({ to: '/settings' });
+    throw redirect({ to: '/settings', search: { cat: 'system' } });
   },
   pendingComponent: GridPending,
 });
@@ -144,14 +144,22 @@ const webhooksRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/webhooks',
   beforeLoad: () => {
-    throw redirect({ to: '/settings' });
+    throw redirect({ to: '/settings', search: { cat: 'notifications' } });
   },
   pendingComponent: ListPending,
 });
 
-const settingsRoute = createRoute({
+const SETTINGS_CATEGORIES = ['general', 'execution', 'notifications', 'data', 'system'] as const;
+type SettingsCat = (typeof SETTINGS_CATEGORIES)[number];
+
+export const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
+  validateSearch: (search: Record<string, unknown>): { cat?: SettingsCat } => ({
+    cat: SETTINGS_CATEGORIES.includes(search.cat as SettingsCat)
+      ? (search.cat as SettingsCat)
+      : undefined,
+  }),
   component: lazyRouteComponent(() => import('./pages/Settings.js'), 'SettingsPage'),
   pendingComponent: ListPending,
 });

@@ -82,6 +82,9 @@ export const en = {
   'settings.sectionData': 'Data & storage',
   'settings.sectionExtras': 'Extra services',
   'settings.sectionAbout': 'About',
+  'settings.categoryExecution': 'Execution',
+  'settings.categorySystem': 'System',
+  'settings.categoryAbout': 'About',
   'settings.dockerServices': 'Docker Services',
   'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana for mobile and performance runs',
   'settings.manageDocker': 'Manage Docker',
@@ -1111,6 +1114,13 @@ export const en = {
   'common.advancedMode': 'Advanced mode',
   'common.advancedModeOn': 'Advanced mode on — every technical column and field is shown',
   'common.advancedModeOff': 'Simple view — technical details are hidden, nothing is deleted',
+  'settings.advancedModeReveals': 'Turning it on reveals:',
+  'settings.advancedModeRevealRun':
+    'Run page — raw CLI args, the shell command bar, the live command, and the Docker vs local run mode (simple view pins runs to local)',
+  'settings.advancedModeRevealColumns':
+    'Tables — Tool and Mode columns on Reports, the Exit code column on History',
+  'settings.advancedModeRevealDoctor':
+    'Doctor — the optional infrastructure checks (Docker, InfluxDB, Grafana)',
   'run.technicalOutput': 'Run output',
   'run.verdictAllPassed': 'All {total} checks passed',
   'run.verdictFailed': '{failed} of {total} checks did not pass',
