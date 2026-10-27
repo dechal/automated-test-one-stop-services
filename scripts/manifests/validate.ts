@@ -97,6 +97,8 @@ const TagsCapabilitySchema = z.object({
  *   - `typeAxis === false` ⇒ `fixedType` must be a non-null string.
  *   - `runner.steps[].id` must be unique within the array.
  */
+export const DEFAULT_RUNNER_COMMAND_TEMPLATE = 'task {ns}:{executionType}-{environment}';
+
 export const ToolManifestSchema = z.object({
   $schema: z.string().optional(),
   schemaVersion: z.literal('1'),
@@ -128,6 +130,7 @@ export const ToolManifestSchema = z.object({
     template: z.string(),
     anchor: z.string(),
     networks: z.array(NamespaceSchema),
+    services: z.string().min(1).optional(),
   }),
   tsconfigGen: z
     .object({
@@ -142,7 +145,7 @@ export const ToolManifestSchema = z.object({
     extras: z.array(z.string()),
   }),
   runner: z.object({
-    taskNamespace: NamespaceSchema,
+    taskNamespace: NamespaceSchema.optional(),
     title: z.string(),
     executionTypes: z.array(
       z.object({
@@ -157,7 +160,7 @@ export const ToolManifestSchema = z.object({
       .refine((steps) => new Set(steps.map((s) => s.id)).size === steps.length, {
         message: 'runner.steps[].id must be unique',
       }),
-    commandTemplate: z.string(),
+    commandTemplate: z.string().optional(),
   }),
   pipeline: z.object({
     id: z.string(),
@@ -171,6 +174,16 @@ export const ToolManifestSchema = z.object({
   reports: ReportsCapabilitySchema.optional(),
   tags: TagsCapabilitySchema.optional(),
   versionFrom: z.object({ file: z.string().min(1), dependency: z.string().min(1) }).optional(),
+  requires: z
+    .array(
+      z.object({
+        cmd: z.string().regex(/^[A-Za-z0-9._-]+$/),
+        args: z.array(z.string().regex(/^[A-Za-z0-9._=-]+$/)).default([]),
+        hint: z.string().default(''),
+        optional: z.boolean().default(false),
+      }),
+    )
+    .default([]),
 });
 
 /** Successful single-manifest validation carries the fully-typed manifest. */
@@ -210,7 +223,13 @@ export function validateManifest(input: unknown): ValidateManifestResult {
     // zod infers `id`/`alias` as plain `string`; the manifest contract brands
     // them as `ToolId`/`ToolAlias`. The values are structurally identical, so a
     // single cast through `unknown` re-attaches the nominal brands.
-    return { ok: true, manifest: parsed.data as unknown as ToolManifest };
+    const data = parsed.data;
+    const runner = {
+      ...data.runner,
+      taskNamespace: data.runner.taskNamespace ?? data.alias,
+      commandTemplate: data.runner.commandTemplate ?? DEFAULT_RUNNER_COMMAND_TEMPLATE,
+    };
+    return { ok: true, manifest: { ...data, runner } as unknown as ToolManifest };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, errors: [{ code: 'SCHEMA_FAIL', message }] };

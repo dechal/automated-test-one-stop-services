@@ -212,12 +212,39 @@ function buildPlaywrightTsconfig(project: string): string {
   return `${JSON.stringify(config, null, 2)}\n`;
 }
 
+const DEFAULT_PNPM = 'pnpm@11.23.0';
+const DEFAULT_PLAYWRIGHT_VERSION = '1.63.0';
+
+interface ToolPackageVersions {
+  readonly packageManager: string;
+  readonly playwright: string;
+}
+
+function readToolPackageVersions(tool: string): ToolPackageVersions {
+  try {
+    const raw = fs.readFileSync(path.join(TOOLS_DIR, tool, 'package.json'), 'utf8');
+    const parsed = JSON.parse(raw) as {
+      packageManager?: unknown;
+      devDependencies?: Record<string, unknown>;
+    };
+    const pw = parsed.devDependencies?.['@playwright/test'];
+    return {
+      packageManager:
+        typeof parsed.packageManager === 'string' ? parsed.packageManager : DEFAULT_PNPM,
+      playwright: typeof pw === 'string' ? pw.replace(/^[\^~]/, '') : DEFAULT_PLAYWRIGHT_VERSION,
+    };
+  } catch {
+    return { packageManager: DEFAULT_PNPM, playwright: DEFAULT_PLAYWRIGHT_VERSION };
+  }
+}
+
 function buildPlaywrightPackageJson(project: string): string {
+  const versions = readToolPackageVersions('playwright');
   const pkg = {
     name: project,
     version: '1.0.0',
     private: true,
-    packageManager: 'pnpm@11.23.0',
+    packageManager: versions.packageManager,
     scripts: {
       test: 'dotenvx run -- playwright test',
       typecheck: 'tsc --noEmit -p tsconfig.json',
@@ -226,7 +253,7 @@ function buildPlaywrightPackageJson(project: string): string {
       '@dotenvx/dotenvx': '^1.51.0',
       '@faker-js/faker': '^10.5.0',
       '@json2csv/plainjs': '^7.0.7',
-      '@playwright/test': '1.63.0',
+      '@playwright/test': versions.playwright,
       dayjs: '^1.11.13',
       'deepmerge-ts': '^7.1.5',
       imapflow: '^1.4.7',
@@ -246,9 +273,10 @@ function buildPlaywrightGitignore(): string {
 }
 
 function buildPlaywrightDockerfile(): string {
+  const versions = readToolPackageVersions('playwright');
   return [
-    'FROM mcr.microsoft.com/playwright:v1.63.0-noble',
-    'RUN corepack enable && corepack prepare pnpm@11.23.0 --activate',
+    `FROM mcr.microsoft.com/playwright:v${versions.playwright}-noble`,
+    `RUN corepack enable && corepack prepare ${versions.packageManager} --activate`,
     'WORKDIR /app',
     'COPY package.json pnpm-lock.yaml* ./',
     'RUN pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile',
@@ -477,7 +505,7 @@ function buildK6PackageJson(project: string): string {
     version: '1.0.0',
     private: true,
     type: 'module',
-    packageManager: 'pnpm@11.23.0',
+    packageManager: readToolPackageVersions('k6').packageManager,
     scripts: {
       typecheck: 'tsc --noEmit -p tsconfig.json',
     },

@@ -15,7 +15,8 @@
     "noEmit": true,
     "paths": {
       "@hub/shared": ["../shared/src/index.ts"],
-      "@server/*": ["./src/*"]
+      "@server/*": ["./src/*"],
+      "@manifests/*": ["../../scripts/manifests/*"]
     }
   },
   "include": ["src/**/*"]

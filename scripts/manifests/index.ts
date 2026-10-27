@@ -16,14 +16,7 @@ import * as path from 'node:path';
 import { z } from 'zod';
 import { discoverManifestPaths } from './discover.js';
 import { createEnabledResolver } from './overrides.js';
-import type {
-  ManifestError,
-  ToolAlias,
-  ToolId,
-  ToolManifest,
-  ToolManifestRecord,
-  ToolRegistry,
-} from './types.js';
+import type { ManifestError, ToolManifest, ToolManifestRecord, ToolRegistry } from './types.js';
 import { validateManifest, validateRegistry } from './validate.js';
 
 export {
@@ -152,8 +145,8 @@ export interface ManifestRegistry {
   all(): readonly ToolManifestRecord[];
   /** Manifests that validated AND resolve to enabled. */
   enabled(): readonly ToolManifest[];
-  byId(id: ToolId): ToolManifest | undefined;
-  byAlias(alias: ToolAlias): ToolManifest | undefined;
+  byId(id: string): ToolManifest | undefined;
+  byAlias(alias: string): ToolManifest | undefined;
   byNamespace(namespace: string): ToolManifest | undefined;
   /** Re-scan disk and re-validate. Idempotent — repeated calls converge. */
   refresh(): Promise<void>;
@@ -263,7 +256,7 @@ export function createManifestRegistry(workspaceRoot: string): ManifestRegistry 
  */
 export async function setToolEnabled(
   registry: ManifestRegistry,
-  id: ToolId,
+  id: string,
   enabled: boolean,
 ): Promise<ToolManifestRecord> {
   const record = registry.all().find((r) => r.manifest?.id === id);

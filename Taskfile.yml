@@ -18,18 +18,10 @@ version: "3"
 # ==============================================================================
 
 includes:
-  pw:
-    taskfile: ./tools/playwright/Taskfile.yml
-    dir: ./tools/playwright
+  tools:
+    taskfile: ./Taskfile.tools.yml
     optional: true
-  robot:
-    taskfile: ./tools/robot-framework/Taskfile.yml
-    dir: ./tools/robot-framework
-    optional: true
-  k6:
-    taskfile: ./tools/k6/Taskfile.yml
-    dir: ./tools/k6
-    optional: true
+    flatten: true
 
 env:
   # Test-output run folder segments:
@@ -91,10 +83,7 @@ tasks:
         echo ""
         echo "  Direct Commands (skip menu):"
         echo "  --------------------------------------------------------------------------"
-        echo "  task pw:run-local PROJECT=<name> TYPE=web TAG='@smoke' -- --headed"
-        echo "  task pw:run-docker PROJECT=<name> TYPE=web"
-        echo "  task robot:run-local PROJECT=<name> TYPE=web TAG=login"
-        echo "  task k6:run-local PROJECT=<name> SECTION=<name> PERFORMANCE_TYPE=LOAD"
+        tsx scripts/tools-info.ts commands
         echo ""
         echo "  Setup & Maintenance:"
         echo "  --------------------------------------------------------------------------"
@@ -114,8 +103,8 @@ tasks:
         echo ""
         echo "  Tips:"
         echo "  --------------------------------------------------------------------------"
-        echo "  * Use task pw:tags PROJECT=<name> TYPE=web to list all tags"
-        echo "  * Pass extra args after --, e.g. task pw:run-local ... -- --headed --workers=2"
+        echo "  * Use task <ns>:tags PROJECT=<name> TYPE=<type> to list all tags"
+        echo "  * Pass extra args after --, e.g. task <ns>:run-local ... -- --headed"
         echo "  * Add TRACK=none to skip Google Sheet logging"
         echo ""
 
@@ -123,64 +112,7 @@ tasks:
     desc: List all detected projects across tools
     silent: true
     cmds:
-      - |
-        echo ""
-        echo "Projects Overview"
-        echo "============================================================================"
-        echo ""
-        echo "  Playwright:"
-        for type_dir in tools/playwright/projects/*/; do
-            [ ! -d "$type_dir" ] && continue
-            type_name=$(basename "$type_dir")
-            projects=""
-            for proj_dir in "$type_dir"*/; do
-                [ ! -d "$proj_dir" ] && continue
-                proj_name=$(basename "$proj_dir")
-                [[ "$proj_name" == *template* ]] && continue
-                projects="$projects $proj_name"
-            done
-            if [ -n "$projects" ]; then
-                echo "     [$type_name]:$projects"
-            else
-                echo "     [$type_name]: (none)"
-            fi
-        done
-        echo ""
-        echo "  Robot Framework:"
-        for type_dir in tools/robot-framework/projects/*/; do
-            [ ! -d "$type_dir" ] && continue
-            type_name=$(basename "$type_dir")
-            projects=""
-            for proj_dir in "$type_dir"*/; do
-                [ ! -d "$proj_dir" ] && continue
-                proj_name=$(basename "$proj_dir")
-                [[ "$proj_name" == *template* ]] && continue
-                projects="$projects $proj_name"
-            done
-            if [ -n "$projects" ]; then
-                echo "     [$type_name]:$projects"
-            else
-                echo "     [$type_name]: (none)"
-            fi
-        done
-        echo ""
-        echo "  k6 (Performance):"
-        projects=""
-        for proj_dir in tools/k6/projects/performance/*/; do
-            [ ! -d "$proj_dir" ] && continue
-            proj_name=$(basename "$proj_dir")
-            [[ "$proj_name" == *template* ]] && continue
-            projects="$projects $proj_name"
-        done
-        if [ -n "$projects" ]; then
-            echo "     [performance]:$projects"
-        else
-            echo "     [performance]: (none)"
-        fi
-        echo ""
-        echo "============================================================================"
-        echo "  Use 'task create-project' to scaffold a new project"
-        echo ""
+      - tsx scripts/tools-info.ts status
 
   # ==============================================================================
   # UTILITIES
@@ -285,7 +217,7 @@ tasks:
       - node scripts/setup/uninstall.mjs {{.CLI_ARGS}}
 
   doctor:
-    desc: Check environment (node, pnpm, uv, task, k6, docker, playwright-cli)
+    desc: Check environment (node, pnpm, uv, task, docker + each installed tool's requires)
     silent: true
     cmds:
       - |
@@ -296,9 +228,8 @@ tasks:
         check "pnpm" "-v"
         check "uv" "--version"
         check "task" "--version"
-        check "k6" "version"
         check "docker" "--version"
-        check "playwright-cli" "--version"
+        tsx scripts/tools-info.ts doctor
         echo ""
         echo "Environment check complete."
 
@@ -314,7 +245,9 @@ tasks:
       - |
         echo "Cleaning outputs and ephemeral artifacts..."
         echo ""
-        rm -rf outputs/playwright outputs/k6 outputs/robot-framework 2>/dev/null
+        for tool_dir in tools/*/; do
+            [ -f "${tool_dir}tool.manifest.json" ] && rm -rf "outputs/$(basename "$tool_dir")" 2>/dev/null
+        done
         rm -rf .playwright-mcp .playwright-cli .cache/deletable/playwright-cli 2>/dev/null
         # Cross-platform artifact sweep (replaces GNU `find ... -exec rm -rf`):
         # node is a Core tool, so `task clean` runs from cmd/PowerShell/Git Bash.

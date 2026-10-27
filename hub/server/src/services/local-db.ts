@@ -14,14 +14,7 @@ import {
   schedulesRepo,
   webhooksRepo,
 } from './db-repositories.js';
-import {
-  hasColumn,
-  type Row,
-  SCHEMA_DDL,
-  SCHEMA_VERSION,
-  SCHEMA_VERSION_KEY,
-  tableExists,
-} from './db-schema.js';
+import { type Row, SCHEMA_DDL, SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './db-schema.js';
 
 /**
  * Local_DB — node:sqlite backing store with a NORMALIZED schema.
@@ -68,22 +61,6 @@ const DOC_REPOS: Readonly<Record<string, DocRepo<unknown>>> = {
   'retention.json': retentionRepo as DocRepo<unknown>,
   'dashboard-layout.json': dashboardRepo as DocRepo<unknown>,
 };
-
-/**
- * Legacy blob-shaped tables (old "one JSON blob per row" layout) to detect and
- * upgrade on open. `marker` is a column that only exists in the NEW normalized
- * shape; its absence (with a `data` column present) flags an old table.
- */
-const LEGACY_BLOB_TABLES: ReadonlyArray<{ dataset: string; table: string; marker: string }> = [
-  { dataset: HISTORY_COLLECTION, table: 'history', marker: 'req_tool' },
-  { dataset: 'schedules.json', table: 'schedules', marker: 'name' },
-  { dataset: 'bookmarks.json', table: 'bookmarks', marker: 'name' },
-  { dataset: 'webhooks.json', table: 'webhooks', marker: 'platform' },
-  { dataset: 'env-profiles.json', table: 'env_profiles', marker: 'name' },
-  { dataset: 'annotations.json', table: 'annotations', marker: 'report_id' },
-  // matrix_runs was a per-feature blob table; it now lives in kv_store.
-  { dataset: 'matrix-runs.json', table: 'matrix_runs', marker: '__never__' },
-];
 
 export interface LocalDb {
   /** Read a dataset as an array. Returns `[]` when absent. */
@@ -142,20 +119,8 @@ export function openLocalDb(dbPath: string): LocalDb {
     }
   }
 
-  // --- legacy upgrade (only when the schema is not already current) ---------
-  const currentVersion = Number(getMeta(SCHEMA_VERSION_KEY) ?? '0');
-  let legacyStash: Record<string, unknown[]> = {};
-  if (currentVersion < SCHEMA_VERSION) {
-    legacyStash = drainLegacyBlobTables(db);
-  }
-
   // Prepare the normalized schema (idempotent).
   db.exec(SCHEMA_DDL);
-
-  // Additive migration: `CREATE TABLE IF NOT EXISTS` never alters an existing
-  // table, so add the summary columns to history DBs created before they
-  // existed. Guarded by `hasColumn`, so this is a no-op on current DBs.
-  ensureHistorySummaryColumns(db);
 
   // --- repo dispatch helpers -------------------------------------------------
   function writeDataset(name: string, rows: unknown[] | unknown): void {
@@ -196,18 +161,6 @@ export function openLocalDb(dbPath: string): LocalDb {
       return undefined;
     }
   }
-
-  // Re-insert anything rescued from a legacy upgrade, now that the schema and
-  // dispatch helpers exist.
-  if (Object.keys(legacyStash).length > 0) {
-    transact(() => {
-      for (const [name, items] of Object.entries(legacyStash)) writeDataset(name, items);
-    });
-  }
-
-  // Migrate any legacy `kv_store` rows that now belong in a normalized table
-  // (older DBs kept retention/dashboard and sometimes whole collections here).
-  migrateLegacyKvRows(db, transact, writeDataset);
 
   // Record the current schema version so the upgrade path is skipped next time.
   db.prepare(
@@ -261,118 +214,4 @@ export function openLocalDb(dbPath: string): LocalDb {
       });
     },
   };
-}
-
-/**
- * Add columns to an existing `history` table when missing. Idempotent: each
- * `ALTER TABLE` runs only when `hasColumn` reports the column absent, so this is
- * a no-op once the columns exist (or for a fresh DB where SCHEMA_DDL already
- * created them). Covers `summary_*` (INTEGER) and `triggered_by` (TEXT).
- */
-function ensureHistorySummaryColumns(db: DatabaseSync): void {
-  for (const col of ['summary_passed', 'summary_failed', 'summary_skipped']) {
-    if (!hasColumn(db, 'history', col)) {
-      db.exec(`ALTER TABLE history ADD COLUMN ${col} INTEGER`);
-    }
-  }
-  if (!hasColumn(db, 'history', 'triggered_by')) {
-    db.exec('ALTER TABLE history ADD COLUMN triggered_by TEXT');
-  }
-  if (!hasColumn(db, 'history', 'output_stamp')) {
-    db.exec('ALTER TABLE history ADD COLUMN output_stamp TEXT');
-  }
-  if (!hasColumn(db, 'history', 'environment')) {
-    db.exec('ALTER TABLE history ADD COLUMN environment TEXT');
-  }
-  if (!hasColumn(db, 'history', 'env_profile_name')) {
-    db.exec('ALTER TABLE history ADD COLUMN env_profile_name TEXT');
-  }
-  // `req_discard_report` joined the flattened RunRequest later than the rest, so
-  // every table that embeds RUN_REQUEST_DDL needs it back-filled on an older DB.
-  for (const table of ['history', 'schedules', 'bookmarks']) {
-    if (tableExists(db, table) && !hasColumn(db, table, 'req_discard_report')) {
-      db.exec(`ALTER TABLE ${table} ADD COLUMN req_discard_report INTEGER`);
-    }
-  }
-  // Env-profile default + per-config switch, and the schedule's chosen env
-  // profile, all arrived after the normalized schema shipped, so back-fill
-  // their columns on an older DB (guarded, so a no-op on a fresh/current DB).
-  if (tableExists(db, 'env_profiles') && !hasColumn(db, 'env_profiles', 'is_default')) {
-    db.exec('ALTER TABLE env_profiles ADD COLUMN is_default INTEGER');
-  }
-  if (tableExists(db, 'env_profiles') && !hasColumn(db, 'env_profiles', 'allow_outside_template')) {
-    db.exec('ALTER TABLE env_profiles ADD COLUMN allow_outside_template INTEGER');
-  }
-  if (tableExists(db, 'schedules') && !hasColumn(db, 'schedules', 'env_profile_id')) {
-    db.exec('ALTER TABLE schedules ADD COLUMN env_profile_id TEXT');
-  }
-  for (const col of ['cmd_script', 'cmd_args', 'cmd_cwd']) {
-    if (tableExists(db, 'schedules') && !hasColumn(db, 'schedules', col)) {
-      db.exec(`ALTER TABLE schedules ADD COLUMN ${col} TEXT`);
-    }
-  }
-}
-
-/**
- * Read every legacy blob table into memory and DROP it, so the new normalized
- * schema can be (re)created cleanly. Returns the rescued items keyed by dataset
- * name (ready for `writeDataset`). Tables already in the new shape are left
- * untouched.
- */
-function drainLegacyBlobTables(db: DatabaseSync): Record<string, unknown[]> {
-  const stash: Record<string, unknown[]> = {};
-  for (const { dataset, table, marker } of LEGACY_BLOB_TABLES) {
-    if (!tableExists(db, table)) continue;
-    if (!hasColumn(db, table, 'data')) continue; // not a blob table
-    if (marker !== '__never__' && hasColumn(db, table, marker)) continue; // already new shape
-    const rows = db.prepare(`SELECT data FROM ${table}`).all() as Row[];
-    const items: unknown[] = [];
-    for (const row of rows) {
-      const text = asText(row.data);
-      if (text === undefined) continue;
-      try {
-        items.push(JSON.parse(text));
-      } catch {
-        // Skip an unparseable legacy blob rather than abort the whole upgrade.
-      }
-    }
-    stash[dataset] = items;
-    db.exec(`DROP TABLE ${table}`);
-  }
-  return stash;
-}
-
-/**
- * Move any legacy `kv_store` rows whose dataset now has a normalized table into
- * that table, then delete the kv row. Idempotent: only datasets with a kv row
- * are touched. Datasets that legitimately stay in kv_store (matrix-runs,
- * k6-trends, flaky-tests, cleanup-history) are left alone.
- */
-function migrateLegacyKvRows(
-  db: DatabaseSync,
-  transact: (fn: () => void) => void,
-  writeDataset: (name: string, rows: unknown[] | unknown) => void,
-): void {
-  if (!tableExists(db, 'kv_store')) return;
-  const normalizedNames = [
-    HISTORY_COLLECTION,
-    ...Object.keys(COLLECTION_REPOS),
-    ...Object.keys(DOC_REPOS),
-  ];
-  for (const name of normalizedNames) {
-    const row = db.prepare('SELECT data FROM kv_store WHERE name = ?').get(name) as Row | undefined;
-    if (!row) continue;
-    const text = asText(row.data);
-    if (text === undefined) continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      continue;
-    }
-    transact(() => {
-      writeDataset(name, parsed as unknown[] | unknown);
-      db.prepare('DELETE FROM kv_store WHERE name = ?').run(name);
-    });
-  }
 }

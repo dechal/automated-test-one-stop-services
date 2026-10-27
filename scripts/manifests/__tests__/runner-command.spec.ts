@@ -17,6 +17,7 @@ import {
   substitute,
 } from '../runner-command.js';
 import type { ToolManifest, ToolRunnerStep, ToolRunnerWhen } from '../types.js';
+import { validateManifest } from '../validate.js';
 import { realToolsPresent } from './_helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -34,7 +35,9 @@ const TOOLS_PRESENT = realToolsPresent(WORKSPACE_ROOT, ['playwright', 'robot-fra
 
 function loadManifest(toolId: string): ToolManifest {
   const manifestPath = path.join(WORKSPACE_ROOT, 'tools', toolId, 'tool.manifest.json');
-  return JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as ToolManifest;
+  const result = validateManifest(JSON.parse(fs.readFileSync(manifestPath, 'utf8')));
+  if (!result.ok) throw new Error(`${toolId}: ${JSON.stringify(result.errors)}`);
+  return result.manifest;
 }
 
 const empty = {} as ToolManifest;

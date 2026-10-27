@@ -32,6 +32,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discoverToolIds } from './discover.js';
+import { createManifestRegistry } from './index.js';
 
 /**
  * Folder name shape a real tool id takes (mirrors the manifest `ToolId` pattern
@@ -87,8 +88,12 @@ export interface SetupPlan {
  * call THIS function, so the decision lives in one place. Adding or removing a
  * tool changes only the facts array, never this logic.
  */
-export function planToolSetup(facts: readonly ToolSetupFacts[]): SetupPlan {
-  const steps: ToolSetupStep[] = facts.map((f) => ({
+export function planToolSetup(
+  facts: readonly ToolSetupFacts[],
+  enabledIds?: ReadonlySet<string>,
+): SetupPlan {
+  const active = enabledIds === undefined ? facts : facts.filter((f) => enabledIds.has(f.id));
+  const steps: ToolSetupStep[] = active.map((f) => ({
     id: f.id,
     installPnpm: f.hasPackageJson,
     runSetup: f.hasSetupTask,
@@ -197,8 +202,15 @@ function renderPlanLines(plan: SetupPlan): string[] {
   return lines;
 }
 
-function cmdPlan(workspaceRoot: string): void {
-  const plan = planToolSetup(gatherToolSetupFacts(workspaceRoot));
+async function cmdPlan(workspaceRoot: string): Promise<void> {
+  const registry = createManifestRegistry(workspaceRoot);
+  await registry.refresh();
+  const enabledIds = new Set<string>(registry.enabled().map((m) => m.id));
+  const facts = gatherToolSetupFacts(workspaceRoot);
+  for (const f of facts) {
+    if (!enabledIds.has(f.id)) process.stderr.write(`  [skip] tools/${f.id} is disabled\n`);
+  }
+  const plan = planToolSetup(facts, enabledIds);
   for (const line of renderPlanLines(plan)) process.stdout.write(`${line}\n`);
 }
 
@@ -211,7 +223,10 @@ function cmdReport(failingIds: readonly string[]): void {
 function main(): void {
   const [, , mode, ...rest] = process.argv;
   if (mode === 'plan') {
-    cmdPlan(rest[0] ?? process.cwd());
+    cmdPlan(rest[0] ?? process.cwd()).catch((err: unknown) => {
+      process.stderr.write(`${String(err)}\n`);
+      process.exitCode = 1;
+    });
   } else if (mode === 'report') {
     cmdReport(rest);
   } else {

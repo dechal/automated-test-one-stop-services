@@ -72,9 +72,10 @@ jobs:
       - uses: ./.github/actions/clone-tools
       - name: Typecheck every tool present
         run: |
-          for t in playwright k6; do
-            if [ ! -f "tools/$t/tsconfig.json" ]; then
-              echo "[skip] tools/$t not present"
+          for d in tools/*/; do
+            t=$(basename "$d")
+            if [ ! -f "tools/$t/tsconfig.json" ] || [ ! -f "tools/$t/package.json" ]; then
+              echo "[skip] tools/$t has no TypeScript project"
               continue
             fi
             echo "[typecheck] tools/$t"

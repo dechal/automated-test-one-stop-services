@@ -24,6 +24,20 @@
       "ref": "main"
     },
     {
+      "name": "mobilewright",
+      "title": "Mobilewright (Mobile iOS / Android)",
+      "description": "Native iOS / Android app testing with Mobilewright (Playwright-style API on mobilecli).",
+      "gitUrl": "https://gitlab.com/automated-tester-project-template/one-stop-service-tools-collections/mobilewright.git",
+      "ref": "main"
+    },
+    {
+      "name": "pywinauto",
+      "title": "pywinauto (Windows Desktop)",
+      "description": "Windows desktop app testing with pywinauto (UIA / Win32) on pytest, with a built-in auto-wait layer.",
+      "gitUrl": "https://gitlab.com/automated-tester-project-template/one-stop-service-tools-collections/pywinauto.git",
+      "ref": "main"
+    },
+    {
       "name": "cypress",
       "title": "Cypress",
       "description": "JavaScript end-to-end testing framework with time-travel debugging",

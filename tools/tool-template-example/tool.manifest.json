@@ -31,7 +31,6 @@
     "extras": ["task", "pnpm", "dotenvx"]
   },
   "runner": {
-    "taskNamespace": "mt",
     "title": "My Tool",
     "executionTypes": [
       { "id": "run", "title": "Run", "commandTemplate": "{ns}:run-{environment}" }

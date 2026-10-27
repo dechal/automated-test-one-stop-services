@@ -6,15 +6,6 @@ import { loadJson, saveJson } from './persistence.js';
 const WEBHOOKS_FILE = 'webhooks.json';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
-/** Map legacy dot-notation events to dash-notation (WebhookEvent). */
-const EVENT_MIGRATION: Record<string, WebhookEvent> = {
-  'run.passed': 'run-passed',
-  'run.failed': 'run-failed',
-  'run.error': 'run-error',
-  'run.cancelled': 'run-cancelled',
-  'schedule.triggered': 'schedule-triggered',
-};
-
 // ---------------------------------------------------------------------------
 // Persistence + legacy migration
 // ---------------------------------------------------------------------------
@@ -23,38 +14,8 @@ function isScopeEmpty(scope: WebhookScope | undefined): boolean {
   return !scope || (!scope.tool && !scope.type && !scope.project);
 }
 
-function migrate(webhooks: WebhookConfig[]): { changed: boolean; webhooks: WebhookConfig[] } {
-  let changed = false;
-  for (const w of webhooks) {
-    // Event name migration (dot → dash)
-    const fixedEvents = w.events.map((e) => EVENT_MIGRATION[e] ?? e) as WebhookEvent[];
-    if (fixedEvents.some((f, i) => f !== w.events[i])) {
-      w.events = fixedEvents;
-      changed = true;
-    }
-    // Legacy `projectFilter` → `scope.project`. Pick first entry if multi.
-    if (w.projectFilter && w.projectFilter.length > 0 && isScopeEmpty(w.scope)) {
-      w.scope = { project: w.projectFilter[0] };
-      changed = true;
-    }
-  }
-  return { changed, webhooks };
-}
-
-/**
- * Migration runs exactly once per process. Subsequent `load()` calls skip
- * the iteration, which used to fire on every CRUD call.
- */
-let migrationRan = false;
 function load(): WebhookConfig[] {
-  const webhooks = loadJson<WebhookConfig[]>(WEBHOOKS_FILE, []);
-  if (!migrationRan) {
-    migrationRan = true;
-    const result = migrate(webhooks);
-    if (result.changed) save(result.webhooks);
-    return result.webhooks;
-  }
-  return webhooks;
+  return loadJson<WebhookConfig[]>(WEBHOOKS_FILE, []);
 }
 
 function save(webhooks: WebhookConfig[]): void {

@@ -28,7 +28,7 @@ describe('parseRunSummary', () => {
   it('matches a colon-separated k6 leader (both summary formats)', () => {
     // v1.x summary name.
     expect(parseRunSummary('    checks_succeeded...............: 100.00% 46 out of 46')).toEqual({
-      passed: 1,
+      passed: 46,
       failed: 0,
     });
     // Legacy summary name, verbatim from a real run log — the ✓/✗ pair IS the

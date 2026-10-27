@@ -158,6 +158,18 @@ describe('Tool-setup delegation and no-op', () => {
     expect(plan.steps).toEqual([]);
     expect(plan.runUvSync).toBe(false);
   });
+
+  it('skips pnpm and setup for a disabled tool but keeps the root uv sync', () => {
+    const plan = planToolSetup(
+      [
+        { id: 'on', hasPackageJson: true, isUvTool: false, hasSetupTask: true },
+        { id: 'off', hasPackageJson: true, isUvTool: true, hasSetupTask: true },
+      ],
+      new Set(['on']),
+    );
+    expect(plan.steps.map((s) => s.id)).toEqual(['on']);
+    expect(plan.runUvSync).toBe(true);
+  });
 });
 
 // A random set of tool-setup outcomes with unique ids and a mix of success /

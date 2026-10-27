@@ -488,9 +488,9 @@ describe.skipIf(!TOOLS_PRESENT)('tool lifecycle: end-to-end on temp workspace', 
     // so renaming a template alone won't cause a throw. Instead, corrupt
     // pipeline.static.json so that JSON.parse fails inside loadPipelineStatic,
     // which propagates up through syncWorkspace as an unhandled throw.
-    const staticPath = path.join(tmpDir, 'config', 'pipeline.static.json');
-    const originalContent = fs.readFileSync(staticPath, 'utf8');
-    fs.writeFileSync(staticPath, '{ INVALID JSON !!!', 'utf8');
+    const pipelinePath = path.join(tmpDir, 'config', 'pipeline.json');
+    fs.rmSync(pipelinePath, { recursive: true, force: true });
+    fs.mkdirSync(pipelinePath);
 
     // Disable playwright — the lifecycle mutation itself succeeds (setEnabled
     // runs before sync), but re-sync will throw on the corrupt JSON.
@@ -512,6 +512,6 @@ describe.skipIf(!TOOLS_PRESENT)('tool lifecycle: end-to-end on temp workspace', 
     expect(body.resyncError?.code).toBe('RESYNC_FAILED');
 
     // Restore pipeline.static.json
-    fs.writeFileSync(staticPath, originalContent, 'utf8');
+    fs.rmSync(pipelinePath, { recursive: true, force: true });
   });
 });

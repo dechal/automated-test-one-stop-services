@@ -81,11 +81,11 @@ export async function toolPluginRoutes(app: FastifyInstance): Promise<void> {
     const mod = await getManifestModule();
     const toolRegistry = await mod.loadToolRegistry(WORKSPACE_ROOT);
     const reg = await getRegistry();
-    const installedIds = new Set(
+    const installedIds = new Set<string>(
       reg
         .all()
         .map((r) => r.manifest?.id)
-        .filter(Boolean),
+        .filter((id): id is NonNullable<typeof id> => id !== undefined),
     );
 
     // Check reachability in parallel (git ls-remote, 10s timeout per entry).

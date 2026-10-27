@@ -4,7 +4,7 @@ import type { DoctorCategory, DoctorCheck, DoctorReport } from '@hub/shared';
 import { SCRIPTS_DIR, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { getComposeServiceStatus, isDockerRunning } from './docker.js';
 import { runChild } from './exec.js';
-import { getEnabledTools } from './manifest-registry.js';
+import { getEnabledTools, type ToolManifest } from './manifest-registry.js';
 
 /**
  * The pinned Python version from `scripts/setup/versions.env` (the single
@@ -82,20 +82,6 @@ const CHECKS: CheckDef[] = [
     cmd: 'docker',
     args: ['--version'],
     hint: 'Install Docker Desktop',
-    category: 'optional-install',
-  },
-  {
-    name: 'playwright-cli',
-    cmd: 'playwright-cli',
-    args: ['--version'],
-    hint: 'Install via Volta: volta install playwright-cli',
-    category: 'optional-install',
-  },
-  {
-    name: 'appium',
-    cmd: 'appium',
-    args: ['--version'],
-    hint: 'Install from the Hub Services tab (mobile), or: npm i -g appium && appium driver install uiautomator2',
     category: 'optional-install',
   },
 ];
@@ -220,50 +206,19 @@ function absentToolCheck(name: string, folder: string): DoctorCheck {
   };
 }
 
-/**
- * k6 binary probe, folder-presence-gated on `tools/k6/`. Present →
- * a mandatory `required-install` probe of the k6 binary; absent → a non-required
- * self-check, so a workstation without the k6 tool never fails the doctor.
- */
-async function checkK6(present: boolean): Promise<DoctorCheck> {
-  if (!present) return absentToolCheck('k6', 'k6');
-  return runCheck({
-    name: 'k6',
-    cmd: 'k6',
-    args: ['version'],
-    hint: 'Install k6: winget install Grafana.k6',
-    category: 'required-install',
-  });
-}
-
-const BINARY_TOOL_PROBES: Readonly<Record<string, (present: boolean) => Promise<DoctorCheck>>> = {
-  k6: checkK6,
-};
-
-async function binaryRuntimeToolIds(): Promise<string[]> {
-  try {
-    const tools = await getEnabledTools();
-    const ids = tools.filter((t) => t.runtime === 'binary').map((t) => t.id);
-    return ids.length > 0 ? ids : Object.keys(BINARY_TOOL_PROBES);
-  } catch {
-    return Object.keys(BINARY_TOOL_PROBES);
-  }
-}
-
-async function checkBinaryTools(ids: readonly string[]): Promise<DoctorCheck[]> {
+async function checkToolRequirements(tools: readonly ToolManifest[]): Promise<DoctorCheck[]> {
   return Promise.all(
-    ids.map(async (id): Promise<DoctorCheck> => {
-      const present = isToolFolderPresent(id);
-      const probe = BINARY_TOOL_PROBES[id];
-      if (probe) return probe(present);
-      if (!present) return absentToolCheck(id, id);
-      return {
-        name: id,
-        ok: true,
-        version: `present (tools/${id}); no version probe declared`,
-        category: toolCheckCategory(true),
-      };
-    }),
+    tools.flatMap((tool) =>
+      tool.requires.map((req) =>
+        runCheck({
+          name: req.cmd,
+          cmd: req.cmd,
+          args: [...req.args],
+          hint: req.hint,
+          category: req.optional ? 'optional-install' : 'required-install',
+        }),
+      ),
+    ),
   );
 }
 
@@ -567,16 +522,18 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   const playwrightPresent = isToolFolderPresent('playwright');
   const robotPresent = isToolFolderPresent('robot-framework');
-  const binaryToolIds = await binaryRuntimeToolIds();
+  const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
+  const hasSharedServices = tools.some((t) => t.compose.services !== undefined);
 
   const checks = await Promise.all([
     ...CHECKS.map(runCheck),
-    checkBinaryTools(binaryToolIds),
+    checkToolRequirements(tools),
     checkPython(robotPresent),
     Promise.resolve(checkPlaywrightBrowsers(playwrightPresent)),
     checkDockerDaemon(),
-    checkComposeService('influxdb', 8086),
-    checkComposeService('grafana', 3000),
+    ...(hasSharedServices
+      ? [checkComposeService('influxdb', 8086), checkComposeService('grafana', 3000)]
+      : []),
   ]);
 
   // Some checks may contribute an array; flatten so `DoctorReport.checks`

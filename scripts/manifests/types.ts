@@ -56,6 +56,7 @@ export interface ToolComposeConfig {
   readonly anchor: string;
   /** Names of external Docker networks to declare in the generated compose file. */
   readonly networks: readonly string[];
+  readonly services?: string;
 }
 
 export interface ToolTsconfigGenConfig {
@@ -250,6 +251,14 @@ export interface ToolManifest {
   readonly reports?: ToolReportsCapability;
   readonly tags?: ToolTagsCapability;
   readonly versionFrom?: ToolVersionSourceConfig;
+  readonly requires: readonly ToolRequirement[];
+}
+
+export interface ToolRequirement {
+  readonly cmd: string;
+  readonly args: readonly string[];
+  readonly hint: string;
+  readonly optional: boolean;
 }
 
 /**

@@ -80,6 +80,8 @@ config/.tool-overrides.json
 # Generated projection of tool.manifest.json by pipeline-projection.ts
 # (static parts live in config/pipeline.static.json — that IS tracked)
 config/pipeline.json
+/Taskfile.tools.yml
+/docker-compose.yml
 
 # =============================================================================
 # Portable tool plugins (M4)

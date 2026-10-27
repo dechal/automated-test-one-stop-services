@@ -22,8 +22,8 @@ const { mockExecSync } = vi.hoisted(() => ({ mockExecSync: vi.fn() }));
 
 function makeManifest(id: string, packageManager: ToolManifest['packageManager']): ToolManifest {
   return {
-    id,
-    alias: id,
+    id: id as ToolManifest['id'],
+    alias: id as ToolManifest['alias'],
     title: `${id} tool`,
     description: `${id} description`,
     version: '1.0.0',
@@ -39,8 +39,21 @@ function makeManifest(id: string, packageManager: ToolManifest['packageManager']
       specsSubdir: 'automations/specs',
       sectionAxis: false,
     },
-    runner: { taskNamespace: id },
-    docker: { baseImage: `${id}:latest` },
+    runner: {
+      taskNamespace: id,
+      title: `${id} tool`,
+      executionTypes: [],
+      environments: ['local'],
+      steps: [],
+      commandTemplate: 'task {ns}:run-{environment}',
+    },
+    docker: { baseImage: `${id}:latest`, extras: [] },
+    schemaVersion: '1',
+    taskfile: 'Taskfile.yml',
+    compose: { template: 'docker-compose.template.yml', anchor: `${id}-template`, networks: [] },
+    tsconfigGen: null,
+    pipeline: { id, targetPaths: {}, envToken: '', runCommands: {}, artifactPaths: [] },
+    requires: [],
   };
 }
 

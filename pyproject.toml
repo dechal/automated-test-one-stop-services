@@ -15,7 +15,7 @@ dependencies = ["python-dotenv>=1.2.4"]
 dev = ["ruff>=0.16.9", "ty>=0.0.84,<0.1"]
 
 [tool.uv.workspace]
-members = ["tools/robot-framework"]
+members = ["tools/pywinauto", "tools/robot-framework"]
 exclude = [
   "node_modules",
   "outputs",
