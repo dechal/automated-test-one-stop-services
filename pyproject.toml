@@ -52,6 +52,10 @@ line-ending = "lf"
 [tool.ty.environment]
 python = ".venv"
 python-version = "3.14"
+# Per-tool `resources/` folders are added to sys.path at runtime by each project's
+# pytest.ini (`pythonpath`), which ty does not read. Mirror them here so an import
+# like `global_resources.*` resolves the same way the test run resolves it.
+extra-paths = ["tools/pywinauto/resources"]
 
 [tool.ty.src]
 exclude = [
