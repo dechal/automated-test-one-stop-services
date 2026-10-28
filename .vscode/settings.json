@@ -5,6 +5,7 @@
   // unregistered and inert. The noise set is kept identical across every list
   // below (files / search / watcher / localHistory / git / npm / robotcode /
   // python.analysis) so a path is never excluded in one place and scanned in another.
+  // `search.exclude` inherits `files.exclude`, so it lists only what search adds.
   "files.exclude": {
     "**/.git": true,
     "**/.svn": true,
@@ -28,8 +29,6 @@
     "**/.agents": true
   },
   "search.exclude": {
-    "**/__pycache__": true,
-    "**/.DS_Store": true,
     "**/.git/**": true,
     "**/.vscode/**": true,
     "**/*-lock.json": true,
@@ -53,25 +52,12 @@
     "**/report.html": true,
     "**/*.db": true,
     "**/*.sqlite": true,
-    "**/.mypy_cache": true,
-    "**/.pytest_cache": true,
-    "**/.ruff_cache": true,
-    "**/.robocop_cache": true,
-    "**/.robotcode_cache": true,
-    "**/.pabotsuitenames": true,
     "**/libs": true,
-    "**/.last-run": true,
-    "**/.playwright-mcp": true,
-    "**/.playwright-cli": true,
     "**/schedulers": true,
-    "**/.cache": true,
     "**/.venv": true,
     "**/node_modules": true,
     "**/selectorshub": true,
-    "**/.setup-state.json": true,
-    "**/.pnpm-store": true,
-    "**/.runtime": true,
-    "**/.agents": true
+    "**/.runtime": true
   },
   "files.watcherExclude": {
     "**/.git/**": true,
@@ -269,10 +255,7 @@
     "**/playwright-report/**",
     "**/test-results/**",
     "**/robot_output/**",
-    "**/.kiro/**",
-    "**/brain/**",
     "**/.cache/**",
-    "**/outputs/**",
   ],
 
   "search.followSymlinks": false,
@@ -281,6 +264,7 @@
   "python.analysis.indexing": false,
   "python.analysis.autoImportCompletions": false,
   "python.analysis.typeCheckingMode": "off",
+  "python.locator": "js",
 
   "telemetry.telemetryLevel": "off",
   "workbench.activityBar.location": "top",
@@ -344,7 +328,6 @@
   "git.autoRepositoryDetection": "subFolders",
   "ruff.lineLength": 100,
   "ruff.configuration": "${workspaceFolder}/pyproject.toml",
-  "ty.configurationFile": "${workspaceFolder}/pyproject.toml",
 
   // Forward slashes: VS Code accepts them on every OS, backslashes break the
   // setting on macOS/Linux (steering `portability-and-config`).

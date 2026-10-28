@@ -181,8 +181,8 @@ catalogs:
       version: 4.6.5
 
 overrides:
-  basic-ftp@<=5.2.2: '>=5.3.0'
-  uuid@<14.0.0: '>=14.0.0'
+  basic-ftp@<=5.2.2: '>=5.3.0 <6'
+  uuid@<14.0.0: '>=14.0.0 <15'
   brace-expansion@<1.1.18: '>=1.1.18 <2'
   brace-expansion@>=2.0.0 <2.1.4: '>=2.1.4 <3'
   brace-expansion@>=4.0.0 <5.0.9: '>=5.0.9 <6'

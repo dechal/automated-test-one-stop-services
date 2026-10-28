@@ -21,8 +21,8 @@ allowBuilds:
   esbuild: true
   koffi: false
 overrides:
-  basic-ftp@<=5.2.2: ">=5.3.0"
-  uuid@<14.0.0: ">=14.0.0"
+  basic-ftp@<=5.2.2: ">=5.3.0 <6"
+  uuid@<14.0.0: ">=14.0.0 <15"
   # Transitive security advisories (`pnpm audit`, 2026-08-17). Each SELECTOR is the
   # advisory's vulnerable range, so an entry stops matching — and can be deleted —
   # once every parent has moved past it on its own. Direct dependencies are bumped
