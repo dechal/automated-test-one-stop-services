@@ -81,11 +81,21 @@ export function syncToolVersion(workspaceRoot: string, tool: ToolManifest): stri
 
 const PACKAGE_MANAGER_ENTRY = /("packageManager"\s*:\s*)"pnpm@[^"]*"/g;
 
+interface RootPackageJson {
+  readonly volta?: { readonly pnpm?: string };
+  readonly packageManager?: string;
+}
+
+function readRootPackageJson(workspaceRoot: string): RootPackageJson {
+  const abs = path.join(workspaceRoot, 'package.json');
+  if (!fs.existsSync(abs)) return {};
+  return JSON.parse(fs.readFileSync(abs, 'utf8')) as RootPackageJson;
+}
+
 export function readPnpmVersion(workspaceRoot: string): string {
-  const abs = path.join(workspaceRoot, 'scripts', 'setup', 'versions.env');
-  if (!fs.existsSync(abs)) return '';
-  const match = /^PNPM_VERSION=(.+)$/m.exec(fs.readFileSync(abs, 'utf8'));
-  return match?.[1]?.trim() ?? '';
+  const pkg = readRootPackageJson(workspaceRoot);
+  const pin = pkg.volta?.pnpm ?? /^pnpm@(.+)$/.exec(pkg.packageManager ?? '')?.[1] ?? '';
+  return pin.trim();
 }
 
 export function syncToolPackageManager(

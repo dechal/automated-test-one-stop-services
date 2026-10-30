@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { sheets as sheetsApi } from '@googleapis/sheets';
 import { authorize, credentialsReady, SILENT_AUTH_FAILED } from './google-auth';
 
 /**
@@ -51,10 +51,8 @@ async function logUsage(): Promise<void> {
     // nominally (private `redirectUri`). Bridge to googleapis' own client type at
     // this boundary — safe at runtime (same class), and avoids `any`.
     // interactive:false → refresh silently, never open a browser mid-run.
-    const auth = (await authorize({ interactive: false })) as unknown as InstanceType<
-      typeof google.auth.OAuth2
-    >;
-    const sheets = google.sheets({ version: 'v4', auth });
+    const auth = await authorize({ interactive: false });
+    const sheets = sheetsApi({ version: 'v4', auth });
 
     const executedBy = process.env.CURRENT_USER || 'Unknown';
     const command = process.env.COMMAND || 'Unknown';

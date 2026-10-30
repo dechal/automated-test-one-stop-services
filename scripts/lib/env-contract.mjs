@@ -31,6 +31,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { toolArtefactDirs } from './tool-artefact-dirs.mjs';
 
 /**
  * Values the runner or the platform supplies, so no `.env.template` declares
@@ -60,14 +61,9 @@ const SKIP_DIRS = new Set([
   'dist',
   'build',
   'outputs',
-  'test-results',
-  'playwright-report',
-  'blob-report',
-  'performance-results',
-  'pabot_results',
   '__pycache__',
-  'browser-archives',
   '.cache',
+  ...toolArtefactDirs(),
 ]);
 
 const JS_EXT = new Set(['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs', '.tsx']);

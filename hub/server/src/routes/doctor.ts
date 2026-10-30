@@ -3,13 +3,9 @@ import path from 'node:path';
 import type { PythonInstallResult } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { WORKSPACE_ROOT } from '../config.js';
-import {
-  invalidateDoctorCache,
-  isToolFolderPresent,
-  readPythonVersion,
-  runDoctor,
-} from '../services/doctor.js';
+import { invalidateDoctorCache, readPythonVersion, runDoctor } from '../services/doctor.js';
 import { runChild } from '../services/exec.js';
+import { getEnabledTools, type ToolManifest } from '../services/manifest-registry.js';
 
 const CREDENTIALS_DIR = path.join(
   WORKSPACE_ROOT,
@@ -61,14 +57,17 @@ async function installPython(): Promise<PythonInstallResult> {
   // Best-effort: sync robot-framework's Python deps so the interpreter is
   // immediately usable. A failure here does not undo the interpreter install.
   let message: string | undefined;
-  if (isToolFolderPresent('robot-framework')) {
-    const sync = await runChild(
-      'uv',
-      ['sync', '--all-packages', '--native-tls', '--project', WORKSPACE_ROOT],
-      { cwd: WORKSPACE_ROOT, timeoutMs: 180_000, shell },
-    );
+  const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
+  for (const tool of tools.filter((t) => t.packageManager === 'uv')) {
+    const toolDir = path.join(WORKSPACE_ROOT, 'tools', tool.id);
+    const sync = await runChild('uv', ['sync', '--native-tls', '--project', toolDir], {
+      cwd: toolDir,
+      timeoutMs: 180_000,
+      shell,
+    });
     if (!sync.ok) {
-      message = `Python ${version ?? ''} installed, but 'uv sync' failed — run it manually to finish robot-framework setup. ${tail(sync.output, 400)}`;
+      message = `Python ${version ?? ''} installed, but 'uv sync' failed in tools/${tool.id} — run it manually to finish Python tool setup. ${tail(sync.output, 400)}`;
+      break;
     }
   }
 

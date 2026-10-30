@@ -9,7 +9,8 @@ import type {
   ToolView,
 } from '@hub/shared';
 import { TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
-import { SAFE_GIT_REF, SAFE_ID } from '../lib/safe-id.js';
+import { SAFE_GIT_REF, SAFE_GIT_URL, SAFE_ID } from '../lib/safe-id.js';
+import { getExportModule } from './export-module.js';
 import { removeDirWithRetry } from './fs-remove.js';
 import {
   getManifestModule,
@@ -73,7 +74,7 @@ function installToolDependencies(
 
   const isPnpm = packageManager === 'pnpm';
   const command = isPnpm ? 'pnpm install --ignore-workspace' : 'uv sync';
-  const cwd = isPnpm ? path.join(TOOLS_DIR, toolId) : WORKSPACE_ROOT;
+  const cwd = path.join(TOOLS_DIR, toolId);
   try {
     execSync(command, {
       cwd,
@@ -235,12 +236,6 @@ function detectOrigin(toolId: string): { origin: ToolView['origin']; originRef?:
 
 // ─── Validation helpers ──────────────────────────────────────────────────────
 
-/**
- * SAFE_GIT_URL: validates git URLs to prevent injection.
- * Accepts https://, ssh://git@, or git@host:path forms.
- */
-const SAFE_GIT_URL = /^(?:https:\/\/|ssh:\/\/git@|git@)[A-Za-z0-9._:/~@?=+-]+(?:\.git)?$/;
-
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -251,6 +246,7 @@ const SAFE_GIT_URL = /^(?:https:\/\/|ssh:\/\/git@|git@)[A-Za-z0-9._:/~@?=+-]+(?:
 export async function listToolViews(): Promise<readonly ToolView[]> {
   const reg = await getRegistry();
   const mod = await getManifestModule();
+  const exportModule = await getExportModule();
   const records = reg.all();
 
   return records.map((record): ToolView => {
@@ -278,6 +274,8 @@ export async function listToolViews(): Promise<readonly ToolView[]> {
           sectionAxis: false,
         },
         capabilities: BROKEN_TOOL_CAPABILITIES,
+        supportsStandalone: false,
+        supportsBundle: false,
         ...detectOrigin(id),
       };
     }
@@ -308,6 +306,8 @@ export async function listToolViews(): Promise<readonly ToolView[]> {
         sectionAxis: manifest.projects.sectionAxis,
       },
       capabilities: toCapabilitiesView(mod.resolveCapabilities(manifest)),
+      supportsStandalone: exportModule.isStandaloneSupported(manifest.id),
+      supportsBundle: exportModule.isBundleSupported(manifest.id),
       ...detectOrigin(manifest.id),
     };
   });
@@ -441,38 +441,6 @@ async function transactionalRemove(dir: string): Promise<void> {
   }
 }
 
-// ─── Python pyproject.toml workspace member revert ───────────────────────────
-
-const PYPROJECT_PATH = path.join(WORKSPACE_ROOT, 'pyproject.toml');
-
-/**
- * Remove a tool's entry from `[tool.uv.workspace]` members in pyproject.toml.
- * Only acts when the manifest declares `packageManager === 'uv'` and the entry
- * actually exists. The edit is idempotent — calling it when no entry exists is
- * a no-op.
- */
-function revertPyprojectMember(toolId: string): void {
-  if (!fs.existsSync(PYPROJECT_PATH)) return;
-
-  const content = fs.readFileSync(PYPROJECT_PATH, 'utf8');
-  const memberEntry = `"tools/${toolId}"`;
-
-  // Check if the entry actually exists in the members array
-  if (!content.includes(memberEntry)) return;
-
-  // Remove the member entry line (handles both trailing comma and no comma)
-  const lines = content.split('\n');
-  const updated = lines
-    .filter((line) => {
-      const trimmed = line.trim();
-      // Match lines like: "tools/<id>", or "tools/<id>"
-      return !(trimmed === memberEntry || trimmed === `${memberEntry},`);
-    })
-    .join('\n');
-
-  fs.writeFileSync(PYPROJECT_PATH, updated, 'utf8');
-}
-
 // ─── Public uninstall API ────────────────────────────────────────────────────
 
 /**
@@ -511,11 +479,6 @@ export async function uninstall(
     };
   }
 
-  // For Python tools: revert pyproject.toml workspace member before removal
-  if (manifest.packageManager === 'uv') {
-    revertPyprojectMember(manifest.id);
-  }
-
   // Transactional removal + cache invalidation + re-sync
   return withResync(async () => {
     await transactionalRemove(toolDir);
@@ -533,8 +496,6 @@ export interface InstallOpts {
   readonly confirm?: boolean;
   /** Phase 2 alt: abort installation, remove cloned folder. */
   readonly abort?: boolean;
-  /** When true AND tool runtime is python, append [tool.uv.workspace] entry. */
-  readonly editPyproject?: boolean;
 }
 
 /** Returned when manifest validation fails during phase 1. */
@@ -632,18 +593,6 @@ export async function installFromRegistry(
 
   // ── Phase 2: confirm ───────────────────────────────────────────────────────
   if (opts.confirm) {
-    // Apply pyproject.toml edit for Python tools if consented
-    if (opts.editPyproject) {
-      const manifestPath = path.join(targetDir, 'tool.manifest.json');
-      if (fs.existsSync(manifestPath)) {
-        const raw = fs.readFileSync(manifestPath, 'utf8');
-        const parsed = JSON.parse(raw) as { runtime?: string };
-        if (parsed.runtime === 'python') {
-          appendPyprojectWorkspaceEntry(name);
-        }
-      }
-    }
-
     const result = await withResync<ToolView>(async () => {
       const reg = await getRegistry();
       await reg.refresh();
@@ -954,12 +903,6 @@ export interface InstallDepsToolNotFoundError {
   readonly message: string;
 }
 
-/** Options for the manual-clone deps-install flow. */
-export interface InstallDepsOpts {
-  /** When true AND the tool runtime is python, append [tool.uv.workspace] entry. */
-  readonly editPyproject?: boolean;
-}
-
 /** Union of all possible deps-install results. */
 export type InstallDepsResult = InstallResult | InstallDepsToolNotFoundError;
 
@@ -982,10 +925,7 @@ export type InstallDepsResult = InstallResult | InstallDepsToolNotFoundError;
  * The `[tool.uv.workspace]` pyproject edit stays gated behind `editPyproject`
  * consent, exactly like the registry-install flow.
  */
-export async function installDepsForTool(
-  id: string,
-  opts: InstallDepsOpts = {},
-): Promise<InstallDepsResult> {
+export async function installDepsForTool(id: string): Promise<InstallDepsResult> {
   // Guard the id before any FS/git work (route validates too — defence in depth).
   if (!SAFE_ID.test(id)) {
     return { code: 'INVALID_TOOL_NAME', message: `'${id}' is not a valid tool name` };
@@ -1000,7 +940,7 @@ export async function installDepsForTool(
     return { code: 'TOOL_NOT_FOUND', message: `Tool '${id}' is not a known enabled tool` };
   }
 
-  return installFromRegistry(id, { confirm: true, editPyproject: opts.editPyproject });
+  return installFromRegistry(id, { confirm: true });
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1064,37 +1004,4 @@ function safelyRemoveDir(dirPath: string): void {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`⚠ Failed to remove ${dirPath}: ${message}`);
   }
-}
-
-/**
- * Append a workspace member entry to pyproject.toml [tool.uv.workspace].
- * Only called when the user explicitly consents via `opts.editPyproject`.
- * Idempotent — skips if the entry already exists.
- */
-function appendPyprojectWorkspaceEntry(toolName: string): void {
-  if (!fs.existsSync(PYPROJECT_PATH)) return;
-
-  const content = fs.readFileSync(PYPROJECT_PATH, 'utf8');
-  const entry = `"tools/${toolName}"`;
-
-  // Skip if already present
-  if (content.includes(entry)) return;
-
-  // Find the [tool.uv.workspace] members array and append
-  const membersRegex = /(\[tool\.uv\.workspace\]\s*\nmembers\s*=\s*\[)([^\]]*)\]/;
-  const match = membersRegex.exec(content);
-  if (!match) {
-    // [tool.uv.workspace] section not found — skip rather than corrupt the file
-    console.error('⚠ [tool.uv.workspace] section not found in pyproject.toml; skipping edit');
-    return;
-  }
-
-  const existingMembers = (match[2] ?? '').trim();
-  const separator = existingMembers.length > 0 ? ',\n  ' : '\n  ';
-  const updatedContent = content.replace(
-    membersRegex,
-    `${match[1]}${existingMembers}${separator}${entry}\n]`,
-  );
-
-  fs.writeFileSync(PYPROJECT_PATH, updatedContent, 'utf8');
 }

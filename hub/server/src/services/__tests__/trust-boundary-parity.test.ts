@@ -6,8 +6,8 @@ import { WORKSPACE_ROOT } from '../../config.js';
 /**
  * Parity guard for the trust-boundary regexes that are DELIBERATELY duplicated.
  *
- * `hub/server` and `scripts/` cannot import each other (`scripts/` is
- * outside the server tsconfig `include` and Biome bans deep `../../` imports),
+ * `scripts/` cannot import `hub/server` (Biome bans deep `../../` imports), the
+ * server's only alias into `scripts/` is `@manifests/*` (no install-core),
  * and a few hub route/service files inline their own `SAFE_GIT_URL` copy rather
  * than importing the shared one. Every copy is meant to be byte-identical and
  * "kept in lock-step by hand" (see the note in scripts/install-core/validation.ts).
@@ -46,12 +46,7 @@ const CASES: ParityCase[] = [
   {
     // Four hand-maintained copies — the highest drift risk of the three.
     name: 'SAFE_GIT_URL',
-    files: [
-      'hub/server/src/services/tool-plugins.ts',
-      'hub/server/src/routes/projects.ts',
-      'hub/server/src/routes/tools.ts',
-      'scripts/install-core/validation.ts',
-    ],
+    files: ['hub/server/src/lib/safe-id.ts', 'scripts/install-core/validation.ts'],
   },
 ];
 

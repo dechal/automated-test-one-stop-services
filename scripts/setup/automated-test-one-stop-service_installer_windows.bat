@@ -167,7 +167,6 @@ echo   Running setup (toolchain + deps + Hub start)...
 echo   The technical messages below are normal - please keep this window open.
 echo ===================================================
 
-set "SETUP_STATE_DIR=!WORKSPACE!"
 set "SETUP_NO_PAUSE=1"
 REM Let the installer open the browser once, AFTER the readiness poll below, so
 REM setup itself does not open too early. install-shortcut still runs in setup.
@@ -199,6 +198,16 @@ if not "!SETUP_RC!"=="0" (
     pause
     exit /b 1
 )
+set "_cliOnly="
+if not exist "!WORKSPACE!\hub\package.json" set "_cliOnly=1"
+if "%SETUP_SKIP_HUB%"=="1" set "_cliOnly=1"
+if defined _cliOnly (
+    echo.
+    echo   ALL SET! The CLI is ready ^(no Hub in this install^): cd /d "!WORKSPACE!" ^&^& task --list
+    echo   Log of this run: !LOG_FILE!
+    pause
+    exit /b 0
+)
 
 REM --------------------------------------------------------------------------
 REM Wait for Hub to be ready
@@ -228,8 +237,8 @@ echo.
 echo   Next time, just double-click the "Test Hub" icon on your
 echo   desktop to open it again.
 echo.
-echo   Before your first web test, the Hub downloads the browsers for the
-echo   tool you pick: open the "Environment Status" panel and press "Set up".
+echo   Setup already ran each tool's own setup ^(browsers included^). If a tool
+echo   showed a warning, open the "Environment Status" panel and press "Set up".
 echo.
 echo   Workspace: !WORKSPACE!
 echo   Log of this run: !LOG_FILE!
@@ -241,12 +250,12 @@ exit /b 0
 
 :hub_fail
 echo.
-echo   [error] Hub did not start within 60s.
+echo   [warn] Hub did not start within 60s. The CLI is ready: cd /d "!WORKSPACE!" ^&^& task --list
 echo   Try running this installer again - it resumes where it left off.
 echo   [hint]  Check the Hub status: node hub\bin\hub-service.mjs status ^(logs: hub\.run\hub.log^)
 echo   Full log of this run: !LOG_FILE!
 pause
-exit /b 1
+exit /b 0
 
 REM --------------------------------------------------------------------------
 :refreshPath
@@ -271,7 +280,8 @@ echo.
 echo Optional environment variables:
 echo   HUB_PORT=^<port^>       Hub port ^(default 5174^)
 echo   SETUP_INSECURE_TLS=1   fetch through a TLS-inspecting corporate proxy
-echo   SETUP_DISABLE_SHELL_DECOUPLE=1  skip adding Git's GNU tools to your PATH
+echo   SETUP_ENABLE_SHELL_DECOUPLE=1  add Git's GNU tools to your user PATH ^(off by default^)
+echo   SETUP_SKIP_HUB=1       install the CLI only; skip the Hub build and start
 echo.
 echo Each run writes install-log-^<timestamp^>.txt into the folder you picked.
 echo To remove it all later:  node scripts\setup\uninstall.mjs --run

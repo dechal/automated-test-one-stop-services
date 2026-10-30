@@ -1,8 +1,0 @@
-// Use for Appium Inspector (Connect to http://localhost:4723)
-{
-  "platformName": "android",
-  "appium:automationName": "uiautomator2",
-  "appium:newCommandTimeout": 3600,
-  "appium:noReset": true,
-  "appium:app": "C:\\Path\\To\\Your\\App.apk"
-}

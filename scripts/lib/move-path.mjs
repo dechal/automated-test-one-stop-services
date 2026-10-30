@@ -21,6 +21,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const TRANSIENT = new Set(['EPERM', 'EACCES', 'EBUSY']);
+/** @param {number} ms */
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -42,8 +43,9 @@ export async function movePath(src, dest) {
       fs.renameSync(src, dest);
       return;
     } catch (err) {
-      if (err.code === 'EXDEV') break; // cross-device — rename can't work
-      if (!TRANSIENT.has(err.code)) throw err; // a real error — surface it
+      const code = /** @type {NodeJS.ErrnoException} */ (err).code ?? '';
+      if (code === 'EXDEV') break; // cross-device — rename can't work
+      if (!TRANSIENT.has(code)) throw err; // a real error — surface it
       if (attempt === 5) break; // retries exhausted — try copy fallback
       await delay(attempt * 200);
     }
@@ -79,7 +81,9 @@ if (isMain) {
     await movePath(src, dest);
     console.info(`[move-path] moved -> ${dest}`);
   } catch (err) {
-    console.error(`[move-path] failed to move ${src} -> ${dest}: ${err.message}`);
+    console.error(
+      `[move-path] failed to move ${src} -> ${dest}: ${err instanceof Error ? err.message : err}`,
+    );
     process.exit(1);
   }
 }

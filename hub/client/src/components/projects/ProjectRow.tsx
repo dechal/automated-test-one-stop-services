@@ -6,6 +6,7 @@ import {
   TbCircleX,
   TbDownload,
   TbFolder,
+  TbPackage,
   TbPackageExport,
   TbPencil,
   TbTrash,
@@ -37,6 +38,7 @@ interface ProjectRowProps {
   /** When provided, renders a destructive "remove project" action. */
   onRemove?: () => void;
   onMakeStandalone?: () => void;
+  onExportBundle?: () => void;
 }
 
 /** Convert a git remote URL to its web-viewable equivalent. */
@@ -61,6 +63,7 @@ export function ProjectRow({
   hasUpdate,
   onRemove,
   onMakeStandalone,
+  onExportBundle,
 }: ProjectRowProps) {
   const t = useT();
 
@@ -167,6 +170,19 @@ export function ProjectRow({
                 aria-label={t('projectRow.makeStandalone')}
               >
                 <TbPackageExport size={14} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          {onExportBundle && (
+            <Tooltip label={t('projectRow.exportBundle')} withArrow>
+              <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="gray"
+                onClick={onExportBundle}
+                aria-label={t('projectRow.exportBundle')}
+              >
+                <TbPackage size={14} />
               </ActionIcon>
             </Tooltip>
           )}

@@ -43,12 +43,12 @@ import {
 } from '~/hooks/useProjectQueries.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useI18nStore, useT } from '~/i18n/index.js';
-import { usePreferences } from '~/stores/hub.js';
+import { DEFAULT_TOOL, usePreferences } from '~/stores/hub.js';
 import { formatNextRun, humanizeCron } from '~/utils/cron.js';
 import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
 import { buildTagQuery, parseTagQuery, type TagSelection } from '~/utils/tag-selection.js';
-import { toolSelectData } from '~/utils/tool-label.js';
+import { firstEnabledTool, toolSelectData } from '~/utils/tool-label.js';
 import { fromConfigSilent, toConfigSilent } from './schedule-silent.js';
 
 // ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ export function ScheduleForm({
   const defaults = {
     name: '',
     cronExpr: '0 8 * * *',
-    tool: 'playwright' as ToolId,
+    tool: '' as ToolId,
     type: '',
     project: '',
     runMode: 'local' as RunMode,
@@ -138,7 +138,7 @@ export function ScheduleForm({
 
   const [name, setName] = useState(defaults.name);
   const [cronExpr, setCronExpr] = useState(defaults.cronExpr);
-  const [tool, setTool] = useState<ToolId>(defaults.tool);
+  const [toolChoice, setTool] = useState<ToolId>(defaults.tool);
   const [type, setType] = useState(defaults.type);
   const [project, setProject] = useState(defaults.project);
   const [runMode, setRunMode] = useState<RunMode>(defaults.runMode);
@@ -245,6 +245,7 @@ export function ScheduleForm({
   // (`useTools()`), not a static three-entry list. Only enabled tools are
   // schedulable.
   const { data: allTools = [] } = useTools();
+  const tool: ToolId = toolChoice || firstEnabledTool(allTools, DEFAULT_TOOL);
   const toolOptions = toolSelectData(allTools);
 
   const types = useProjectTypes(tool);

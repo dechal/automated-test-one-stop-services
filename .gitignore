@@ -11,7 +11,6 @@
 # OS / editor / logs
 # =============================================================================
 .idea/
-.obsidian/
 **/.DS_Store
 Thumbs.db
 log/
@@ -19,18 +18,12 @@ local.log
 lefthook-local.yml
 .last-run
 .setup-state.json
-/_tmp*
-/_scratch*
 *.tmp
 **/.trash/
 
 # Obsidian workspace config (personal per user)
-**/.obsidian/workspace*
-**/.obsidian/cache
-**/.obsidian/plugins/*/data.json
 
 # Reference material (not part of the product)
-example/
 
 # =============================================================================
 # Secrets & env — track templates only
@@ -56,8 +49,6 @@ example/
 # Hub server (persisted runtime data)
 # =============================================================================
 hub/server/data/
-hub/server/data/*.json
-!hub/client/src/projects
 
 # Local schedulers (user-specific)
 **/schedulers/*
@@ -97,7 +88,6 @@ config/pipeline.json
 # =============================================================================
 tools/*/
 !tools/tool-template-example/
-scripts/manifests/._*
 ~$*.*
 .playwright-cli
 .playwright-mcp

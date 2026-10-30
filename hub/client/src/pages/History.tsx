@@ -1,40 +1,27 @@
-import type { RunRecord, RunRequest, RunStatus, ToolId } from '@hub/shared';
-import { type FailedRunSelection, parseTagExpr } from '@hub/shared';
+import type { FailedRunSelection, RunRecord, RunRequest, RunStatus, ToolId } from '@hub/shared';
 import {
-  ActionIcon,
   Badge,
   Button,
-  Checkbox,
   Group,
-  Menu,
   Pagination,
   Paper,
-  ScrollArea,
   Select,
   Skeleton,
   Stack,
-  Table,
   Text,
-  TextInput,
-  Tooltip,
 } from '@mantine/core';
-import { DatePickerInput, type DateValue } from '@mantine/dates';
+import type { DateValue } from '@mantine/dates';
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import dayjs from 'dayjs';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  TbCalendar,
-  TbCopy,
-  TbDots,
   TbDownload,
   TbFilter,
   TbGitCompare,
   TbHistory,
   TbPlayerPlay,
-  TbRefreshAlert,
-  TbTerminal,
   TbTrash,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
@@ -42,31 +29,19 @@ import { qRunsHistory } from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog';
 import { EmptyState } from '~/components/EmptyState.js';
 import { ErrorState } from '~/components/ErrorState.js';
+import { HistoryFilterPanel } from '~/components/history/HistoryFilterPanel.js';
+import { HistoryRunsTable, type HistorySortField } from '~/components/history/HistoryRunsTable.js';
+import { exportHistoryCsv } from '~/components/history/history-csv.js';
 import { RunLogModal } from '~/components/history/RunLogModal.js';
 import { PageHeader } from '~/components/PageHeader.js';
-import { PassScoreCell } from '~/components/PassScoreCell.js';
-import { RunStatusBadge } from '~/components/RunStatusBadge.js';
 import { toast } from '~/components/Toast.js';
-import { PAGE_SIZE_OPTIONS, SortableHeader } from '~/components/table/SortableHeader.js';
+import { PAGE_SIZE_OPTIONS } from '~/components/table/SortableHeader.js';
 import { useTableSort } from '~/hooks/useTableSort.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
-import { formatAbsolute, formatDurationBetween, formatRelative } from '~/utils/datetime.js';
-import { formatCompactNumber } from '~/utils/format-number.js';
-import {
-  formatPneBreakdown,
-  getStatusColor,
-  getStatusIcon,
-  statusLabelKey,
-} from '~/utils/run-status.js';
 import { buildTagQuery } from '~/utils/tag-selection.js';
-import { toolLabel } from '~/utils/tool-label.js';
-
-const ALL_STATUSES: RunStatus[] = ['passed', 'failed'];
-
-type SortField = 'startedAt' | 'endedAt' | 'project' | 'tool' | 'status';
 
 export function HistoryPage() {
   const t = useT();
@@ -94,7 +69,7 @@ export function HistoryPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const { sortField, sortDir, handleSort } = useTableSort<SortField>('startedAt');
+  const { sortField, sortDir, handleSort } = useTableSort<HistorySortField>('startedAt');
   const [logModalOpen, { open: openLog, close: closeLog }] = useDisclosure(false);
   const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
   // Up to two runs picked for the compare view (A vs B).
@@ -118,13 +93,6 @@ export function HistoryPage() {
   });
 
   const availableTypes = [...new Set((history.data ?? []).map((r) => r.request.type))].sort();
-
-  function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
-    const next = new Set(set);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    return next;
-  }
 
   function handleViewLog(run: RunRecord) {
     setSelectedRun(run);
@@ -191,42 +159,7 @@ export function HistoryPage() {
   }
 
   function exportCsv() {
-    const rows = sorted.map((r) => ({
-      id: r.id,
-      tool: r.request.tool,
-      type: r.request.type,
-      project: r.request.project,
-      status: r.status,
-      mode: r.request.mode,
-      triggeredBy: r.triggeredBy ?? 'manual',
-      environment: r.environment ?? '',
-      envProfileName: r.envProfileName ?? '',
-      tag: r.request.tag ?? '',
-      cases: r.summary ? r.summary.passed + r.summary.failed + (r.summary.skipped ?? 0) : '',
-      passed: r.summary?.passed ?? '',
-      failed: r.summary?.failed ?? '',
-      startedAt: r.startedAt,
-      endedAt: r.endedAt ?? '',
-      duration: formatDurationBetween(r.startedAt, r.endedAt),
-      exitCode: r.exitCode ?? '',
-      command: r.command,
-    }));
-    const headers = Object.keys(rows[0] ?? {});
-    const csv = [
-      headers.join(','),
-      ...rows.map((row) =>
-        headers
-          .map((h) => `"${String((row as Record<string, unknown>)[h] ?? '').replace(/"/g, '""')}"`)
-          .join(','),
-      ),
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `run-history-${dayjs().format('YYYY-MM-DD')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportHistoryCsv(sorted);
   }
 
   const filtered = useMemo(
@@ -386,120 +319,23 @@ export function HistoryPage() {
       </div>
 
       {showFilters && (
-        // Bounded so a tall filter panel scrolls itself instead of squeezing
-        // the table out of the clipped root.
-        <Paper p="md" withBorder mah="40vh" style={{ flexShrink: 0, overflowY: 'auto' }}>
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                {t('history.filterRuns')}
-              </Text>
-              {activeFilterCount > 0 && (
-                <Button size="compact-xs" variant="subtle" color="gray" onClick={clearFilters}>
-                  {t('common.clearAll')}
-                </Button>
-              )}
-            </Group>
-
-            <Group grow align="flex-end">
-              <DatePickerInput
-                type="range"
-                label={t('table.dateRange')}
-                size="xs"
-                value={dateRange}
-                onChange={(v) => {
-                  setDateRange(v);
-                  setCurrentPage(1);
-                }}
-                placeholder={t('filter.pickDates')}
-                leftSection={<TbCalendar size={14} />}
-                clearable
-                valueFormat="DD MMM YYYY"
-              />
-              <TextInput
-                label={t('run.project')}
-                size="xs"
-                value={filterProject}
-                onChange={(e) => {
-                  handleFilterChange(e.currentTarget.value);
-                }}
-                placeholder={t('filter.filterByName')}
-              />
-            </Group>
-
-            <Group gap="xl" align="flex-start" wrap="wrap">
-              <Stack gap={4}>
-                <Text size="xs" c="dimmed">
-                  {t('filter.tools')}
-                </Text>
-                <Group gap={6}>
-                  {toolIds.map((t) => (
-                    <Badge
-                      key={t}
-                      size="sm"
-                      variant={selectedTools.has(t) ? 'filled' : 'outline'}
-                      color={selectedTools.has(t) ? 'blue' : 'gray'}
-                      onClick={() => {
-                        setSelectedTools(toggleInSet(selectedTools, t));
-                        setCurrentPage(1);
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {t}
-                    </Badge>
-                  ))}
-                </Group>
-              </Stack>
-              {availableTypes.length > 0 && (
-                <Stack gap={4}>
-                  <Text size="xs" c="dimmed">
-                    {t('table.type')}
-                  </Text>
-                  <Group gap={6}>
-                    {availableTypes.map((t) => (
-                      <Badge
-                        key={t}
-                        size="sm"
-                        variant={selectedTypes.has(t) ? 'filled' : 'outline'}
-                        color={selectedTypes.has(t) ? 'blue' : 'gray'}
-                        onClick={() => {
-                          setSelectedTypes(toggleInSet(selectedTypes, t));
-                          setCurrentPage(1);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {t}
-                      </Badge>
-                    ))}
-                  </Group>
-                </Stack>
-              )}
-              <Stack gap={4}>
-                <Text size="xs" c="dimmed">
-                  {t('table.status')}
-                </Text>
-                <Group gap={6}>
-                  {ALL_STATUSES.map((s) => (
-                    <Badge
-                      key={s}
-                      size="sm"
-                      variant={selectedStatuses.has(s) ? 'filled' : 'outline'}
-                      color={selectedStatuses.has(s) ? getStatusColor(s) : 'gray'}
-                      leftSection={getStatusIcon(s)}
-                      onClick={() => {
-                        setSelectedStatuses(toggleInSet(selectedStatuses, s));
-                        setCurrentPage(1);
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {t(statusLabelKey(s))}
-                    </Badge>
-                  ))}
-                </Group>
-              </Stack>
-            </Group>
-          </Stack>
-        </Paper>
+        <HistoryFilterPanel
+          activeFilterCount={activeFilterCount}
+          clearFilters={clearFilters}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          filterProject={filterProject}
+          handleFilterChange={handleFilterChange}
+          toolIds={toolIds}
+          selectedTools={selectedTools}
+          setSelectedTools={setSelectedTools}
+          availableTypes={availableTypes}
+          selectedTypes={selectedTypes}
+          setSelectedTypes={setSelectedTypes}
+          selectedStatuses={selectedStatuses}
+          setSelectedStatuses={setSelectedStatuses}
+          setCurrentPage={setCurrentPage}
+        />
       )}
 
       {/* The values whose columns folded away because every visible row shared
@@ -599,296 +435,22 @@ export function HistoryPage() {
       )}
 
       {paginatedData.length > 0 && (
-        <Paper
-          withBorder
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Bounded ScrollArea → table scrolls inside the card (sticky header)
-              instead of growing the page; pagination below stays visible. */}
-          <ScrollArea type="auto" style={{ flex: 1, minHeight: 0 }}>
-            <Table
-              striped
-              highlightOnHover
-              verticalSpacing="xs"
-              stickyHeader
-              miw={advancedMode ? 1300 : 1160}
-            >
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th w={40} />
-                  <Table.Th w={1}>
-                    <SortableHeader
-                      label={t('table.status')}
-                      field="status"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
-                  <Table.Th>
-                    <SortableHeader
-                      label={t('run.tool')}
-                      field="tool"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
-                  {sharedProject === null && (
-                    <Table.Th>
-                      <SortableHeader
-                        label={t('run.project')}
-                        field="project"
-                        currentField={sortField}
-                        currentDir={sortDir}
-                        onSort={handleSort}
-                      />
-                    </Table.Th>
-                  )}
-                  {sharedType === null && <Table.Th>{t('table.type')}</Table.Th>}
-                  <Table.Th>{t('table.cases')}</Table.Th>
-                  <Table.Th>{t('table.passScore')}</Table.Th>
-                  <Table.Th>{t('table.tag')}</Table.Th>
-                  <Table.Th>{t('table.mode')}</Table.Th>
-                  <Table.Th>{t('table.trigger')}</Table.Th>
-                  <Table.Th>{t('table.environment')}</Table.Th>
-                  <Table.Th>{t('table.duration')}</Table.Th>
-                  <Table.Th>
-                    <SortableHeader
-                      label={t('table.started')}
-                      field="startedAt"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
-                  {advancedMode && <Table.Th>{t('table.exit')}</Table.Th>}
-                  <Table.Th>{t('table.actions')}</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {paginatedData.map((r) => (
-                  <Table.Tr key={r.id}>
-                    <Table.Td>
-                      <Checkbox
-                        size="xs"
-                        checked={compareSel.has(r.id)}
-                        onChange={() => toggleCompare(r.id)}
-                        aria-label={t('compare.button')}
-                      />
-                    </Table.Td>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      {/* Same outcome vocabulary as Reports: a run whose tests
-                          failed and a run that never produced a result are
-                          different problems and must not read alike. */}
-                      <RunStatusBadge status={r.status} summary={r.summary} />
-                    </Table.Td>
-                    {/* Tool / mode / trigger are context, not signals. As pills
-                        they gave every row five coloured chips and nothing stood
-                        out; as dim text the status badge is the only colour in
-                        the row and the eye lands on it. */}
-                    <Table.Td>
-                      <Tooltip label={toolLabel(r.request.tool, tools)} withArrow>
-                        <Text size="xs" c="dimmed" truncate maw={90}>
-                          {toolLabel(r.request.tool, tools)}
-                        </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    {sharedProject === null && (
-                      <Table.Td>
-                        <Tooltip label={`${r.request.tool}/${r.request.type}/${r.request.project}`}>
-                          <Text size="xs" fw={500} truncate maw={160}>
-                            {r.request.project}
-                          </Text>
-                        </Tooltip>
-                      </Table.Td>
-                    )}
-                    {sharedType === null && (
-                      <Table.Td>
-                        <Tooltip label={r.request.type} withArrow>
-                          <Text size="xs" truncate maw={80}>
-                            {r.request.type}
-                          </Text>
-                        </Tooltip>
-                      </Table.Td>
-                    )}
-                    <Table.Td>
-                      {r.summary ? (
-                        <Tooltip
-                          label={`${(
-                            r.summary.passed + r.summary.failed + (r.summary.skipped ?? 0)
-                          ).toLocaleString()}${r.summary.pne ? ` (${formatPneBreakdown(r.summary.pne, t)})` : ''}`}
-                          withArrow
-                        >
-                          <Text size="xs" c="dimmed">
-                            {formatCompactNumber(
-                              r.summary.passed + r.summary.failed + (r.summary.skipped ?? 0),
-                            )}
-                          </Text>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          —
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <PassScoreCell summary={r.summary} severity={r.severity} />
-                    </Table.Td>
-                    <Table.Td>
-                      {r.request.tag ? (
-                        <Tooltip label={r.request.tag} withArrow>
-                          {/* One line, same rule as the Reports tag cell: stacked
-                              chips made these rows twice the height of their
-                              neighbours and the eye lost the row rhythm. The
-                              tooltip still carries the full expression. */}
-                          <Group gap={4} wrap="nowrap" maw={130}>
-                            <Badge size="xs" variant="outline" color="blue" style={{ minWidth: 0 }}>
-                              {(parseTagExpr(r.request.tag)[0] ?? '').replace(/^@/, '')}
-                            </Badge>
-                            {parseTagExpr(r.request.tag).length > 1 && (
-                              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                                +{parseTagExpr(r.request.tag).length - 1}
-                              </Text>
-                            )}
-                          </Group>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          {t('reports.allTests')}
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      {/* Docker is the exception worth marking, local is the
-                          norm — so only the exception gets any colour. */}
-                      <Tooltip label={r.request.mode} withArrow>
-                        <Text
-                          size="xs"
-                          truncate
-                          maw={80}
-                          c={r.request.mode === 'docker' ? 'violet.4' : 'dimmed'}
-                        >
-                          {r.request.mode}
-                        </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    <Table.Td>
-                      <Tooltip label={t(`trigger.${r.triggeredBy ?? 'manual'}`)} withArrow>
-                        <Text size="xs" c="dimmed" truncate maw={90}>
-                          {t(`trigger.${r.triggeredBy ?? 'manual'}`)}
-                        </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    <Table.Td>
-                      {r.envProfileName || r.environment ? (
-                        <Tooltip label={r.environment ?? '—'} withArrow>
-                          <Text size="xs" c="dimmed" truncate maw={100}>
-                            {r.envProfileName ?? r.environment}
-                          </Text>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          —
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Tooltip
-                        label={
-                          r.endedAt
-                            ? `${formatAbsolute(r.startedAt)} → ${formatAbsolute(r.endedAt)}`
-                            : formatAbsolute(r.startedAt)
-                        }
-                        withArrow
-                      >
-                        <Text size="xs" ff="monospace">
-                          {formatDurationBetween(r.startedAt, r.endedAt)}
-                        </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    <Table.Td>
-                      <Tooltip label={formatAbsolute(r.startedAt)}>
-                        <Text size="xs" c="dimmed">
-                          {formatRelative(r.startedAt)}
-                        </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    {advancedMode && (
-                      <Table.Td>
-                        <Text size="xs" ff="monospace" c={r.exitCode === 0 ? 'green' : 'red'}>
-                          {r.exitCode ?? '-'}
-                        </Text>
-                      </Table.Td>
-                    )}
-                    <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        <Tooltip label={t('history.rerun')}>
-                          <ActionIcon
-                            variant="subtle"
-                            size="sm"
-                            onClick={() => handleRerun(r)}
-                            aria-label={t('history.rerun')}
-                          >
-                            <TbPlayerPlay size={12} />
-                          </ActionIcon>
-                        </Tooltip>
-                        {/* Secondary actions live behind one trigger. Four
-                            buttons per row put ~125 targets on a 25-row page and
-                            ate the width the data columns needed; the two most
-                            used stay out, the rest are one click away. */}
-                        <Menu position="bottom-end" withArrow>
-                          <Menu.Target>
-                            <ActionIcon
-                              variant="subtle"
-                              color="gray"
-                              size="sm"
-                              aria-label={t('history.moreActions')}
-                            >
-                              <TbDots size={14} />
-                            </ActionIcon>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            {/* Only offered where there is something to narrow
-                                to — a green run has no failures to re-select. */}
-                            {(r.status === 'failed' || r.status === 'error') && (
-                              <Menu.Item
-                                leftSection={<TbRefreshAlert size={14} />}
-                                onClick={() => rerunFailed.mutate(r)}
-                              >
-                                {t('history.rerunFailed')}
-                              </Menu.Item>
-                            )}
-                            <Menu.Item
-                              leftSection={<TbCopy size={14} />}
-                              onClick={() => handleCopyCommand(r.command)}
-                            >
-                              {t('history.copyCommand')}
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                        <Button
-                          size="compact-xs"
-                          variant="light"
-                          leftSection={<TbTerminal size={12} />}
-                          onClick={() => handleViewLog(r)}
-                        >
-                          {t('history.details')}
-                        </Button>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-        </Paper>
+        <HistoryRunsTable
+          paginatedData={paginatedData}
+          tools={tools}
+          sharedProject={sharedProject}
+          sharedType={sharedType}
+          advancedMode={advancedMode}
+          sortField={sortField}
+          sortDir={sortDir}
+          handleSort={handleSort}
+          compareSel={compareSel}
+          toggleCompare={toggleCompare}
+          handleRerun={handleRerun}
+          onRerunFailed={(run) => rerunFailed.mutate(run)}
+          handleCopyCommand={handleCopyCommand}
+          handleViewLog={handleViewLog}
+        />
       )}
 
       {totalPages > 1 && (

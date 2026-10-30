@@ -76,8 +76,9 @@ interface PreferencesActions {
 
 type PreferencesStore = Simplify<Preferences & PreferencesActions>;
 
+export const DEFAULT_TOOL: ToolId = 'playwright';
 const DEFAULT_PREFERENCES: Preferences = {
-  lastTool: 'playwright',
+  lastTool: DEFAULT_TOOL,
   lastType: { playwright: 'web', 'robot-framework': 'web', k6: 'performance' },
   lastProject: {},
   defaultMode: 'local',

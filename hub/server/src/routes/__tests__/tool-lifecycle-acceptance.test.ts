@@ -189,6 +189,8 @@ function createTestServices(tmpDir: string, mod: ManifestModule, sync: SyncModul
             runVars: [],
             supportsHeadless: false,
           },
+          supportsStandalone: false,
+          supportsBundle: false,
           ...detectOrigin(id),
         };
       }
@@ -223,6 +225,8 @@ function createTestServices(tmpDir: string, mod: ManifestModule, sync: SyncModul
           runVars: [],
           supportsHeadless: false,
         },
+        supportsStandalone: false,
+        supportsBundle: false,
         ...detectOrigin(manifest.id),
       };
     });

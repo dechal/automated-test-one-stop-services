@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { authenticate } from '@google-cloud/local-auth';
-import type { OAuth2Client } from 'google-auth-library';
-import { google } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
@@ -47,7 +46,7 @@ export async function authorize(options: AuthorizeOptions = {}): Promise<OAuth2C
       const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
       const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
       const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
-      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+      const oAuth2Client = new OAuth2Client(client_id, client_secret, redirect_uris[0]);
       oAuth2Client.setCredentials(tokens);
 
       // Attempt to retrieve a valid access token (refreshes if needed and possible)

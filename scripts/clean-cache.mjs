@@ -34,8 +34,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const PROTECTED = new Set([
   'playwright-browsers', // browser binaries — deleting = full re-download; path-locked
   'deletable', // category folder (its CONTENTS are cleared, the folder stays)
-  'regenerable', // category folder (holds brain-auto-retrieve etc; cleared only on --deep)
+  'regenerable', // category folder (cleared only on --deep)
+  'state',
 ]);
+
+const NESTED_SKIP = new Set(['node_modules', '.git', '.venv', 'outputs']);
 
 const CATEGORY_DIRS = ['deletable', 'regenerable'];
 
@@ -93,6 +96,46 @@ export function selectStaleTargets(root, list, newestMtime, days, now) {
   return list(dir)
     .map((name) => path.join(dir, name))
     .filter((target) => isInside(root, target) && newestMtime(target) < cutoff);
+}
+
+/**
+ * @param {string} workspace absolute workspace root (parent of the root `.cache`)
+ * @param {(dir: string) => { name: string; isDirectory: boolean }[]} listDirs
+ * @returns {string[]}
+ */
+export function findNestedCacheDirs(workspace, listDirs) {
+  const rootCache = path.join(workspace, '.cache');
+  /** @type {string[]} */
+  const found = [];
+  /** @param {string} dir */
+  const walk = (dir) => {
+    for (const entry of listDirs(dir)) {
+      if (!entry.isDirectory || NESTED_SKIP.has(entry.name)) continue;
+      const child = path.join(dir, entry.name);
+      if (entry.name === '.cache') {
+        if (child !== rootCache) found.push(child);
+        continue;
+      }
+      walk(child);
+    }
+  };
+  walk(workspace);
+  return found.sort();
+}
+
+/**
+ * @param {string} dir
+ * @returns {{ name: string; isDirectory: boolean }[]}
+ */
+function safeListDirs(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true }).map((d) => ({
+      name: d.name,
+      isDirectory: d.isDirectory(),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /** readdir that returns [] for a missing/unreadable dir. */
@@ -192,6 +235,7 @@ function main() {
     rootScratch: argv.includes('--root-scratch'),
     dryRun: argv.includes('--dry-run'),
     tidy: argv.includes('--tidy'),
+    includeNested: argv.includes('--include-nested'),
   };
   const pruneArg = argv.find((a) => a.startsWith('--prune-days='));
   const root = cacheRoot();
@@ -220,7 +264,13 @@ function main() {
     return;
   }
 
-  const targets = selectTargets(root, safeList, flags);
+  const workspace = path.dirname(root);
+  const nested = flags.includeNested
+    ? findNestedCacheDirs(workspace, safeListDirs).filter(
+        (dir) => path.basename(dir) === '.cache' && isInside(workspace, dir),
+      )
+    : [];
+  const targets = [...selectTargets(root, safeList, flags), ...nested];
   if (targets.length === 0) {
     console.log('clean-cache: nothing to remove (deletable/ empty).');
     return;
@@ -228,7 +278,8 @@ function main() {
 
   let removed = 0;
   for (const target of targets) {
-    if (!isInside(root, target) || PROTECTED.has(path.basename(target))) continue; // belt + braces
+    const isNested = nested.includes(target);
+    if (!isNested && (!isInside(root, target) || PROTECTED.has(path.basename(target)))) continue; // belt + braces
     if (flags.dryRun) {
       const kind = statSync(target).isDirectory() ? 'dir ' : 'file';
       console.log(`  [would remove] ${kind} ${path.relative(root, target)}`);

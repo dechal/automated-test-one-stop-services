@@ -34,6 +34,8 @@ export interface ToolView {
     readonly sectionAxis: boolean;
   };
   readonly capabilities: ToolCapabilitiesView;
+  readonly supportsStandalone: boolean;
+  readonly supportsBundle: boolean;
 }
 
 export type ToolTagsStrategy = 'playwright-list' | 'robot-files' | 'none';

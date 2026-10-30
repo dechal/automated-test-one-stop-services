@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import type { EnvEntry, UsageLoggingStatus } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { WORKSPACE_ROOT } from '../config.js';
@@ -113,11 +114,14 @@ export async function usageLoggingRoutes(app: FastifyInstance): Promise<void> {
 
     authInFlight = true;
     try {
-      const result = await runChild('tsx', ['scripts/third-party/google/google-auth.ts'], {
-        cwd: WORKSPACE_ROOT,
-        shell: process.platform === 'win32',
-        timeoutMs: AUTH_TIMEOUT_MS,
-      });
+      const result = await runChild(
+        process.execPath,
+        [
+          createRequire(import.meta.url).resolve('tsx/cli'),
+          'scripts/third-party/google/google-auth.ts',
+        ],
+        { cwd: WORKSPACE_ROOT, timeoutMs: AUTH_TIMEOUT_MS },
+      );
       if (!result.ok) {
         reply.status(result.timedOut ? 504 : 500);
         return {

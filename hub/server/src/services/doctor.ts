@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { DoctorCategory, DoctorCheck, DoctorReport } from '@hub/shared';
 import { SCRIPTS_DIR, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
@@ -166,10 +167,8 @@ async function checkDockerDaemon(): Promise<DoctorCheck> {
 // overall semantics while avoiding edits to the client's exhaustive
 // `Record<DoctorCategory>` consumers (`groupByCategory`, `DOCTOR_CATEGORY_ORDER`)
 // which are out of this change's scope. Upgrade path: add `not-required` to the
-// union and extend those client maps. Presence uses `fs.existsSync(TOOLS_DIR/id)`
-// — the Hub server package cannot import the `scripts/manifests`
-// folder-presence helper (not a workspace package; Biome bans the deep relative
-// import), and a single `existsSync` is not a discovery-scan re-implementation.
+// union and extend those client maps. Presence uses `fs.existsSync(TOOLS_DIR/id)`;
+// a single `existsSync` is not a discovery-scan re-implementation.
 
 /** True iff `tools/<id>/` exists on disk — the folder-presence gate. */
 export function isToolFolderPresent(id: string): boolean {
@@ -197,11 +196,11 @@ export function computeOverallOk(checks: readonly DoctorCheck[]): boolean {
 }
 
 /** The benign, passing self-check emitted when a tool's folder is absent. */
-function absentToolCheck(name: string, folder: string): DoctorCheck {
+function absentToolCheck(name: string, reason: string): DoctorCheck {
   return {
     name,
     ok: true,
-    version: `not required (tools/${folder} absent)`,
+    version: `not required (${reason})`,
     category: toolCheckCategory(false),
   };
 }
@@ -232,7 +231,7 @@ async function checkToolRequirements(tools: readonly ToolManifest[]): Promise<Do
  * robot-framework never fails the doctor over Python.
  */
 async function checkPython(present: boolean): Promise<DoctorCheck> {
-  if (!present) return absentToolCheck('python', 'robot-framework');
+  if (!present) return absentToolCheck('python', 'no uv tool installed');
   const version = readPythonVersion();
   // `uv python find` exits 0 (printing the interpreter path) when a matching
   // Python is installed, non-zero otherwise. `uv` owns Python here, so probing
@@ -278,6 +277,8 @@ interface ExpectedBrowser {
   browserVersion?: string;
 }
 
+const PLAYWRIGHT_CORE_CHAIN = ['@playwright/test', 'playwright', 'playwright-core'] as const;
+
 interface BrowsersJsonEntry {
   name: string;
   revision: string;
@@ -295,42 +296,16 @@ interface BrowsersJsonEntry {
  * Returns `undefined` on any failure so the caller degrades to presence-only.
  */
 function resolveBrowsersJsonPath(): string | undefined {
-  const toolDir = path.join(TOOLS_DIR, 'playwright');
-  const pnpmDir = path.join(toolDir, 'node_modules', '.pnpm');
-  // 1) Deterministic pnpm path for the pinned version (playwright-core tracks
-  //    @playwright/test lockstep, so their versions match).
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(toolDir, 'package.json'), 'utf8')) as {
-      devDependencies?: Record<string, string>;
-      dependencies?: Record<string, string>;
-    };
-    const spec =
-      pkg.devDependencies?.['@playwright/test'] ?? pkg.dependencies?.['@playwright/test'];
-    const version = spec?.replace(/^[^0-9]*/, '');
-    if (version) {
-      const p = path.join(
-        pnpmDir,
-        `playwright-core@${version}`,
-        'node_modules',
-        'playwright-core',
-        'browsers.json',
-      );
-      if (fs.existsSync(p)) return p;
+    let pkgJson = path.join(TOOLS_DIR, 'playwright', 'package.json');
+    for (const dep of PLAYWRIGHT_CORE_CHAIN) {
+      pkgJson = createRequire(pkgJson).resolve(`${dep}/package.json`);
     }
+    const p = path.join(path.dirname(pkgJson), 'browsers.json');
+    return fs.existsSync(p) ? p : undefined;
   } catch {
-    // fall through to the scan
+    return undefined;
   }
-  // 2) Fallback: scan for the installed playwright-core (spec/lock mismatch).
-  try {
-    const entry = fs.readdirSync(pnpmDir).find((e) => e.startsWith('playwright-core@'));
-    if (entry) {
-      const p = path.join(pnpmDir, entry, 'node_modules', 'playwright-core', 'browsers.json');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch {
-    // give up — caller degrades to presence-only
-  }
-  return undefined;
 }
 
 /** Parse `browsers.json` into the expected-revision map for browsers that
@@ -427,7 +402,7 @@ export function findStaleBrowsers(
  * than before, never a false failure).
  */
 function checkPlaywrightBrowsers(present: boolean): DoctorCheck {
-  if (!present) return absentToolCheck('playwright-browsers', 'playwright');
+  if (!present) return absentToolCheck('playwright-browsers', 'tools/playwright absent');
 
   const env = process.env.PLAYWRIGHT_BROWSERS_PATH;
   const candidates = [
@@ -521,14 +496,14 @@ export async function runDoctor(): Promise<DoctorReport> {
   if (lastReport && now - lastReport.at < DOCTOR_CACHE_TTL_MS) return lastReport.value;
 
   const playwrightPresent = isToolFolderPresent('playwright');
-  const robotPresent = isToolFolderPresent('robot-framework');
   const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
+  const pythonPresent = tools.some((t) => t.packageManager === 'uv');
   const hasSharedServices = tools.some((t) => t.compose.services !== undefined);
 
   const checks = await Promise.all([
     ...CHECKS.map(runCheck),
     checkToolRequirements(tools),
-    checkPython(robotPresent),
+    checkPython(pythonPresent),
     Promise.resolve(checkPlaywrightBrowsers(playwrightPresent)),
     checkDockerDaemon(),
     ...(hasSharedServices

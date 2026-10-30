@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url';
 import type { ToolId } from '@hub/shared';
 import { WORKSPACE_ROOT } from '../config.js';
 
-// ─── Types mirrored from scripts/manifests (the dynamically imported module) ──
+// ─── Types re-exported from scripts/manifests (`@manifests/*` alias) ──
 
 import type {
   ManifestError,
@@ -35,17 +35,6 @@ import type {
   ValidateManifestResult,
 } from '@manifests/index.js';
 
-// ── Optional capability blocks ───────────────────────
-// Mirror of the shapes in `scripts/manifests/types.ts`. All optional; absent
-// blocks resolve to safe defaults via the canonical `resolveCapabilities()`
-// (exposed through `getManifestModule()` below).
-/** Known tag-discovery strategies; unknown/absent resolve to `'none'`. */
-/**
- * Neutral run context the command-builder maps a `RunRequest` onto before
- * delegating to the canonical `buildRunCommandFromInput()` in
- * `scripts/manifests/runner-command.ts`. Mirror of the shared
- * `RunCommandInput`. `quote` escapes task-var values for safe shell pass-through.
- */
 export type {
   ManifestError,
   ManifestRegistry,

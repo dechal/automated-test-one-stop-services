@@ -23,7 +23,9 @@ const SKIP = new Set(['node_modules', '.venv']);
  * @returns {string[]} paths of every `.git` directory found
  */
 export function listGitDirs(root) {
+  /** @type {string[]} */
   const found = [];
+  /** @param {string} dir */
   const walk = (dir) => {
     let entries;
     try {

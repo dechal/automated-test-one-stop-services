@@ -32,7 +32,6 @@ import { queryRoots, qWebhooks } from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { FormModal } from '~/components/FormModal.js';
-import { PageHeader } from '~/components/PageHeader.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
 import { useProjectList, useProjectTypes } from '~/hooks/useProjectQueries';
@@ -73,16 +72,6 @@ function scopeLabel(scope?: WebhookScope): string | null {
   if (!scope) return null;
   const parts = [scope.tool, scope.type, scope.project].filter(Boolean);
   return parts.length > 0 ? parts.join(' / ') : null;
-}
-
-export function WebhooksPage() {
-  const t = useT();
-  return (
-    <Stack gap="md">
-      <PageHeader title={t('nav.webhooks')} description={t('settings.webhooksDesc')} />
-      <WebhooksBody />
-    </Stack>
-  );
 }
 
 export function WebhooksBody() {

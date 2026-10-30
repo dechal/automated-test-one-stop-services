@@ -57,7 +57,10 @@ vi.mock('../../services/manifest-registry.js', () => ({
   // The command-builder (buildTagsCommand / buildPlaywrightListCommand) sources
   // the task namespace from the manifest; a minimal stub keeps the emitted
   // command well-formed (execSync output is mocked, so the exact ns is moot).
-  getToolManifest: vi.fn(async (id: string) => ({ runner: { taskNamespace: id } })),
+  getToolManifest: vi.fn(async (id: string) => ({
+    runner: { taskNamespace: id },
+    projects: { root: 'projects', specsSubdir: 'automations/specs' },
+  })),
 }));
 
 function capsWithStrategy(strategy: string) {

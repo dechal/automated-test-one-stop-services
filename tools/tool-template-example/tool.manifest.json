@@ -1,4 +1,5 @@
 {
+  "$schema": "../../scripts/manifests/schemas/tool.manifest.schema.json",
   "schemaVersion": "1",
   "id": "my-tool",
   "alias": "mt",
@@ -9,6 +10,11 @@
   "runtime": "node",
   "packageManager": "pnpm",
   "taskfile": "Taskfile.yml",
+  "requires": [],
+  "clean": {
+    "paths": ["test-results"],
+    "commands": []
+  },
   "projects": {
     "root": "projects",
     "depth": 2,
@@ -26,10 +32,6 @@
     "networks": []
   },
   "tsconfigGen": null,
-  "docker": {
-    "baseImage": "node:22-slim",
-    "extras": ["task", "pnpm", "dotenvx"]
-  },
   "runner": {
     "title": "My Tool",
     "executionTypes": [
@@ -52,8 +54,7 @@
         "exclude": "*-template-example",
         "passAs": { "kind": "task", "key": "PROJECT" }
       }
-    ],
-    "commandTemplate": "task {ns}:run-{environment}"
+    ]
   },
   "pipeline": {
     "id": "my-tool",

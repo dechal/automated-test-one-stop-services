@@ -124,7 +124,7 @@ function makePnpmTool(
   return { root, pkgPath, manifest };
 }
 
-describe('syncToolPackageManager — the pnpm pin is derived from versions.env', () => {
+describe('syncToolPackageManager — the pnpm pin is derived from the root package.json', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -156,28 +156,101 @@ describe('syncToolPackageManager — the pnpm pin is derived from versions.env',
     expect(fs.readFileSync(t.pkgPath, 'utf8')).toContain('11.10.0');
   });
 
-  it('skips when versions.env has no PNPM_VERSION', () => {
+  it('skips when the root package.json has no pnpm pin', () => {
     const t = makePnpmTool('playwright', 'pnpm@11.10.0');
     expect(syncToolPackageManager(t.root, t.manifest, '')).toBeNull();
   });
 });
 
+function makeRoot(pkg: Record<string, unknown>): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-ver-'));
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify(pkg), 'utf8');
+  return root;
+}
+
 describe('readPnpmVersion', () => {
-  it('reads PNPM_VERSION from scripts/setup/versions.env', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-ver-'));
-    const dir = path.join(root, 'scripts', 'setup');
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      path.join(dir, 'versions.env'),
-      'NODE_VERSION=26.9.0\nPNPM_VERSION=11.23.0\n',
-      'utf8',
-    );
+  it('reads volta.pnpm from the root package.json', () => {
+    const root = makeRoot({ volta: { node: '26.9.0', pnpm: '11.23.0' } });
     expect(readPnpmVersion(root)).toBe('11.23.0');
   });
 
-  it('returns an empty string when versions.env is absent', () => {
+  it('falls back to packageManager when there is no volta pin', () => {
+    const root = makeRoot({ packageManager: 'pnpm@11.23.0' });
+    expect(readPnpmVersion(root)).toBe('11.23.0');
+  });
+
+  it('returns an empty string when the root package.json is absent', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-ver-'));
     expect(readPnpmVersion(root)).toBe('');
+  });
+});
+
+const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+
+function readRepoFile(...segments: string[]): string | undefined {
+  const abs = path.join(REPO_ROOT, ...segments);
+  return fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : undefined;
+}
+
+function floorOf(range: string | undefined): string {
+  return (range ?? '').replace(/^[^0-9]*/, '').trim();
+}
+
+interface RootPins {
+  readonly volta?: { readonly node?: string; readonly pnpm?: string };
+  readonly engines?: { readonly node?: string; readonly pnpm?: string };
+  readonly packageManager?: string;
+}
+
+describe('version pins have one source and every copy agrees (G-04)', () => {
+  const pkg = JSON.parse(readRepoFile('package.json') ?? '{}') as RootPins;
+  const node = pkg.volta?.node ?? '';
+  const pnpm = pkg.volta?.pnpm ?? '';
+  const python = readRepoFile('.python-version')?.split(/\r?\n/)[0]?.trim() ?? '';
+
+  it('declares the sources: package.json volta.node / volta.pnpm and .python-version', () => {
+    expect(node).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(pnpm).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(python).toMatch(/^\d+\.\d+/);
+  });
+
+  it('root package.json engines and packageManager match the volta pins', () => {
+    expect(floorOf(pkg.engines?.node)).toBe(node);
+    expect(floorOf(pkg.engines?.pnpm)).toBe(pnpm);
+    expect(pkg.packageManager).toBe(`pnpm@${pnpm}`);
+  });
+
+  it('pyproject.toml requires-python floor matches .python-version', () => {
+    const requires = /^requires-python\s*=\s*"([^"]+)"/m.exec(readRepoFile('pyproject.toml') ?? '');
+    expect(floorOf(requires?.[1])).toBe(python);
+  });
+
+  it('a PYTHON_VERSION left in scripts/setup/versions.env matches .python-version', () => {
+    const env = readRepoFile('scripts', 'setup', 'versions.env') ?? '';
+    const copy = /^PYTHON_VERSION=(.+)$/m.exec(env)?.[1]?.trim();
+    if (copy !== undefined) expect(copy).toBe(python);
+    expect(env).not.toMatch(/^(NODE|PNPM)_VERSION=/m);
+  });
+
+  it('the CI setup action reads the Node pin from a file, or names the same major', () => {
+    const action = readRepoFile('.github', 'actions', 'setup', 'action.yml');
+    if (action === undefined) return;
+    const file = /node-version-file:\s*['"]?([^'"\s]+)/.exec(action)?.[1];
+    if (file !== undefined) {
+      expect(fs.existsSync(path.join(REPO_ROOT, file))).toBe(true);
+    }
+    const literal = /node-version:\s*['"]?([^'"\s]+)/.exec(action)?.[1];
+    if (literal !== undefined) expect(node.startsWith(`${literal.split('.')[0]}.`)).toBe(true);
+    const pnpmLiteral =
+      /pnpm\/action-setup@[^\n]*\n\s*with:\s*\n\s*version:\s*['"]?([^'"\s]+)/.exec(action)?.[1];
+    if (pnpmLiteral !== undefined) expect(pnpmLiteral).toBe(pnpm);
+  });
+
+  it('the tool template package.json pins the same pnpm', () => {
+    const template = readRepoFile('tools', 'tool-template-example', 'package.json');
+    if (template === undefined) return;
+    const pm = (JSON.parse(template) as RootPins).packageManager;
+    expect(pm).toBe(`pnpm@${pnpm}`);
   });
 });
 

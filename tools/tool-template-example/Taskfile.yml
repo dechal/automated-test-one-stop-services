@@ -13,6 +13,14 @@ vars:
   PROJECT_DIR: "projects/{{.TYPE}}/{{.PROJECT}}"
 
 tasks:
+  setup:
+    desc: "Install this tool's own dependencies (isolated from the workspace). Auto-run by root `task setup` when the tool is present."
+    cmds:
+      - pnpm install --ignore-workspace
+  check:
+    desc: "Gate for this tool, changes no file. Run by the root `task check` loop and this repo's lefthook."
+    cmds:
+      - pnpm run --if-present typecheck
   _check-vars:
     internal: true
     silent: true

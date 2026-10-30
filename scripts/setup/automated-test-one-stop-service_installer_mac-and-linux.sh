@@ -34,6 +34,7 @@ case "${1:-}" in
     echo "Optional environment variables:"
     echo "  HUB_PORT=<port>       Hub port (default 5174)"
     echo "  SETUP_INSECURE_TLS=1   fetch through a TLS-inspecting corporate proxy"
+    echo "  SETUP_SKIP_HUB=1       install the CLI only; skip the Hub build and start"
     echo ""
     echo "Each run writes install-log-<timestamp>.txt in the current folder."
     echo "To remove it all later:  node scripts/setup/uninstall.mjs --run"
@@ -199,7 +200,7 @@ echo "==================================================="
 
 # Let the installer open the browser once, AFTER the readiness poll below, so
 # setup itself does not open too early. install-shortcut still runs in setup.
-SETUP_STATE_DIR="$WORKSPACE" SETUP_NO_OPEN=1 bash "$WORKSPACE/scripts/setup/setup-linux.sh"
+SETUP_NO_OPEN=1 bash "$WORKSPACE/scripts/setup/setup-linux.sh"
 SETUP_RC=$?
 
 if [ "$SETUP_RC" -ne 0 ]; then
@@ -210,6 +211,12 @@ if [ "$SETUP_RC" -ne 0 ]; then
   echo "  If it keeps failing, the messages above show what to fix."
   [ -n "$LOG_FILE" ] && echo "  Full log of this run: $LOG_FILE"
   exit 1
+fi
+if [ ! -f "$WORKSPACE/hub/package.json" ] || [ "${SETUP_SKIP_HUB:-}" = "1" ]; then
+  echo ""
+  echo "  ALL SET! The CLI is ready (no Hub in this install): cd \"$WORKSPACE\" && task --list"
+  [ -n "$LOG_FILE" ] && echo "  Log of this run: $LOG_FILE"
+  exit 0
 fi
 
 # ---------------------------------------------------------------------------
@@ -240,8 +247,8 @@ if [ "$HUB_READY" -eq 1 ]; then
   echo "  Next time, just double-click the \"Test Hub\" icon on your"
   echo "  desktop to open it again."
   echo ""
-  echo "  Before your first web test, the Hub downloads the browsers for the"
-  echo "  tool you pick: open the \"Environment Status\" panel and press \"Set up\"."
+  echo "  Setup already ran each tool's own setup (browsers included). If a tool"
+  echo "  showed a warning, open the \"Environment Status\" panel and press \"Set up\"."
   echo ""
   echo "  Workspace: $WORKSPACE"
   [ -n "$LOG_FILE" ] && echo "  Log of this run: $LOG_FILE"
@@ -252,8 +259,8 @@ if [ "$HUB_READY" -eq 1 ]; then
 fi
 
 echo ""
-echo "  [error] Hub did not start within 60s."
+echo "  [warn] Hub did not start within 60s. The CLI is ready: cd \"$WORKSPACE\" && task --list"
 echo "  Try running this installer again - it resumes where it left off."
 echo "  [hint]  Check the Hub status: node hub/bin/hub-service.mjs status (logs: hub/.run/hub.log)"
 [ -n "$LOG_FILE" ] && echo "  Full log of this run: $LOG_FILE"
-exit 1
+exit 0

@@ -7,59 +7,13 @@
  * The file-level ignore documents that these omissions are deliberate.
  */
 // biome-ignore-all lint/correctness/useExhaustiveDependencies: remaining effects intentionally omit the stable prefs store; see note above.
-import type {
-  HeadlessMode,
-  PerformanceType,
-  RunMode,
-  RunRecord,
-  RunRequest,
-  RunStatus,
-  ToolId,
-} from '@hub/shared';
+import type { RunMode, RunRecord, RunRequest, RunStatus, ToolId } from '@hub/shared';
 import { missingChecksForTool } from '@hub/shared';
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Button,
-  Checkbox,
-  Code,
-  Collapse,
-  Group,
-  NumberInput,
-  Paper,
-  Select,
-  SimpleGrid,
-  Stack,
-  Text,
-  TextInput,
-  Tooltip,
-  UnstyledButton,
-} from '@mantine/core';
+import { ActionIcon, Box, Group, Paper, Stack, Text, Tooltip } from '@mantine/core';
 import { useDisclosure, useHotkeys } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import {
-  TbAlertTriangle,
-  TbBookmarkPlus,
-  TbChevronDown,
-  TbChevronRight,
-  TbChevronUp,
-  TbCopy,
-  TbDeviceMobile,
-  TbExternalLink,
-  TbFolder,
-  TbLayoutColumns,
-  TbPlayerPlay,
-  TbPlayerStop,
-  TbRefresh,
-  TbSearch,
-  TbSettings,
-  TbTextDecrease,
-  TbTextIncrease,
-  TbTrash,
-  TbX,
-} from 'react-icons/tb';
+import { TbChevronDown, TbChevronUp } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import {
   qAppiumStatus,
@@ -74,10 +28,19 @@ import {
 import { useSaveBookmark } from '~/components/BookmarkPanel.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EnvDrawer } from '~/components/env-profiles/EnvDrawer.js';
-import { FormModal } from '~/components/FormModal.js';
-import { InlineAlert } from '~/components/InlineAlert.js';
-import { SectionSelect } from '~/components/SectionSelect.js';
-import { TagSelector } from '~/components/TagSelector.js';
+import { RunActionFooter } from '~/components/run-session/RunActionFooter.js';
+import { RunGatingAlerts } from '~/components/run-session/RunGatingAlerts.js';
+import { RunMoreOptions } from '~/components/run-session/RunMoreOptions.js';
+import { RunResultBar } from '~/components/run-session/RunResultBar.js';
+import { RunTargetFields } from '~/components/run-session/RunTargetFields.js';
+import { RunTerminalToolbar } from '~/components/run-session/RunTerminalToolbar.js';
+import {
+  SPLIT_IDLE_FORM,
+  SPLIT_MAX,
+  SPLIT_MIN,
+  SPLIT_STEP,
+} from '~/components/run-session/run-session-constants.js';
+import { SaveBookmarkModal } from '~/components/run-session/SaveBookmarkModal.js';
 import { toast } from '~/components/Toast.js';
 import {
   useProjectList,
@@ -94,23 +57,9 @@ import { recordingTerminal, useRunSessions, useSessionField } from '~/stores/nav
 import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
 import { mergeExtraArgs, parseRunArgs, SUPPORTS_RUN_FLAGS } from '~/utils/run-flags.js';
-import { getStatusColor } from '~/utils/run-status.js';
-import { runVerdict } from '~/utils/run-verdict.js';
 import { buildTagQuery, parseTagQuery } from '~/utils/tag-selection.js';
-import { enabledTools, toolLabel, toolSelectData } from '~/utils/tool-label.js';
+import { enabledTools, toolLabel } from '~/utils/tool-label.js';
 
-/** Split bounds mirror the clamp the preferences store commits, so the live drag
- *  preview can never show a width that will not be saved. */
-const SPLIT_MIN = 25;
-const SPLIT_MAX = 70;
-const SPLIT_DEFAULT = 40;
-const SPLIT_IDLE_FORM = 60;
-/** One arrow-key press on the divider moves the split by this many percent. */
-const SPLIT_STEP = 2;
-/** Terminal font bounds mirror the store's clamp, so A−/A+ can be disabled at
- *  the ends instead of clicking to no effect. */
-const FONT_MIN = 9;
-const FONT_MAX = 20;
 const TERMINAL_RESET = '\x1b[H\x1b[2J\x1b[3J';
 
 export interface SessionRef {
@@ -497,68 +446,15 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // Pinned (`flexShrink: 0`) so a short column squeezes the field area — which
   // has its own scroll — and never the alerts.
   const gatingAlerts = hasGatingAlerts ? (
-    <Stack gap="xs" style={{ flexShrink: 0 }}>
-      {credentialsMissing && (
-        <InlineAlert
-          icon={<TbAlertTriangle size={14} />}
-          message={t('run.credentialsMissing')}
-          action={
-            <Button
-              size="compact-xs"
-              variant="light"
-              color="yellow"
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.json';
-                input.onchange = async () => {
-                  const file = input.files?.[0];
-                  if (!file) return;
-                  const content = await file.text();
-                  try {
-                    await api.post('/api/doctor/upload-credentials', {
-                      content,
-                      filename: file.name,
-                    });
-                    toast.success(t('run.credentialsUploaded'));
-                    doctorQ.refetch();
-                  } catch {
-                    toast.error(t('run.credentialsUploadFailed'));
-                  }
-                };
-                input.click();
-              }}
-            >
-              {t('run.uploadCredentials')}
-            </Button>
-          }
-        />
-      )}
-      {missingReqs.length > 0 && (
-        <InlineAlert
-          icon={<TbAlertTriangle size={14} />}
-          message={`${t('run.missingRequirements')}: ${missingReqs.join(', ')}. ${t('run.missingRequirementsHint')}`}
-        />
-      )}
-      {appiumMissing && (
-        <InlineAlert
-          icon={<TbDeviceMobile size={14} />}
-          message={t('run.appiumWarning')}
-          action={
-            <Button
-              size="compact-xs"
-              variant="light"
-              color="yellow"
-              onClick={() => startAppium.mutate()}
-              loading={startAppium.isPending}
-              disabled={appiumQ.data ? !appiumQ.data.installed : false}
-            >
-              {t('run.startAppium')}
-            </Button>
-          }
-        />
-      )}
-    </Stack>
+    <RunGatingAlerts
+      credentialsMissing={credentialsMissing}
+      missingReqs={missingReqs}
+      appiumMissing={appiumMissing}
+      onCredentialsUploaded={() => doctorQ.refetch()}
+      onStartAppium={() => startAppium.mutate()}
+      startAppiumPending={startAppium.isPending}
+      startAppiumDisabled={appiumQ.data ? !appiumQ.data.installed : false}
+    />
   ) : null;
 
   useEffect(() => {
@@ -905,310 +801,71 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           )}
           {!formCollapsed && (
             <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
-              {/* Row 1 — WHAT to run. The three axes that decide the target sit on
-                  one line so the eye reads them together; the collapse toggle
-                  rides at the end instead of costing its own row. */}
-              <Group gap="xs" align="flex-end" wrap="nowrap">
-                <SimpleGrid
-                  cols={{ base: 1, xs: typeAxis ? 4 : 3 }}
-                  spacing="xs"
-                  style={{ flex: 1, minWidth: 0 }}
-                >
-                  <Select
-                    label={t('run.tool')}
-                    size="xs"
-                    disabled={isRunning}
-                    value={tool}
-                    onChange={(v) => {
-                      if (!v) return;
-                      setTool(v as ToolId);
-                      setType('');
-                      setProject('');
-                      setSelectedTags([]);
-                    }}
-                    data={toolSelectData(toolsQuery.data ?? [])}
-                    allowDeselect={false}
-                  />
-                  {typeAxis && (
-                    <Select
-                      label={t('run.type')}
-                      size="xs"
-                      disabled={isRunning}
-                      value={type || null}
-                      onChange={(v) => {
-                        setType(v ?? '');
-                        setProject('');
-                        setSelectedTags([]);
-                      }}
-                      placeholder={t('common.select')}
-                      data={types.data ?? []}
-                      searchable
-                    />
-                  )}
-                  <Select
-                    label={t('run.project')}
-                    size="xs"
-                    disabled={isRunning}
-                    value={project || null}
-                    onChange={(v) => {
-                      setProject(v ?? '');
-                      setSelectedTags([]);
-                    }}
-                    placeholder={projectsQ.isLoading ? t('common.loading') : t('common.select')}
-                    data={projectsQ.data ?? []}
-                    searchable
-                  />
-                  <Select
-                    label={t('run.environment')}
-                    size="xs"
-                    radius="xl"
-                    disabled={isRunning || !project}
-                    value={envProfileId}
-                    onChange={(v) => setEnvProfileId(v ?? ENV_CURRENT)}
-                    data={envOptions}
-                    allowDeselect={false}
-                    searchable
-                    rightSectionPointerEvents="auto"
-                    rightSectionWidth={34}
-                    rightSection={
-                      <Tooltip label={t('run.manageEnv')} withArrow>
-                        <ActionIcon
-                          size="sm"
-                          variant="subtle"
-                          color="gray"
-                          disabled={isRunning || !project}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEnvDrawer();
-                          }}
-                          aria-label={t('run.manageEnv')}
-                        >
-                          <TbSettings size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    }
-                  />
-                </SimpleGrid>
-                {collapseToggle}
-              </Group>
+              <RunTargetFields
+                isRunning={isRunning}
+                collapseToggle={collapseToggle}
+                typeAxis={typeAxis}
+                sectionAxis={sectionAxis}
+                supportsTags={supportsTags}
+                tools={toolsQuery.data ?? []}
+                tool={tool}
+                setTool={setTool}
+                type={type}
+                setType={setType}
+                typesData={types.data}
+                project={project}
+                setProject={setProject}
+                projectsData={projectsQ.data}
+                projectsLoading={projectsQ.isLoading}
+                envProfileId={envProfileId}
+                setEnvProfileId={setEnvProfileId}
+                envOptions={envOptions}
+                openEnvDrawer={openEnvDrawer}
+                section={section}
+                setSection={setSection}
+                sections={sectionsQ.data ?? []}
+                perfType={perfType}
+                setPerfType={setPerfType}
+                perfTypeData={perfTypeData}
+                tagsData={tags.data}
+                tagsLoading={tags.isLoading}
+                selectedTags={selectedTags}
+                setSelectedTags={setSelectedTags}
+                excludedTags={excludedTags}
+                setExcludedTags={setExcludedTags}
+              />
 
-              {sectionAxis && project && (
-                <SimpleGrid cols={2} spacing="xs">
-                  <SectionSelect
-                    label={t('run.section')}
-                    disabled={isRunning}
-                    value={section}
-                    onChange={setSection}
-                    placeholder={t('common.select')}
-                    sections={sectionsQ.data ?? []}
-                  />
-                  <Select
-                    label={t('run.perfType')}
-                    size="xs"
-                    disabled={isRunning}
-                    value={perfType}
-                    onChange={(v) => v && setPerfType(v as PerformanceType)}
-                    data={perfTypeData}
-                    allowDeselect={false}
-                  />
-                </SimpleGrid>
-              )}
-
-              {supportsTags && project && !isRunning && (
-                <TagSelector
-                  tags={tags.data}
-                  isLoading={tags.isLoading}
-                  selectedTags={selectedTags}
-                  onChange={setSelectedTags}
-                  excludedTags={excludedTags}
-                  onExcludeChange={setExcludedTags}
-                  matchPanelAt="bottom"
-                  fill
-                />
-              )}
-              {supportsTags && project && isRunning && selectedTags.length > 0 && (
-                <Stack gap={4}>
-                  <Text size="xs" c="dimmed">
-                    {t('run.tags')}
-                  </Text>
-                  <Group gap={4}>
-                    {selectedTags.map((tag) => (
-                      <Badge key={tag} size="sm" color="blue" variant="filled">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </Group>
-                </Stack>
-              )}
-
-              <Stack gap="xs">
-                <UnstyledButton
-                  onClick={toggleMore}
-                  aria-expanded={moreOpen}
-                  aria-label={t('run.moreOptions')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    borderTop: '1px solid var(--mantine-color-default-border)',
-                    paddingTop: 'var(--mantine-spacing-xs)',
-                  }}
-                >
-                  <TbChevronRight
-                    size={14}
-                    style={{
-                      transform: moreOpen ? 'rotate(90deg)' : 'none',
-                      transition: 'transform 150ms ease',
-                      opacity: 0.6,
-                    }}
-                  />
-                  <TbSettings size={14} style={{ opacity: 0.7 }} />
-                  <Text size="xs" fw={600} c="dimmed">
-                    {t('run.moreOptions')}
-                  </Text>
-                  {!moreOpen && (
-                    <Text size="xs" c="dimmed">
-                      ({t('run.moreOptionsCollapsed')})
-                    </Text>
-                  )}
-                </UnstyledButton>
-                <Collapse expanded={moreOpen}>
-                  <Stack gap="xs">
-                    {/* Row 2 — HOW to run. Mode, display and the tuning numbers share one
-                        line; each was a near-empty block of its own before. */}
-                    <SimpleGrid
-                      cols={{ base: 1, xs: 2, md: Math.min(3, Math.max(2, optionFieldCount)) }}
-                      spacing="sm"
-                    >
-                      {/* Docker needs a running daemon and knowledge of the compose
-                          setup, so basic mode neither shows it nor uses it —
-                          `effectiveMode` pins the run to local. A visible-but-ignored
-                          select would be the worse half-measure. */}
-                      {advancedMode && (
-                        <Select
-                          label={t('run.mode')}
-                          size="xs"
-                          disabled={isRunning}
-                          value={mode}
-                          onChange={(v) => v && setMode(v as RunMode)}
-                          data={[
-                            { value: 'local', label: t('run.modeLocal') },
-                            {
-                              value: 'docker',
-                              label: `Docker${!config.data?.dockerRunning ? ` (${t('run.notRunning')})` : ''}`,
-                              disabled: !config.data?.dockerRunning,
-                            },
-                          ]}
-                          allowDeselect={false}
-                        />
-                      )}
-                      {!sectionAxis && hasDisplay && (
-                        <Select
-                          label={t('run.display')}
-                          size="xs"
-                          disabled={isRunning}
-                          value={headless}
-                          onChange={(v) => v && setHeadless(v as HeadlessMode)}
-                          data={[
-                            { value: 'headless', label: t('run.headless') },
-                            { value: 'headed', label: t('run.headed') },
-                          ]}
-                          allowDeselect={false}
-                        />
-                      )}
-                      {!sectionAxis && supportsRunFlags && (
-                        <>
-                          <NumberInput
-                            label={t('run.workers')}
-                            size="xs"
-                            min={1}
-                            max={64}
-                            disabled={isRunning}
-                            value={workers ?? ''}
-                            onChange={(v: string | number) =>
-                              setWorkers(typeof v === 'number' ? v : null)
-                            }
-                            placeholder={t('run.autoDefault')}
-                          />
-                          <NumberInput
-                            label={t('run.repeatEach')}
-                            size="xs"
-                            min={1}
-                            max={50}
-                            disabled={isRunning}
-                            value={repeatEach ?? ''}
-                            onChange={(v: string | number) =>
-                              setRepeatEach(typeof v === 'number' ? v : null)
-                            }
-                            placeholder="1"
-                          />
-                        </>
-                      )}
-                      {advancedMode && !sectionAxis && (
-                        <TextInput
-                          label={t('run.extraArgs')}
-                          size="xs"
-                          disabled={isRunning}
-                          value={extraArgs}
-                          onChange={(e) => setExtraArgs(e.currentTarget.value)}
-                          placeholder="--debug"
-                        />
-                      )}
-                    </SimpleGrid>
-
-                    <Group gap="lg" wrap="wrap">
-                      {!config.data?.forceTrack && (
-                        <Checkbox
-                          size="xs"
-                          label={t('run.skipUsageLogging')}
-                          disabled={isRunning}
-                          checked={noTrack}
-                          onChange={(e) => setNoTrack(e.currentTarget.checked)}
-                        />
-                      )}
-
-                      <Checkbox
-                        size="xs"
-                        label={t('run.silentMode')}
-                        disabled={isRunning}
-                        checked={silent}
-                        onChange={(e) => setSilent(e.currentTarget.checked)}
-                      />
-
-                      {/* Silent already discards the report, so the narrower option
-                          is redundant (and misleading) while it is on. */}
-                      <Tooltip label={t('run.discardReportHint')} withArrow multiline w={280}>
-                        <Checkbox
-                          size="xs"
-                          label={t('run.discardReport')}
-                          disabled={isRunning || silent}
-                          checked={discardReport && !silent}
-                          onChange={(e) => setDiscardReport(e.currentTarget.checked)}
-                        />
-                      </Tooltip>
-
-                      {/* Only useful when a report survives the run; disabled (and
-                          force-read as off) under silent / discard so it never
-                          promises to open a report that will not exist. */}
-                      <Tooltip label={t('run.openReportAfterHint')} withArrow multiline w={280}>
-                        <Checkbox
-                          size="xs"
-                          label={t('run.openReportAfter')}
-                          disabled={isRunning || !reportSurvives}
-                          checked={autoOpenReport && reportSurvives}
-                          onChange={(e) => setAutoOpenReport(e.currentTarget.checked)}
-                        />
-                      </Tooltip>
-                    </Group>
-
-                    {!advancedMode && (
-                      <Text size="xs" c="dimmed">
-                        {t('run.adminOptionsNote')}
-                      </Text>
-                    )}
-                  </Stack>
-                </Collapse>
-              </Stack>
+              <RunMoreOptions
+                moreOpen={moreOpen}
+                toggleMore={toggleMore}
+                isRunning={isRunning}
+                advancedMode={advancedMode}
+                optionFieldCount={optionFieldCount}
+                dockerRunning={config.data?.dockerRunning}
+                forceTrack={config.data?.forceTrack}
+                sectionAxis={sectionAxis}
+                hasDisplay={hasDisplay}
+                supportsRunFlags={supportsRunFlags}
+                reportSurvives={reportSurvives}
+                mode={mode}
+                setMode={setMode}
+                headless={headless}
+                setHeadless={setHeadless}
+                workers={workers}
+                setWorkers={setWorkers}
+                repeatEach={repeatEach}
+                setRepeatEach={setRepeatEach}
+                extraArgs={extraArgs}
+                setExtraArgs={setExtraArgs}
+                noTrack={noTrack}
+                setNoTrack={setNoTrack}
+                silent={silent}
+                setSilent={setSilent}
+                discardReport={discardReport}
+                setDiscardReport={setDiscardReport}
+                autoOpenReport={autoOpenReport}
+                setAutoOpenReport={setAutoOpenReport}
+              />
             </Stack>
           )}
           {gatingAlerts}
@@ -1226,73 +883,22 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             `flex: 1`, secondary controls `flex: 'none'`) instead of Mantine
             `grow`, whose `preventGrowOverflow` cap divides the row by child
             count — with three controls that would shrink Run to a third. */}
-        <Group gap="xs" style={{ flexShrink: 0 }}>
-          {(() => {
-            const tagsLoading = supportsTags && !!project && !!effectiveType && tags.isLoading;
-            const disabledReason =
-              missingReqs.length > 0
-                ? `${t('run.missingRequirements')}: ${missingReqs.join(', ')}`
-                : !project
-                  ? t('run.selectProjectFirst')
-                  : isRunning
-                    ? t('run.testRunning')
-                    : tagsLoading
-                      ? t('run.loadingTags')
-                      : isMobile && !appiumRunning
-                        ? t('run.appiumNotRunning')
-                        : null;
-            return (
-              <Tooltip
-                label={disabledReason ?? t('run.runTooltip')}
-                disabled={!disabledReason}
-                withArrow
-              >
-                {/* Wrapper div is required so Tooltip can show on a disabled button. */}
-                <div style={{ flex: 1 }}>
-                  <Button
-                    size="sm"
-                    color="green"
-                    fullWidth
-                    onClick={handleRun}
-                    loading={runMutation.isPending}
-                    disabled={!!disabledReason}
-                    leftSection={<TbPlayerPlay size={16} />}
-                  >
-                    {t('run.runButton')}
-                  </Button>
-                </div>
-              </Tooltip>
-            );
-          })()}
-          {isRunning && (
-            <Button
-              size="sm"
-              color="red"
-              onClick={handleCancel}
-              leftSection={<TbPlayerStop size={16} />}
-              style={{ flex: 'none' }}
-            >
-              {t('run.stop')}
-            </Button>
-          )}
-          {/* Saves the same live config the Bookmarks panel captures, next to the
-              form instead of in the panel at the top of the page. */}
-          <Tooltip label={saveBookmarkReason ?? t('bookmark.saveCurrent')} withArrow>
-            {/* Wrapper div is required so Tooltip can show on a disabled control. */}
-            <div style={{ flex: 'none' }}>
-              <ActionIcon
-                size="lg"
-                variant="default"
-                onClick={handleSaveBookmark}
-                loading={saveBookmark.isPending}
-                disabled={!!saveBookmarkReason}
-                aria-label={t('bookmark.saveCurrent')}
-              >
-                <TbBookmarkPlus size={18} />
-              </ActionIcon>
-            </div>
-          </Tooltip>
-        </Group>
+        <RunActionFooter
+          supportsTags={supportsTags}
+          project={project}
+          effectiveType={effectiveType}
+          tagsIsLoading={tags.isLoading}
+          missingReqs={missingReqs}
+          isRunning={isRunning}
+          isMobile={isMobile}
+          appiumRunning={appiumRunning}
+          handleRun={handleRun}
+          runPending={runMutation.isPending}
+          handleCancel={handleCancel}
+          saveBookmarkReason={saveBookmarkReason}
+          handleSaveBookmark={handleSaveBookmark}
+          saveBookmarkPending={saveBookmark.isPending}
+        />
       </Stack>
 
       {/* The split between the columns is a width the user sets, not a fixed
@@ -1350,160 +956,23 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             overflow: 'hidden',
           }}
         >
-          <Group
-            justify="space-between"
-            px="sm"
-            py={6}
-            style={{ borderBottom: '1px solid var(--mantine-color-default-border)', flexShrink: 0 }}
-          >
-            <Group gap="xs">
-              <Text size="xs" c="dimmed">
-                {advancedMode ? t('run.liveOutput') : t('run.technicalOutput')}
-              </Text>
-              {isRunning && elapsed && (
-                <Text size="xs" c="blue" ff="monospace">
-                  {elapsed}
-                </Text>
-              )}
-              {isFinished && (
-                <Text size="xs" fw={600} c={getStatusColor(runStatus)}>
-                  {runVerdict(runSummary, t)}
-                </Text>
-              )}
-              {!isRunning && runSummary && (
-                <Group gap={6}>
-                  {runSummary.passed > 0 && (
-                    <Badge size="xs" color="green" variant="light">
-                      {runSummary.passed} {t('run.passed')}
-                    </Badge>
-                  )}
-                  {runSummary.failed > 0 && (
-                    <Badge size="xs" color="red" variant="light">
-                      {runSummary.failed} {t('run.failed')}
-                    </Badge>
-                  )}
-                  {runSummary.skipped !== undefined && runSummary.skipped > 0 && (
-                    <Badge size="xs" color="yellow" variant="light">
-                      {runSummary.skipped} {t('run.skipped')}
-                    </Badge>
-                  )}
-                </Group>
-              )}
-            </Group>
-            <Group gap="xs">
-              {advancedMode && (
-                <Badge
-                  size="sm"
-                  color={getStatusColor(runStatus)}
-                  variant={runStatus === 'running' ? 'dot' : 'filled'}
-                >
-                  {runStatus}
-                </Badge>
-              )}
-              {/* One control, so the pair sits tighter than the row's gap. Both
-                  ends disable at the store's clamp rather than clicking to no
-                  effect. */}
-              <Group gap={2} wrap="nowrap">
-                <Tooltip label={`${t('run.terminalFontSize')} −`} withArrow>
-                  <ActionIcon
-                    size="sm"
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => prefs.setTerminalFontSize(fontSize - 1)}
-                    disabled={fontSize <= FONT_MIN}
-                    aria-label={`${t('run.terminalFontSize')} −`}
-                  >
-                    <TbTextDecrease size={14} />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label={`${t('run.terminalFontSize')} +`} withArrow>
-                  <ActionIcon
-                    size="sm"
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => prefs.setTerminalFontSize(fontSize + 1)}
-                    disabled={fontSize >= FONT_MAX}
-                    aria-label={`${t('run.terminalFontSize')} +`}
-                  >
-                    <TbTextIncrease size={14} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-              <Tooltip label={t('run.resetSplit')} withArrow>
-                <ActionIcon
-                  size="sm"
-                  variant="subtle"
-                  color="gray"
-                  visibleFrom="md"
-                  onClick={() => prefs.setRunSplitPercent(SPLIT_DEFAULT)}
-                  disabled={splitPercent === SPLIT_DEFAULT}
-                  aria-label={t('run.resetSplit')}
-                >
-                  <TbLayoutColumns size={14} />
-                </ActionIcon>
-              </Tooltip>
-              <Button
-                size="compact-xs"
-                variant="subtle"
-                color="gray"
-                onClick={() => setSearchOpen((v) => !v)}
-                leftSection={<TbSearch size={12} />}
-              >
-                {t('run.find')}
-              </Button>
-            </Group>
-          </Group>
-          {searchOpen && (
-            <Group
-              px="sm"
-              py={4}
-              gap="xs"
-              style={{
-                borderBottom: '1px solid var(--mantine-color-default-border)',
-                flexShrink: 0,
-              }}
-            >
-              <TextInput
-                size="xs"
-                placeholder={t('run.searchOutput')}
-                value={searchTerm}
-                onChange={(e) => {
-                  const v = e.currentTarget.value;
-                  setSearchTerm(v);
-                  if (v) term.findNext(v);
-                  else term.clearSearch();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    if (e.shiftKey) term.findPrevious(searchTerm);
-                    else term.findNext(searchTerm);
-                  }
-                  if (e.key === 'Escape') {
-                    setSearchOpen(false);
-                    term.clearSearch();
-                  }
-                }}
-                leftSection={<TbSearch size={12} />}
-                rightSection={
-                  searchTerm ? (
-                    <TbX
-                      size={12}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => {
-                        setSearchTerm('');
-                        term.clearSearch();
-                      }}
-                    />
-                  ) : null
-                }
-                style={{ flex: 1 }}
-                autoFocus
-              />
-              <Text size="xs" c="dimmed">
-                {t('run.searchHint')}
-              </Text>
-            </Group>
-          )}
+          <RunTerminalToolbar
+            advancedMode={advancedMode}
+            isRunning={isRunning}
+            isFinished={isFinished}
+            elapsed={elapsed}
+            runStatus={runStatus}
+            runSummary={runSummary}
+            fontSize={fontSize}
+            setTerminalFontSize={prefs.setTerminalFontSize}
+            splitPercent={splitPercent}
+            setRunSplitPercent={prefs.setRunSplitPercent}
+            searchOpen={searchOpen}
+            setSearchOpen={setSearchOpen}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            term={term}
+          />
           {/* `minWidth: 0` lets the box shrink below the grid xterm last fitted;
               without it a flex child floors at its content width and the rows
               push past the card instead of triggering a refit. */}
@@ -1515,122 +984,31 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             terminal card ends level with the form card. The command stays
             advanced-only and single-line (Copy carries the full value). */}
         {showRunBar && (
-          <Group
-            gap="xs"
-            wrap="nowrap"
-            justify={advancedMode ? 'space-between' : 'flex-end'}
-            style={{ flexShrink: 0 }}
-          >
-            {advancedMode && (
-              <Group gap={4} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-                <Code
-                  fz="xs"
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {lastCommand}
-                </Code>
-                <Tooltip label={t('run.copy')} withArrow>
-                  <ActionIcon
-                    size="sm"
-                    variant="subtle"
-                    color="gray"
-                    onClick={handleCopyCommand}
-                    aria-label={t('run.copy')}
-                    style={{ flexShrink: 0 }}
-                  >
-                    <TbCopy size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            )}
-            <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-              {!isRunning && elapsed && (
-                <Text size="xs" c="dimmed">
-                  {t('run.duration')}: {elapsed}
-                </Text>
-              )}
-              {!isRunning && reportPath && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="subtle"
-                    color="blue"
-                    onClick={handleSeeReport}
-                    leftSection={<TbExternalLink size={16} />}
-                  >
-                    {t('runlog.openReport')}
-                  </Button>
-                  <Tooltip label={t('run.revealReportHint')} withArrow>
-                    <Button
-                      size="sm"
-                      variant="subtle"
-                      color="gray"
-                      onClick={handleRevealReport}
-                      leftSection={<TbFolder size={16} />}
-                    >
-                      {t('run.revealReport')}
-                    </Button>
-                  </Tooltip>
-                  <Tooltip
-                    label={t('reports.favoriteLockedHint')}
-                    withArrow
-                    disabled={!reportQuery.data?.favorite}
-                  >
-                    <Button
-                      size="sm"
-                      variant="subtle"
-                      color="red"
-                      onClick={handleDeleteReport}
-                      disabled={reportQuery.data?.favorite}
-                      leftSection={<TbTrash size={16} />}
-                    >
-                      {t('run.deleteReport')}
-                    </Button>
-                  </Tooltip>
-                </>
-              )}
-              {!isRunning && (
-                <Button
-                  size="sm"
-                  variant="subtle"
-                  onClick={handleRerun}
-                  leftSection={<TbRefresh size={16} />}
-                >
-                  {t('run.rerun')}
-                </Button>
-              )}
-            </Group>
-          </Group>
+          <RunResultBar
+            advancedMode={advancedMode}
+            isRunning={isRunning}
+            lastCommand={lastCommand}
+            elapsed={elapsed}
+            reportPath={reportPath}
+            reportFavorite={reportQuery.data?.favorite}
+            handleCopyCommand={handleCopyCommand}
+            handleSeeReport={handleSeeReport}
+            handleRevealReport={handleRevealReport}
+            handleDeleteReport={handleDeleteReport}
+            handleRerun={handleRerun}
+          />
         )}
       </Stack>
 
-      <FormModal
+      <SaveBookmarkModal
         opened={saveModalOpen}
         onClose={() => setSaveModalOpen(false)}
-        title={t('bookmark.saveCurrent')}
-        submitLabel={t('common.save')}
         onSubmit={submitSaveBookmark}
-        submitDisabled={!bookmarkName.trim()}
+        bookmarkName={bookmarkName}
+        setBookmarkName={setBookmarkName}
         loading={saveBookmark.isPending}
         error={saveBookmark.error?.message ?? null}
-      >
-        <TextInput
-          label={t('bookmark.namePlaceholder')}
-          placeholder={t('bookmark.namePlaceholder')}
-          value={bookmarkName}
-          onChange={(e) => setBookmarkName(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submitSaveBookmark();
-          }}
-          data-autofocus
-        />
-      </FormModal>
+      />
 
       <EnvDrawer
         opened={envDrawerOpen}

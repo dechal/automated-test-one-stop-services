@@ -92,8 +92,8 @@ export function runUsageLog(opts = {}) {
       // dotenvx + tsx resolve from PATH (Volta shims), exactly like the Taskfile.
       // dotenvx loads scripts/.env (SPREADSHEET_ID / SHEET_NAME) into the child.
       child = spawn(
-        'dotenvx',
-        ['run', '--quiet', '-f', './scripts/.env', '--', 'tsx', LOG_SCRIPT],
+        'pnpm',
+        ['exec', 'dotenvx', 'run', '--quiet', '-f', './scripts/.env', '--', 'tsx', LOG_SCRIPT],
         {
           cwd: cwd ?? WORKSPACE_ROOT,
           env,

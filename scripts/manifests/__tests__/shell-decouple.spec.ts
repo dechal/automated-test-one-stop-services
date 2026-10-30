@@ -48,28 +48,37 @@ function verifyTargets(script: string): string[] {
   return [...script.matchAll(/(?:call :)?verify\s+([a-z0-9-]+)\s+"/g)].map((m) => m[1]);
 }
 
-describe('Shell decoupling is ON by default with an opt-out', () => {
+describe('Shell decoupling of the user PATH is opt-in', () => {
   it('wires the step into setup and defines the routine', () => {
     expect(WIN).toMatch(/call :shellDecouple\b/);
     expect(WIN).toMatch(/^:shellDecouple\b/m);
   });
 
-  it('runs by default and is gated only by an opt-OUT flag', () => {
+  it('changes the user PATH only when SETUP_ENABLE_SHELL_DECOUPLE=1', () => {
     // When SETUP_DISABLE_SHELL_DECOUPLE=1 the routine returns early; otherwise it
     // falls through, announces it is ON, and proceeds to resolve Git's usr\bin.
-    expect(WIN).toMatch(/"%SETUP_DISABLE_SHELL_DECOUPLE%"=="1"[\s\S]{0,240}?goto :eof/);
-    expect(WIN).toMatch(/Shell decoupling ON \^\(default\^\)/);
+    expect(WIN).toMatch(/if \/I "%SETUP_ENABLE_SHELL_DECOUPLE%"=="1" set "_persistDecouple=1"/);
+    const routine = WIN.slice(WIN.search(/\n:shellDecouple\r?\n/));
+    const gate = routine.indexOf('if not defined _persistDecouple goto :eof');
+    const persist = routine.search(/SetEnvironmentVariable\('PATH'/);
+    expect(gate).toBeGreaterThan(0);
+    expect(persist).toBeGreaterThan(gate);
   });
 
-  it('no longer references the removed opt-in flag', () => {
+  it('adds Git usr\\bin to the setup session PATH only, so `task setup` still resolves it', () => {
+    expect(WIN).toMatch(/set "PATH=%PATH%;%GIT_USRBIN%"/);
+    expect(WIN).toMatch(/%%P%GIT_SESSION_PATH%"/);
+  });
+
+  it('no longer references the removed opt-out flag', () => {
     // The old opt-in gate (SETUP_ENABLE_SHELL_DECOUPLE) is gone entirely.
-    expect(WIN).not.toMatch(/SETUP_ENABLE_SHELL_DECOUPLE/);
+    expect(WIN).not.toMatch(/%SETUP_DISABLE_SHELL_DECOUPLE%/);
   });
 
-  it('never force-sets the opt-out flag (stays default-on unless the caller opts out)', () => {
+  it('never force-sets the opt-in flag (stays off unless the caller opts in)', () => {
     // A real `set "SETUP_DISABLE_SHELL_DECOUPLE=1"` assignment would live at the
     // start of a line; comment/echo mentions (REM .../echo ...) must not count.
-    expect(WIN).not.toMatch(/^\s*set\s+"?SETUP_DISABLE_SHELL_DECOUPLE\s*=\s*1/im);
+    expect(WIN).not.toMatch(/^\s*set\s+"?SETUP_ENABLE_SHELL_DECOUPLE\s*=\s*1/im);
   });
 
   it('is not a Core step and not a verify target — a Core install ignores it', () => {

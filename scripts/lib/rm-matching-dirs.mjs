@@ -34,7 +34,7 @@ function parseCsvFlag(argv, flag) {
   const i = argv.indexOf(flag);
   if (i === -1 || i + 1 >= argv.length) return new Set();
   return new Set(
-    argv[i + 1]
+    (argv[i + 1] ?? '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
@@ -48,7 +48,9 @@ function parseCsvFlag(argv, flag) {
  * @returns {string[]} removed directory paths
  */
 export function rmMatchingDirs(root, names, prune) {
+  /** @type {string[]} */
   const removed = [];
+  /** @param {string} dir */
   const walk = (dir) => {
     let entries;
     try {

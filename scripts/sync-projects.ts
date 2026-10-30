@@ -18,7 +18,6 @@ import { createManifestRegistry, loadPipelineStatic, projectPipeline } from './m
 import { syncRootSockets } from './manifests/root-sockets.js';
 import { generateTsConfig } from './manifests/tsconfig-gen.js';
 import type { ToolManifest } from './manifests/types.js';
-import { syncUvWorkspaceMembers } from './manifests/uv-workspace-sync.js';
 import {
   readPnpmVersion,
   syncToolPackageManager,
@@ -102,12 +101,6 @@ async function runManifestSync(workspaceRoot: string): Promise<string[]> {
     regeneratedFiles.push(file);
     console.log(`✅ root ${file} ← tools present on disk`);
   }
-  const uvFile = syncUvWorkspaceMembers(workspaceRoot, knownManifests);
-  if (uvFile !== null) {
-    regeneratedFiles.push(uvFile);
-    console.log(`✅ uv workspace members ← tools present on disk → ${uvFile}`);
-  }
-
   // Generate per-tool artefacts for enabled tools
   const pnpmVersion = readPnpmVersion(workspaceRoot);
   for (const tool of registry.enabled()) {

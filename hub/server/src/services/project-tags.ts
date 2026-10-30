@@ -4,7 +4,7 @@ import type { TestSummary, ToolId } from '@hub/shared';
 import { BASH_PATH, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { buildPlaywrightListCommand, buildTagsCommand } from './command-builder.js';
 import { runChild } from './exec.js';
-import { getToolCapabilities } from './manifest-registry.js';
+import { getToolCapabilities, getToolManifest } from './manifest-registry.js';
 import { listAllProjects } from './scanner.js';
 
 interface ReporterPayload {
@@ -46,16 +46,20 @@ function parsePlaywrightListTags(output: string): string[] {
   return [...tags];
 }
 
-function parseRobotTagsFromFiles(type: string, project: string): string[] {
+async function parseRobotTagsFromFiles(
+  tool: ToolId,
+  type: string,
+  project: string,
+): Promise<string[]> {
+  const manifest = await getToolManifest(tool);
+  if (!manifest) return [];
   const specsDir = path.join(
-    WORKSPACE_ROOT,
-    'tools',
-    'robot-framework',
-    'projects',
+    TOOLS_DIR,
+    tool,
+    manifest.projects.root,
     type,
     project,
-    'automations',
-    'specs',
+    manifest.projects.specsSubdir,
   );
   if (!fs.existsSync(specsDir)) return [];
   const tags = new Set<string>();
@@ -207,7 +211,7 @@ async function scanProjectTags(
       payload = parseReporterPayload(listOutput);
       if (!payload) fallbackTags = parsePlaywrightListTags(listOutput);
     } else if (!payload && strategy === 'robot-files') {
-      fallbackTags = parseRobotTagsFromFiles(type, project);
+      fallbackTags = await parseRobotTagsFromFiles(tool, type, project);
     }
 
     if (payload?.tests && payload.tests.length > 0) {

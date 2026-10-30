@@ -32,6 +32,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { toolArtefactDirs } from '../lib/tool-artefact-dirs.mjs';
 
 const MIN_SCORE = Number(process.env.EVAL_MIN_SCORE ?? 70);
 const SKIP_DIRS = new Set([
@@ -41,13 +42,9 @@ const SKIP_DIRS = new Set([
   '.git',
   '.venv',
   'outputs',
-  'test-results',
-  'playwright-report',
-  'blob-report',
-  'performance-results',
   'coverage',
   '.cache',
-  '.playwright-cli',
+  ...toolArtefactDirs(),
 ]);
 
 // ─── rubric ──────────────────────────────────────────────────────────────────

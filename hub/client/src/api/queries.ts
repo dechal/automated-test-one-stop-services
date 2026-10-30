@@ -8,7 +8,6 @@ import type {
   DoctorReport,
   EnvFile,
   EnvProfile,
-  EnvProfileValidation,
   FlakyReport,
   HubUser,
   K6TrendData,
@@ -18,7 +17,6 @@ import type {
   RunRecord,
   ScheduleEntry,
   TagsResponse,
-  TestCaseDoc,
   TestCaseDocGrouped,
   TestCaseGrid,
   TestCaseModule,
@@ -181,20 +179,6 @@ export const qAllCoverage = () =>
     staleTime: STALE.short,
   });
 
-/** Documented test-case coverage vs latest run outcome for one project. */
-export const qCoverage = (
-  tool: ToolId | undefined | '',
-  type: string | undefined | '',
-  project: string | undefined | '',
-) =>
-  queryOptions({
-    queryKey: ['coverage', tool, type, project] as const,
-    queryFn: () =>
-      api.get<CoverageReport>(`/api/coverage?tool=${tool}&type=${type}&project=${project}`),
-    enabled: !!tool && !!type && !!project,
-    staleTime: STALE.short,
-  });
-
 /** Per-test trends for every project that has any — grouped client-side. */
 export const qAllTestTrends = () =>
   queryOptions({
@@ -203,39 +187,11 @@ export const qAllTestTrends = () =>
     staleTime: STALE.short,
   });
 
-/** Per-test pass-rate + flakiness trend for one Playwright project. */
-export const qTestTrends = (
-  tool: ToolId | undefined | '',
-  type: string | undefined | '',
-  project: string | undefined | '',
-) =>
-  queryOptions({
-    queryKey: ['test-trends', tool, type, project] as const,
-    queryFn: () =>
-      api.get<TestTrendReport>(`/api/test-trends?tool=${tool}&type=${type}&project=${project}`),
-    enabled: !!tool && !!type && !!project,
-    staleTime: STALE.short,
-  });
-
 /** Every test-case doc across all tools/types/projects, tagged with its axis. */
 export const qAllTestCaseDocs = () =>
   queryOptions({
     queryKey: ['testcases-all'] as const,
     queryFn: () => api.get<TestCaseDocGrouped[]>('/api/testcases/all'),
-    staleTime: STALE.short,
-  });
-
-/** Test-case docs (xlsx/csv) discovered under one project. */
-export const qTestCaseDocs = (
-  tool: ToolId | undefined | '',
-  type: string | undefined | '',
-  project: string | undefined | '',
-) =>
-  queryOptions({
-    queryKey: ['testcases', tool, type, project] as const,
-    queryFn: () =>
-      api.get<TestCaseDoc[]>(`/api/testcases?tool=${tool}&type=${type}&project=${project}`),
-    enabled: !!tool && !!type && !!project,
     staleTime: STALE.short,
   });
 
@@ -304,15 +260,6 @@ export const qEnvDefault = (
       ),
     enabled: !!tool && !!type && !!project,
     staleTime: STALE.moderate,
-  });
-
-/** Key-sync validation of one profile against its `.env.template`. */
-export const qEnvValidate = (id: string | undefined | '') =>
-  queryOptions({
-    queryKey: ['env-profiles-validate', id] as const,
-    queryFn: () => api.get<EnvProfileValidation>(`/api/env-profiles/validate?id=${id}`),
-    enabled: !!id,
-    staleTime: STALE.short,
   });
 
 /** The Hub's local user identity (`user: null` until a name has been set). */

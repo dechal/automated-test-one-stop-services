@@ -131,7 +131,7 @@ export function buildDepsInstallInvocation(manager: ToolPackageManager): DepsInv
     file: 'uv',
     args: ['sync'],
     options: makeOptions(DEPS_INSTALL_TIMEOUT_MS),
-    cwd: 'workspaceRoot',
+    cwd: 'toolDir',
   };
 }
 

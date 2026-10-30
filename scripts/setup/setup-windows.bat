@@ -46,33 +46,39 @@ REM with setup-linux.sh. The Volta pin in package.json ("volta".node) is the
 REM Node runtime authority; versions.env re-states it for the installer
 REM bootstrap. No stale literal fallback -- abort if the file is missing.
 REM --------------------------------------------------------------------------
-set "VERSIONS_FILE=%SETUP_ROOT%versions.env"
-if not exist "%VERSIONS_FILE%" (
-    echo   [error] Version source not found: "%VERSIONS_FILE%"
-    echo   [hint]  Restore scripts\setup\versions.env ^(KEY=value lines: NODE_VERSION, PYTHON_VERSION^); no stale fallback is used.
+set "PACKAGE_JSON=%WORKSPACE_ROOT%\package.json"
+set "PYTHON_VERSION_FILE=%WORKSPACE_ROOT%\.python-version"
+if not exist "%PACKAGE_JSON%" (
+    echo   [error] Version source not found: "%PACKAGE_JSON%"
+    echo   [hint]  Restore package.json ^("volta": node + pnpm^); no stale fallback is used.
+    exit /b 1
+)
+if not exist "%PYTHON_VERSION_FILE%" (
+    echo   [error] Version source not found: "%PYTHON_VERSION_FILE%"
+    echo   [hint]  Restore .python-version ^(one line: the Python version^); no stale fallback is used.
     exit /b 1
 )
 set "NODE_VERSION="
 set "PYTHON_VERSION="
 set "PNPM_VERSION="
-for /f "usebackq eol=# tokens=1,* delims==" %%K in ("%VERSIONS_FILE%") do (
+for /f "usebackq tokens=1,2" %%K in (`powershell -NoProfile -Command "$v = (Get-Content -Raw -LiteralPath $env:PACKAGE_JSON | ConvertFrom-Json).volta; 'NODE_VERSION ' + $v.node; 'PNPM_VERSION ' + $v.pnpm"`) do (
     if /I "%%K"=="NODE_VERSION" set "NODE_VERSION=%%L"
-    if /I "%%K"=="PYTHON_VERSION" set "PYTHON_VERSION=%%L"
     if /I "%%K"=="PNPM_VERSION" set "PNPM_VERSION=%%L"
 )
+for /f "usebackq tokens=1" %%P in ("%PYTHON_VERSION_FILE%") do if not defined PYTHON_VERSION set "PYTHON_VERSION=%%P"
 if not defined NODE_VERSION (
-    echo   [error] NODE_VERSION missing from "%VERSIONS_FILE%"
-    echo   [hint]  Add a line NODE_VERSION=^<version^> to scripts\setup\versions.env.
+    echo   [error] "volta".node missing from "%PACKAGE_JSON%"
+    echo   [hint]  Add "volta": { "node": "<version>" } to package.json.
     exit /b 1
 )
 if not defined PYTHON_VERSION (
-    echo   [error] PYTHON_VERSION missing from "%VERSIONS_FILE%"
-    echo   [hint]  Add a line PYTHON_VERSION=^<version^> to scripts\setup\versions.env.
+    echo   [error] No version in "%PYTHON_VERSION_FILE%"
+    echo   [hint]  Put the Python version on the first line of .python-version.
     exit /b 1
 )
 if not defined PNPM_VERSION (
-    echo   [error] PNPM_VERSION missing from "%VERSIONS_FILE%"
-    echo   [hint]  Add a line PNPM_VERSION=^<version^> to scripts\setup\versions.env.
+    echo   [error] "volta".pnpm missing from "%PACKAGE_JSON%"
+    echo   [hint]  Add "volta": { "pnpm": "<version>" } to package.json.
     exit /b 1
 )
 
@@ -119,9 +125,11 @@ REM Setup_State ledger location + load. We preserve any step already 'done'
 REM from a previous run and (re)write the ledger up front so the
 REM total step count (M) is known for progress.
 REM --------------------------------------------------------------------------
-if not defined SETUP_STATE_DIR set "SETUP_STATE_DIR=%WORKSPACE_ROOT%"
+if not defined SETUP_STATE_DIR set "SETUP_STATE_DIR=%WORKSPACE_ROOT%\.cache\state"
 if not exist "%SETUP_STATE_DIR%" mkdir "%SETUP_STATE_DIR%"
 set "STATE_FILE=%SETUP_STATE_DIR%\.setup-state.json"
+set "LEGACY_STATE_FILE=%WORKSPACE_ROOT%\.setup-state.json"
+if not exist "%STATE_FILE%" if exist "%LEGACY_STATE_FILE%" if /I not "%STATE_FILE%"=="%LEGACY_STATE_FILE%" move /Y "%LEGACY_STATE_FILE%" "%STATE_FILE%" >nul
 call :loadState
 call :writeState
 
@@ -250,6 +258,16 @@ REM STEP 6/6 - start-hub
 REM ===========================================================================
 echo.
 echo [step] start-hub (6/6)  [!TIME:~0,8!]
+set "HUB_STATE=skipped"
+if not exist "%WORKSPACE_ROOT%\hub\package.json" (
+    echo   [skip] No Hub in this workspace ^(hub\package.json absent^) - the CLI works without it.
+    call :done ST_start_hub
+    goto :verify_all
+)
+if "%SETUP_SKIP_HUB%"=="1" (
+    echo   [skip] Hub build and start skipped ^(SETUP_SKIP_HUB=1^).
+    goto :verify_all
+)
 REM `status` exits 0 only while the Hub answers on its port, so a ledger entry
 REM left over from a machine that has since rebooted (auto-start blocked by
 REM policy) no longer skips this step and leaves the readiness check to fail.
@@ -257,6 +275,7 @@ if /I "%ST_start_hub%"=="done" (
     call node "%WORKSPACE_ROOT%\hub\bin\hub-service.mjs" status >nul 2>nul
     if not errorlevel 1 (
         echo   [SKIPPED] Hub already running ^(state: done^)
+        set "HUB_STATE=running"
         goto :verify_all
     )
     echo   [warn] state says done but the Hub is not responding - starting it again.
@@ -265,8 +284,17 @@ if /I "%ST_start_hub%"=="done" (
     ver >nul
 )
 call :startHub
-if errorlevel 1 ( call :fail ST_start_hub "start-hub 6/6" "Hub failed to build or start. Inspect the build output above; run 'node hub\bin\hub-service.mjs status' for details, then re-run." & exit /b 1 )
+if errorlevel 1 (
+    set "ST_start_hub=failed"
+    call :writeState
+    set "HUB_STATE=failed"
+    echo   [warn] Hub failed to build or start. The CLI ^(task ...^) works without the Hub ^(non-fatal^).
+    echo   [hint] Inspect the build output above; run 'node hub\bin\hub-service.mjs status' for details, then re-run.
+    echo   [state] Progress saved to "%STATE_FILE%". Re-run to retry the Hub; completed steps are skipped.
+    goto :verify_all
+)
 call :done ST_start_hub
+set "HUB_STATE=running"
 :verify_all
 
 REM ===========================================================================
@@ -282,12 +310,27 @@ call :verify node "node -v"
 call :verify pnpm "pnpm -v"
 call :verify uv "uv --version"
 call :verify task "task --version"
+echo [verify] Workspace binaries the root tasks run ^(pnpm exec, no global install^)
+call :verifyLocal tsx
+call :verifyLocal dotenvx
 echo ---------------------------------------------------
 if defined MISSING (
     echo.
-    echo   [error] Verification failed. Missing on PATH:!MISSING!
+    echo   [error] Verification failed. Missing:!MISSING!
     echo   [hint]  Open a NEW terminal to refresh PATH, then re-run this script; completed steps are skipped.
     exit /b 1
+)
+
+if not "%HUB_STATE%"=="running" (
+    echo.
+    echo ===================================================
+    echo   SETUP COMPLETED - CLI ready, all 4 Core tools verified ^(Hub not started^)
+    echo ===================================================
+    echo   Run tasks from "%WORKSPACE_ROOT%": task --list
+    if "%HUB_STATE%"=="failed" echo   [warn] The Hub step failed ^(see above^). Re-run this script to retry it.
+    echo ===================================================
+    if not defined SETUP_NO_PAUSE pause
+    exit /b 0
 )
 
 echo.
@@ -296,9 +339,9 @@ echo   SETUP COMPLETED - Hub started, all 4 Core tools verified
 echo ===================================================
 echo   Open http://localhost:%HUB_PORT%
 echo.
-echo   One more click before your first web test: browsers are downloaded per
-echo   tool, not by this installer. In the Hub open the "Environment Status"
-echo   panel and press "Set up" on the tool you want ^(or run: task setup^).
+echo   The present tools were set up by "task setup" above. If a tool reported a
+echo   warning, open the Hub "Environment Status" panel and press "Set up" on
+echo   that tool ^(or run: task setup^).
 echo ===================================================
 echo.
 echo   [setup] Creating "Test Hub" desktop shortcut...
@@ -447,6 +490,20 @@ for /f "delims=" %%v in ('%~2 2^>nul') do (
 echo   [OK] %~1
 goto :eof
 
+:verifyLocal
+set "_lv="
+pushd "%WORKSPACE_ROOT%"
+call pnpm exec %~1 --version >nul 2>nul
+if not errorlevel 1 for /f "delims=" %%v in ('pnpm exec %~1 --version 2^>nul') do if not defined _lv set "_lv=%%v"
+popd
+if not defined _lv (
+    echo   [MISSING] %~1 ^(root devDependency; run: pnpm install^)
+    set "MISSING=!MISSING! %~1"
+    goto :eof
+)
+echo   [OK] %~1: !_lv!
+goto :eof
+
 REM ---------------------------------------------------------------------------
 REM :majorOf "<version>"
 REM _MAJOR = leading integer of a version string ("v18." -> "18"), or empty
@@ -497,7 +554,7 @@ REM is the one the next command resolves, even when an older copy sits in the
 REM machine PATH.
 REM ---------------------------------------------------------------------------
 :refreshPath
-for /f "usebackq tokens=* delims=" %%P in (`powershell -NoProfile -Command "[System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')"`) do set "PATH=%SCOOP_SHIMS%;%VOLTA_BIN%;%USER_LOCAL%;%%P"
+for /f "usebackq tokens=* delims=" %%P in (`powershell -NoProfile -Command "[System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')"`) do set "PATH=%SCOOP_SHIMS%;%VOLTA_BIN%;%USER_LOCAL%;%%P%GIT_SESSION_PATH%"
 goto :eof
 
 REM ---------------------------------------------------------------------------
@@ -626,23 +683,6 @@ REM ---------------------------------------------------------------------------
 echo   [!TIME:~0,8!] Installing Node workspace dependencies (pnpm install)...
 call pnpm -C "%WORKSPACE_ROOT%" install
 if errorlevel 1 ( echo   [error] pnpm install failed. & exit /b 1 )
-echo   [!TIME:~0,8!] Installing per-tool dependencies (isolated, pnpm)...
-REM A single tool plugin's own deps are NOT fatal - this is the rule `task setup`
-REM already applies. One tool with an unfinished config (e.g. pnpm's build-script
-REM approval) must not stop the Hub and every other tool from being installed;
-REM the Hub's "Environment Status" panel finishes one tool later with "Set up".
-set "DEPS_FAILED="
-for /d %%T in ("%WORKSPACE_ROOT%\tools\*") do (
-    if exist "%%T\package.json" (
-        echo     [deps] %%~nxT
-        call pnpm -C "%%T" install --ignore-workspace || set "DEPS_FAILED=!DEPS_FAILED! %%~nxT"
-    )
-)
-if defined DEPS_FAILED (
-    echo   [warn] per-tool dependencies incomplete for:!DEPS_FAILED! ^(non-fatal^)
-    echo   [hint] Finish in the Hub: "Environment Status" panel ^> "Set up" on that tool - or re-run:
-    echo          pnpm -C tools\^<tool^> install --ignore-workspace
-)
 REM ---- Python toolchain (NON-FATAL) -------------------------------------------
 REM Python is needed ONLY by the robot-framework tool. On a locked-down network
 REM (corporate proxy/policy) the download can fail -- that must NOT abort setup.
@@ -655,22 +695,15 @@ if errorlevel 1 (
     echo   [warn] uv python install failed - SKIPPING Python for now ^(non-fatal^).
     echo   [hint] Finish later in the Hub: "Environment Status" panel ^> "Install Python" button - or re-run:
     echo          uv python install %PYTHON_VERSION% --native-tls
-) else (
-    REM uv sync only when a uv tool is present. robot-framework is a declared uv
-    REM workspace member, so `uv sync` errors if its folder is absent (fresh clone).
-    if exist "%WORKSPACE_ROOT%\tools\robot-framework\pyproject.toml" (
-        echo   [!TIME:~0,8!] Syncing Python dependencies ^(uv sync^)...
-        call uv sync --all-packages --native-tls --project "%WORKSPACE_ROOT%"
-        if errorlevel 1 (
-            echo   [warn] uv sync failed - robot-framework Python deps are incomplete ^(non-fatal^).
-            echo   [hint] Finish later in the Hub: "Environment Status" panel ^> "Install Python" button - or re-run:
-            echo          uv sync --all-packages --native-tls --project "%WORKSPACE_ROOT%"
-        )
-    ) else (
-        echo   [skip] uv sync -- no uv tool ^(tools/robot-framework^) present
-    )
 )
-call uv tool install uv-up 2>nul
+echo   [!TIME:~0,8!] Setting up the present tools ^(task setup: pnpm install per tool, uv sync, each tool's setup^)...
+call task --dir "%WORKSPACE_ROOT%" setup
+if errorlevel 1 (
+    echo   [warn] task setup did not finish - some tool dependencies are incomplete ^(non-fatal^).
+    echo   [hint] Finish later in the Hub: "Environment Status" panel ^> "Set up" on that tool - or re-run:
+    echo          task --dir "%WORKSPACE_ROOT%" setup
+)
+ver >nul
 goto :eof
 
 REM ---------------------------------------------------------------------------
@@ -745,11 +778,13 @@ REM * Git Bash already puts its own /usr/bin first - `task` from Git Bash also
 REM runs every recipe.
 REM ---------------------------------------------------------------------------
 :shellDecouple
-if /I "%SETUP_DISABLE_SHELL_DECOUPLE%"=="1" (
-    echo   [opt] Shell decoupling SKIPPED ^(SETUP_DISABLE_SHELL_DECOUPLE=1^). Cross-shell `task` not configured this run; native commands are unaffected.
-    goto :eof
+set "_persistDecouple="
+if /I "%SETUP_ENABLE_SHELL_DECOUPLE%"=="1" set "_persistDecouple=1"
+if defined _persistDecouple (
+    echo   [opt] Shell decoupling ON ^(SETUP_ENABLE_SHELL_DECOUPLE=1^) - exposing Git's bundled GNU tools on the user PATH for cross-shell `task`.
+) else (
+    echo   [opt] Shell decoupling is opt-in ^(set SETUP_ENABLE_SHELL_DECOUPLE=1^). Your user PATH is not changed; Git's GNU tools are added to this setup run only.
 )
-echo   [opt] Shell decoupling ON ^(default^) - exposing Git's bundled GNU tools on the user PATH for cross-shell `task`.
 REM Resolve <Git>\usr\bin robustly - prefer the dir of `git` on PATH, then probe
 REM the common install locations (Program Files, Program Files x86, user-scope
 REM Programs\Git). A candidate is accepted only if it actually contains find.exe;
@@ -767,6 +802,9 @@ if not defined GIT_USRBIN (
     goto :eof
 )
 echo   Using GNU tools dir: "%GIT_USRBIN%"
+set "GIT_SESSION_PATH=;%GIT_USRBIN%"
+set "PATH=%PATH%;%GIT_USRBIN%"
+if not defined _persistDecouple goto :eof
 REM Append to the USER PATH idempotently (regex-escape guard mirrors the gb.bat
 REM aux step). Build "<existing>;<gitUsrBin>" so the entry lands AFTER System32
 REM in the composed Machine+User PATH - native find.exe/sort.exe keep precedence
@@ -779,7 +817,7 @@ if errorlevel 1 (
 )
 call :refreshPath
 echo   [ok] Appended "%GIT_USRBIN%" to the user PATH.
-echo   [note] Cross-shell `task` now works by default: cmd, PowerShell, and Git Bash
+echo   [note] Cross-shell `task` now works: cmd, PowerShell, and Git Bash
 echo          all resolve the GNU tools the recipes use. No recipe needs GNU find/sort,
 echo          so bare find/sort stay the native Windows binaries ^(System32 precedence^).
 goto :eof

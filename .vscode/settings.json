@@ -245,25 +245,8 @@
   "robotcode.robocop.configFile": "tools/robot-framework/robot.toml",
   "robotcode.testExplorer.enabled": true,
   "robotcode.debug.outputLog": false,
-  "python.analysis.exclude": [
-    "**/.agents/**",
-    "**/.kiro/**",
-    "**/brain/**",
-    "**/.venv/**",
-    "**/node_modules/**",
-    "**/outputs/**",
-    "**/playwright-report/**",
-    "**/test-results/**",
-    "**/robot_output/**",
-    "**/.cache/**",
-  ],
-
   "search.followSymlinks": false,
 
-  "python.analysis.diagnosticMode": "openFilesOnly",
-  "python.analysis.indexing": false,
-  "python.analysis.autoImportCompletions": false,
-  "python.analysis.typeCheckingMode": "off",
   "python.locator": "js",
 
   "telemetry.telemetryLevel": "off",
@@ -327,7 +310,6 @@
 
   "git.autoRepositoryDetection": "subFolders",
   "ruff.lineLength": 100,
-  "ruff.configuration": "${workspaceFolder}/pyproject.toml",
 
   // Forward slashes: VS Code accepts them on every OS, backslashes break the
   // setting on macOS/Linux (steering `portability-and-config`).
@@ -400,4 +382,5 @@
   },
   "kiroAgent.agentIgnoreFiles": [".kiroignore"],
   "stringManipulation.telemetry": false,
+  "python.terminal.useEnvFile": true,
 }

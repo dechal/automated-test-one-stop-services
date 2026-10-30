@@ -32,14 +32,16 @@ pnpm -C hub run typecheck   # shared + server + client
 pnpm -C hub run test        # server then client (sequential — a shared vitest
                             # process leaks the server's timers on Windows)
 pnpm -C hub run lint        # biome
-pnpm -C hub run test:smoke  # builds, boots the server on :5199, drives the real
-                            # UI in Chromium (Playwright) — catches bundle/CSS
+pnpm -C hub run test:smoke  # builds the client into .cache/deletable/hub-e2e/,
+                            # boots the server from source on :5199, drives the
+                            # real UI in Chromium (Playwright) — catches bundle/CSS
                             # regressions unit tests cannot see
 ```
 
-`test:smoke` never touches a Hub you already have running on `:5174`, and uses an
-in-memory database (`HUB_DB_PATH=:memory:`), so it leaves no state behind. Override
-its port with `HUB_E2E_PORT`.
+`test:smoke` never touches a Hub you already have running on `:5174`: it uses its own port, never
+writes `hub/*/dist` (the config refuses a build path inside one), and uses an in-memory database
+(`HUB_DB_PATH=:memory:`). Failure artefacts go to `outputs/others/<MM-DD-YYYY>/hub-e2e/`.
+Override its port with `HUB_E2E_PORT`.
 
 ### Environment variables
 
@@ -58,6 +60,7 @@ All optional — every one has a working default, so the Hub runs with an empty 
 | `APPIUM_PORT` | `4723` | Port the managed Appium server listens on (mobile runs). |
 | `HUB_E2E_HOST` | `127.0.0.1` | Bind address for the Playwright E2E suite's own Hub instance. |
 | `HUB_E2E_PORT` | `5199` | Port for that E2E instance — deliberately not `5174`, so a running Hub is never disturbed. |
+| `HUB_E2E_CLIENT_DIST` | `.cache/deletable/hub-e2e/client` | Where the E2E suite builds the client bundle. A path inside `hub/*/dist` is rejected. |
 
 ## Architecture
 

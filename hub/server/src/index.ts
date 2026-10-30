@@ -54,6 +54,7 @@ function autoloadExtension(): '.ts' | '.js' {
 async function main(): Promise<void> {
   const app = Fastify({
     logger: true,
+    disableRequestLogging: true,
     // Default Fastify limit is 1 MiB. /api/import can carry the full hub
     // export (bookmarks + schedules + webhooks + env profiles), which can
     // exceed 1 MiB in larger workspaces.
@@ -94,8 +95,7 @@ async function main(): Promise<void> {
   });
 
   // Open the embedded Local_DB before any route/service registers. `getDb()`
-  // prepares the SQLite schema and runs the legacy blob→normalized upgrade
-  // inside `openLocalDb`, so services that load state at construction time
+  // prepares the SQLite schema inside `openLocalDb`, so services that load state at construction time
   // (scheduler, webhooks, env-profiles, …) read a fully-prepared database.
   getDb();
 

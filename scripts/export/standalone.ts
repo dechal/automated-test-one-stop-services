@@ -1,11 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { LifecycleResult } from '@hub/shared';
-import { TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { runChild } from './exec.js';
 
+export interface LifecycleResult<T> {
+  readonly result: T;
+  readonly resynced: boolean;
+  readonly regeneratedFiles: readonly string[];
+}
+
+const TOOLS_SUBDIR = 'tools';
+
+function toolsDir(workspaceRoot: string): string {
+  return path.join(workspaceRoot, TOOLS_SUBDIR);
+}
+
 const EMBED_KEY_FILE = '.standalone.json';
-const EMBED_SCHEMA = 1;
+export const EMBED_SCHEMA = 1;
 const INSTALL_TIMEOUT_MS = 300_000;
 const RUN_SHELL = process.platform === 'win32';
 
@@ -29,6 +39,9 @@ const COPY_SKIP = new Set([
   'test-results',
   'playwright-report',
   'blob-report',
+  '.venv',
+  '__pycache__',
+  '.pytest_cache',
 ]);
 
 export interface StandaloneError {
@@ -53,6 +66,7 @@ export interface StandaloneExport {
 }
 
 export interface StandaloneOptions {
+  readonly workspaceRoot: string;
   readonly tool: string;
   readonly type: string;
   readonly project: string;
@@ -60,7 +74,7 @@ export interface StandaloneOptions {
   readonly onStage?: (stage: StandaloneStage) => void;
 }
 
-interface EmbedKey {
+export interface EmbedKey {
   readonly sourceProject: string;
   readonly tool: string;
   readonly type: string;
@@ -76,6 +90,7 @@ export interface StandaloneSource {
 }
 
 export interface StandaloneContext {
+  readonly workspaceRoot: string;
   readonly tool: string;
   readonly type: string;
   readonly project: string;
@@ -83,20 +98,20 @@ export interface StandaloneContext {
 
 export interface StandaloneStrategy {
   readonly copyEntries: readonly string[];
-  resolveSource(type: string, project: string): StandaloneSource | StandaloneError;
+  resolveSource(ctx: StandaloneContext): StandaloneSource | StandaloneError;
   rewrite(targetDir: string, ctx: StandaloneContext): void;
   generateFiles(targetDir: string, ctx: StandaloneContext, mode: 'fresh' | 'migrate'): string[];
   installDeps(targetDir: string): Promise<{ code: string; message: string } | undefined>;
 }
 
-function copyTree(src: string, dest: string): void {
+export function copyTree(src: string, dest: string): void {
   fs.cpSync(src, dest, {
     recursive: true,
     filter: (from) => !COPY_SKIP.has(path.basename(from)),
   });
 }
 
-function isNonEmptyDir(dir: string): boolean {
+export function isNonEmptyDir(dir: string): boolean {
   if (!fs.existsSync(dir)) return false;
   try {
     return fs.readdirSync(dir).length > 0;
@@ -115,9 +130,9 @@ function readEmbedKey(targetDir: string): EmbedKey | null {
   }
 }
 
-function readWorkspaceVersion(): string | null {
+export function readWorkspaceVersion(workspaceRoot: string): string | null {
   try {
-    const raw = fs.readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8');
+    const raw = fs.readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8');
     const parsed = JSON.parse(raw) as { version?: unknown };
     return typeof parsed.version === 'string' ? parsed.version : null;
   } catch {
@@ -141,11 +156,12 @@ async function pnpmInstallIgnoreWorkspace(
 }
 
 function resolveToolSource(
+  workspaceRoot: string,
   tool: string,
   type: string,
   project: string,
 ): StandaloneSource | StandaloneError {
-  const toolDir = path.join(TOOLS_DIR, tool);
+  const toolDir = path.join(toolsDir(workspaceRoot), tool);
   const projectDir = path.join(toolDir, 'projects', type, project);
   const resourcesDir = path.join(toolDir, 'resources');
   if (!fs.existsSync(projectDir)) {
@@ -220,9 +236,9 @@ interface ToolPackageVersions {
   readonly playwright: string;
 }
 
-function readToolPackageVersions(tool: string): ToolPackageVersions {
+function readToolPackageVersions(workspaceRoot: string, tool: string): ToolPackageVersions {
   try {
-    const raw = fs.readFileSync(path.join(TOOLS_DIR, tool, 'package.json'), 'utf8');
+    const raw = fs.readFileSync(path.join(toolsDir(workspaceRoot), tool, 'package.json'), 'utf8');
     const parsed = JSON.parse(raw) as {
       packageManager?: unknown;
       devDependencies?: Record<string, unknown>;
@@ -238,8 +254,8 @@ function readToolPackageVersions(tool: string): ToolPackageVersions {
   }
 }
 
-function buildPlaywrightPackageJson(project: string): string {
-  const versions = readToolPackageVersions('playwright');
+function buildPlaywrightPackageJson(workspaceRoot: string, project: string): string {
+  const versions = readToolPackageVersions(workspaceRoot, 'playwright');
   const pkg = {
     name: project,
     version: '1.0.0',
@@ -272,8 +288,8 @@ function buildPlaywrightGitignore(): string {
   );
 }
 
-function buildPlaywrightDockerfile(): string {
-  const versions = readToolPackageVersions('playwright');
+function buildPlaywrightDockerfile(workspaceRoot: string): string {
+  const versions = readToolPackageVersions(workspaceRoot, 'playwright');
   return [
     `FROM mcr.microsoft.com/playwright:v${versions.playwright}-noble`,
     `RUN corepack enable && corepack prepare ${versions.packageManager} --activate`,
@@ -400,8 +416,8 @@ function buildPlaywrightReadme(project: string): string {
 
 const playwrightStrategy: StandaloneStrategy = {
   copyEntries: ['automations', 'src', 'docs', 'states', 'playwright.config.ts'],
-  resolveSource(type, project) {
-    return resolveToolSource('playwright', type, project);
+  resolveSource(ctx) {
+    return resolveToolSource(ctx.workspaceRoot, 'playwright', ctx.type, ctx.project);
   },
   rewrite(targetDir) {
     rewritePlaywrightGlobalConfig(targetDir);
@@ -416,11 +432,15 @@ const playwrightStrategy: StandaloneStrategy = {
     );
     fs.writeFileSync(
       path.join(targetDir, 'package.json'),
-      buildPlaywrightPackageJson(ctx.project),
+      buildPlaywrightPackageJson(ctx.workspaceRoot, ctx.project),
       'utf8',
     );
     fs.writeFileSync(path.join(targetDir, '.gitignore'), buildPlaywrightGitignore(), 'utf8');
-    fs.writeFileSync(path.join(targetDir, 'Dockerfile'), buildPlaywrightDockerfile(), 'utf8');
+    fs.writeFileSync(
+      path.join(targetDir, 'Dockerfile'),
+      buildPlaywrightDockerfile(ctx.workspaceRoot),
+      'utf8',
+    );
     written.push('tsconfig.json', 'package.json', '.gitignore', 'Dockerfile');
     fs.writeFileSync(path.join(targetDir, 'README.md'), buildPlaywrightReadme(ctx.project), 'utf8');
     written.push('README.md');
@@ -499,13 +519,13 @@ function buildK6Tsconfig(): string {
   return `${JSON.stringify(config, null, 2)}\n`;
 }
 
-function buildK6PackageJson(project: string): string {
+function buildK6PackageJson(workspaceRoot: string, project: string): string {
   const pkg = {
     name: project,
     version: '1.0.0',
     private: true,
     type: 'module',
-    packageManager: readToolPackageVersions('k6').packageManager,
+    packageManager: readToolPackageVersions(workspaceRoot, 'k6').packageManager,
     scripts: {
       typecheck: 'tsc --noEmit -p tsconfig.json',
     },
@@ -536,7 +556,7 @@ function buildK6Gitignore(project: string): string {
 
 function buildK6Dockerfile(): string {
   return [
-    'FROM grafana/k6:latest',
+    'FROM grafana/k6:2.0.0',
     'WORKDIR /home/k6',
     'COPY . .',
     'ENTRYPOINT ["k6"]',
@@ -653,8 +673,8 @@ function buildK6Readme(project: string): string {
 
 const k6Strategy: StandaloneStrategy = {
   copyEntries: ['automations', 'src', 'docs'],
-  resolveSource(type, project) {
-    return resolveToolSource('k6', type, project);
+  resolveSource(ctx) {
+    return resolveToolSource(ctx.workspaceRoot, 'k6', ctx.type, ctx.project);
   },
   rewrite(targetDir, ctx) {
     rewriteK6ResourceImports(targetDir);
@@ -663,7 +683,11 @@ const k6Strategy: StandaloneStrategy = {
   generateFiles(targetDir, ctx, mode) {
     const written: string[] = [];
     fs.writeFileSync(path.join(targetDir, 'tsconfig.json'), buildK6Tsconfig(), 'utf8');
-    fs.writeFileSync(path.join(targetDir, 'package.json'), buildK6PackageJson(ctx.project), 'utf8');
+    fs.writeFileSync(
+      path.join(targetDir, 'package.json'),
+      buildK6PackageJson(ctx.workspaceRoot, ctx.project),
+      'utf8',
+    );
     fs.writeFileSync(path.join(targetDir, '.gitignore'), buildK6Gitignore(ctx.project), 'utf8');
     fs.writeFileSync(path.join(targetDir, 'Dockerfile'), buildK6Dockerfile(), 'utf8');
     written.push('tsconfig.json', 'package.json', '.gitignore', 'Dockerfile');
@@ -871,24 +895,29 @@ function buildRobotReadme(project: string): string {
 
 const robotStrategy: StandaloneStrategy = {
   copyEntries: ['automations', 'src', 'docs'],
-  resolveSource(type, project) {
-    return resolveToolSource('robot-framework', type, project);
+  resolveSource(ctx) {
+    return resolveToolSource(ctx.workspaceRoot, 'robot-framework', ctx.type, ctx.project);
   },
   rewrite() {},
   generateFiles(targetDir, ctx, mode) {
     const written: string[] = [];
-    fs.writeFileSync(
-      path.join(targetDir, 'pyproject.toml'),
-      buildRobotPyproject(ctx.project),
-      'utf8',
-    );
+    if (!copyToolFile(ctx.workspaceRoot, 'robot-framework', 'pyproject.toml', targetDir)) {
+      fs.writeFileSync(
+        path.join(targetDir, 'pyproject.toml'),
+        buildRobotPyproject(ctx.project),
+        'utf8',
+      );
+    }
     written.push('pyproject.toml');
-    const robotTomlFrom = path.join(TOOLS_DIR, 'robot-framework', 'robot.toml');
+    if (copyToolFile(ctx.workspaceRoot, 'robot-framework', 'uv.lock', targetDir)) {
+      written.push('uv.lock');
+    }
+    const robotTomlFrom = path.join(toolsDir(ctx.workspaceRoot), 'robot-framework', 'robot.toml');
     if (fs.existsSync(robotTomlFrom)) {
       fs.copyFileSync(robotTomlFrom, path.join(targetDir, 'robot.toml'));
       written.push('robot.toml');
     }
-    const pyVersionFrom = path.join(WORKSPACE_ROOT, '.python-version');
+    const pyVersionFrom = path.join(ctx.workspaceRoot, '.python-version');
     if (fs.existsSync(pyVersionFrom)) {
       fs.copyFileSync(pyVersionFrom, path.join(targetDir, '.python-version'));
       written.push('.python-version');
@@ -911,10 +940,225 @@ const robotStrategy: StandaloneStrategy = {
   },
 };
 
+const PYWINAUTO_TOOL = 'pywinauto';
+const WORKSPACE_PY_PACKAGE = 'automated-test-one-stop-service';
+const PYWINAUTO_RUNNER_WORKSPACE_ROOT = /WORKSPACE_ROOT = PROJECT_ROOT\.parents\[\d+\]/;
+
+function copyToolFile(
+  workspaceRoot: string,
+  tool: string,
+  name: string,
+  targetDir: string,
+): boolean {
+  const from = path.join(toolsDir(workspaceRoot), tool, name);
+  if (!fs.existsSync(from)) return false;
+  fs.copyFileSync(from, path.join(targetDir, name));
+  return true;
+}
+
+function readPyprojectDependencies(file: string): string[] {
+  try {
+    const raw = fs.readFileSync(file, 'utf8');
+    const block = raw.match(/^dependencies\s*=\s*\[([\s\S]*?)\]/m)?.[1] ?? '';
+    return [...block.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? '').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function pywinautoDependencies(workspaceRoot: string): string[] {
+  const toolDeps = readPyprojectDependencies(
+    path.join(toolsDir(workspaceRoot), PYWINAUTO_TOOL, 'pyproject.toml'),
+  );
+  const deps = toolDeps.filter((dep) => !dep.startsWith(WORKSPACE_PY_PACKAGE));
+  return [...new Set(deps)].sort();
+}
+
+function buildPywinautoPyproject(workspaceRoot: string, project: string): string {
+  return [
+    '[project]',
+    `name = "${toPep508Name(project)}"`,
+    'version = "1.0.0"',
+    'description = "Standalone pywinauto project exported from a larger workspace"',
+    'requires-python = ">=3.14"',
+    '',
+    'dependencies = [',
+    ...pywinautoDependencies(workspaceRoot).map((dep) => `  "${dep}",`),
+    ']',
+    '',
+    '[tool.uv]',
+    'package = false',
+    'link-mode = "copy"',
+    '',
+  ].join('\n');
+}
+
+function buildPywinautoTaskfile(): string {
+  return [
+    'version: "3"',
+    '',
+    'env:',
+    '  PYTHONUTF8: "1"',
+    '',
+    'tasks:',
+    '  pywin:run-local:',
+    '    desc: "Run the tests — [TAG=<regex>] [OUTPUT=none] [-- <pytest args>]"',
+    '    preconditions:',
+    '      - sh: \'[ "{{OS}}" = "windows" ]\'',
+    '        msg: "pywinauto needs a Windows host with an unlocked desktop session."',
+    '    cmds:',
+    '      - |',
+    '        DOTENV=""',
+    '        if [ -f .env ] && command -v dotenvx >/dev/null 2>&1; then',
+    '          DOTENV="dotenvx run --quiet --"',
+    '        fi',
+    '        if [ "{{.OUTPUT}}" = "none" ]; then',
+    '          {{if .TAG}}PYWINAUTO_GREP="{{.TAG}}" {{end}}SCREENSHOT=off $DOTENV uv run pytest {{.CLI_ARGS}}',
+    '          exit $?',
+    '        fi',
+    '        OUT_DIR="outputs/{{now | date "2006-01-02"}}/{{now | date "15-04-05"}}"',
+    '        mkdir -p "$OUT_DIR"',
+    '        {{if .TAG}}PYWINAUTO_GREP="{{.TAG}}" {{end}}PYWINAUTO_OUTPUT_DIR="$OUT_DIR" $DOTENV uv run pytest \\',
+    '          --html="$OUT_DIR/report.html" --self-contained-html \\',
+    '          --junitxml="$OUT_DIR/results.xml" {{.CLI_ARGS}}',
+    '',
+    '  pywin:tags:',
+    '    desc: "List every tag in this project"',
+    '    cmds:',
+    '      - uv run pytest --collect-only -q -p no:cacheprovider --list-tags',
+    '',
+  ].join('\n');
+}
+
+function buildPywinautoGitignore(): string {
+  return [
+    '.venv/',
+    'outputs/',
+    '.env',
+    '__pycache__/',
+    '.pytest_cache/',
+    'report.html',
+    'results.xml',
+    '',
+  ].join('\n');
+}
+
+function buildPywinautoReadme(project: string): string {
+  return [
+    `# ${project} (standalone)`,
+    '',
+    'A self-contained pywinauto + pytest desktop test project. It was exported from a',
+    'larger workspace and carries its own dependencies, config, and shared resources,',
+    'so it runs on its own Windows machine with no access to the original workspace.',
+    '',
+    '## Requirements',
+    '',
+    '- Windows with an unlocked desktop session (pywinauto drives the live UI).',
+    '- Python 3.14 and uv (the Astral package manager). See docs.astral.sh/uv.',
+    '- Task (go-task), used by the commands below and by `src/runner.py` if present.',
+    '- Optional: dotenvx, to load `.env` for test runs; tesseract, for OCR helpers.',
+    '',
+    '## Setup',
+    '',
+    '```sh',
+    'uv sync',
+    'copy .env.template .env',
+    '```',
+    '',
+    'Fill in `.env`. Every key in `.env.template` has a one-line comment.',
+    '',
+    '## Run',
+    '',
+    '```sh',
+    'task pywin:run-local OUTPUT=none',
+    'task pywin:run-local TAG="(?=.*@test)"',
+    'task pywin:tags',
+    '```',
+    '',
+    'Without `OUTPUT=none` the HTML report and JUnit XML go to `outputs/<date>/<time>/`.',
+    '`run.bat` with no arguments starts `src/runner.py` when the project ships one.',
+    '',
+    '## Layout',
+    '',
+    '- `automations/` — specs, modules (locator / action / assert / flow) and test data.',
+    '- `src/` — project-local constants, helper libraries and the optional runner.',
+    '- `resources/` — the shared library this project depends on, copied in.',
+    '  `pytest.ini` puts it on `pythonpath`, so `global_resources.*` imports resolve.',
+    '- `Taskfile.yml` — the `pywin:*` commands, same names as in the workspace.',
+    '- `.standalone.json` — marks this folder as an export. Pointing the workspace',
+    '  exporter at this same folder again UPDATES the code and `resources/` in place',
+    '  while keeping your `.env` untouched.',
+    '',
+  ].join('\n');
+}
+
+function rewritePywinautoPytestIni(targetDir: string): void {
+  const file = path.join(targetDir, 'pytest.ini');
+  if (!fs.existsSync(file)) return;
+  const before = fs.readFileSync(file, 'utf8');
+  const after = before.replace(
+    /^(pythonpath\s*=\s*\.)\s+(?:\.\.\/)+resources\s*$/m,
+    '$1 resources',
+  );
+  fs.writeFileSync(file, after, 'utf8');
+}
+
+function rewritePywinautoRunnerRoot(targetDir: string): void {
+  const file = path.join(targetDir, 'src', 'runner.py');
+  if (!fs.existsSync(file)) return;
+  const before = fs.readFileSync(file, 'utf8');
+  const after = before.replace(PYWINAUTO_RUNNER_WORKSPACE_ROOT, 'WORKSPACE_ROOT = PROJECT_ROOT');
+  fs.writeFileSync(file, after, 'utf8');
+}
+
+const pywinautoStrategy: StandaloneStrategy = {
+  copyEntries: [
+    'automations',
+    'src',
+    'docs',
+    'conftest.py',
+    'pytest.ini',
+    'run.bat',
+    'keep-awake.bat',
+  ],
+  resolveSource(ctx) {
+    return resolveToolSource(ctx.workspaceRoot, PYWINAUTO_TOOL, ctx.type, ctx.project);
+  },
+  rewrite(targetDir) {
+    rewritePywinautoPytestIni(targetDir);
+    rewritePywinautoRunnerRoot(targetDir);
+  },
+  generateFiles(targetDir, ctx) {
+    const written: string[] = [];
+    fs.writeFileSync(
+      path.join(targetDir, 'pyproject.toml'),
+      buildPywinautoPyproject(ctx.workspaceRoot, ctx.project),
+      'utf8',
+    );
+    fs.writeFileSync(path.join(targetDir, 'Taskfile.yml'), buildPywinautoTaskfile(), 'utf8');
+    fs.writeFileSync(path.join(targetDir, '.gitignore'), buildPywinautoGitignore(), 'utf8');
+    fs.writeFileSync(path.join(targetDir, 'README.md'), buildPywinautoReadme(ctx.project), 'utf8');
+    written.push('pyproject.toml', 'Taskfile.yml', '.gitignore', 'README.md');
+    if (copyToolFile(ctx.workspaceRoot, PYWINAUTO_TOOL, 'uv.lock', targetDir)) {
+      written.push('uv.lock');
+    }
+    const pyVersionFrom = path.join(ctx.workspaceRoot, '.python-version');
+    if (fs.existsSync(pyVersionFrom)) {
+      fs.copyFileSync(pyVersionFrom, path.join(targetDir, '.python-version'));
+      written.push('.python-version');
+    }
+    return written;
+  },
+  installDeps(targetDir) {
+    return uvSync(targetDir);
+  },
+};
+
 const STRATEGIES: Record<string, StandaloneStrategy> = {
   playwright: playwrightStrategy,
   k6: k6Strategy,
   'robot-framework': robotStrategy,
+  [PYWINAUTO_TOOL]: pywinautoStrategy,
 };
 
 const SUPPORTED = new Set(Object.keys(STRATEGIES));
@@ -923,7 +1167,11 @@ export function isStandaloneSupported(tool: string): boolean {
   return SUPPORTED.has(tool);
 }
 
-function copyProjectFiles(
+export function getStandaloneStrategy(tool: string): StandaloneStrategy | undefined {
+  return Object.hasOwn(STRATEGIES, tool) ? STRATEGIES[tool] : undefined;
+}
+
+export function copyProjectFiles(
   strategy: StandaloneStrategy,
   source: StandaloneSource,
   targetDir: string,
@@ -951,14 +1199,20 @@ function copyProjectFiles(
   return written;
 }
 
-function writeEmbedKey(targetDir: string, tool: string, type: string, project: string): void {
+function writeEmbedKey(
+  workspaceRoot: string,
+  targetDir: string,
+  tool: string,
+  type: string,
+  project: string,
+): void {
   const key: EmbedKey = {
     sourceProject: project,
     tool,
     type,
-    exportedFrom: path.basename(WORKSPACE_ROOT),
+    exportedFrom: path.basename(workspaceRoot),
     exportedAt: new Date().toISOString(),
-    workspaceVersion: readWorkspaceVersion(),
+    workspaceVersion: readWorkspaceVersion(workspaceRoot),
     schema: EMBED_SCHEMA,
   };
   fs.writeFileSync(
@@ -971,7 +1225,7 @@ function writeEmbedKey(targetDir: string, tool: string, type: string, project: s
 export async function exportProjectStandalone(
   opts: StandaloneOptions,
 ): Promise<StandaloneError | LifecycleResult<StandaloneExport>> {
-  const { tool, type, project, targetDir, onStage } = opts;
+  const { workspaceRoot, tool, type, project, targetDir, onStage } = opts;
 
   onStage?.('validate');
   const strategy = STRATEGIES[tool];
@@ -982,7 +1236,8 @@ export async function exportProjectStandalone(
     };
   }
 
-  const source = strategy.resolveSource(type, project);
+  const ctx: StandaloneContext = { workspaceRoot, tool, type, project };
+  const source = strategy.resolveSource(ctx);
   if ('code' in source) return source;
 
   let mode: 'fresh' | 'migrate' = 'fresh';
@@ -1006,7 +1261,6 @@ export async function exportProjectStandalone(
   try {
     fs.mkdirSync(targetDir, { recursive: true });
     const written: string[] = [];
-    const ctx: StandaloneContext = { tool, type, project };
 
     onStage?.('copy-project');
     written.push(...copyProjectFiles(strategy, source, targetDir, mode === 'fresh'));
@@ -1022,7 +1276,7 @@ export async function exportProjectStandalone(
     written.push(...strategy.generateFiles(targetDir, ctx, mode));
 
     onStage?.('embed-key');
-    writeEmbedKey(targetDir, tool, type, project);
+    writeEmbedKey(workspaceRoot, targetDir, tool, type, project);
     written.push(EMBED_KEY_FILE);
 
     onStage?.('install');

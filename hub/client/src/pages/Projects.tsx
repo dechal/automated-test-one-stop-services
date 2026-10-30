@@ -22,6 +22,7 @@ import { EmptyState } from '~/components/EmptyState.js';
 import { ErrorState } from '~/components/ErrorState.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { AddToolsModal } from '~/components/projects/AddToolsModal.js';
+import { BundleModal } from '~/components/projects/BundleModal.js';
 import { CloneModal } from '~/components/projects/CloneModal.js';
 import { CreateModal } from '~/components/projects/CreateModal.js';
 import {
@@ -95,6 +96,7 @@ export function ProjectsPage() {
   const [editEntries, setEditEntries] = useState<EnvEntry[]>([]);
   const [removeTarget, setRemoveTarget] = useState<ProjectSummary | null>(null);
   const [standaloneTarget, setStandaloneTarget] = useState<ProjectSummary | null>(null);
+  const [bundleTarget, setBundleTarget] = useState<ProjectSummary | null>(null);
   const [activeTab, setActiveTab] = useState<'list' | 'env'>('list');
 
   const tools = useTools();
@@ -480,9 +482,10 @@ export function ProjectsPage() {
                               hasUpdate={updateLookup.get(`${p.tool}/${p.type}/${p.name}`) ?? false}
                               onRemove={() => setRemoveTarget(p)}
                               onMakeStandalone={
-                                ['playwright', 'k6', 'robot-framework'].includes(p.tool)
-                                  ? () => setStandaloneTarget(p)
-                                  : undefined
+                                tool.supportsStandalone ? () => setStandaloneTarget(p) : undefined
+                              }
+                              onExportBundle={
+                                tool.supportsBundle ? () => setBundleTarget(p) : undefined
                               }
                             />
                           ))}
@@ -543,6 +546,7 @@ export function ProjectsPage() {
         onClose={() => setStandaloneTarget(null)}
         onSuccess={() => setStandaloneTarget(null)}
       />
+      <BundleModal target={bundleTarget} onClose={() => setBundleTarget(null)} />
 
       <TypeToConfirmModal
         opened={removeTarget !== null}

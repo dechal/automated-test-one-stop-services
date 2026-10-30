@@ -38,13 +38,13 @@ const PIPELINE_STATIC_PATH = path.join('config', 'pipeline.static.json');
 const SECTION_COMMENTS = {
   top: 'GENERATED FROM tool.manifest.json — do not edit by hand. Regenerated each `task`.',
   targetPaths: 'Where Auto writes specs. <kind> ∈ positive|negative|edge|api.',
-  runCommands: 'ALWAYS use `task`. Never raw playwright/robot/k6 CLI.',
+  runCommands: 'ALWAYS use `task`. Never call a tool CLI directly.',
   envInjection:
-    'How each framework reads env vars. Playwright + k6 auto-load .env via dotenvx through task; Robot inherits process env.',
+    'How each tool reads env vars (the token per tool id). `task` loads .env via dotenvx where the tool uses it; otherwise the tool inherits the process env.',
   artifactPaths:
     'Where run outputs land (used by delivery for CI artifact collection). git-ignored under outputs/.',
   dockerBaseImages:
-    'delivery (CI/CD) base images. Read Playwright version from tools/playwright/package.json — do not hardcode.',
+    'delivery (CI/CD) base images, read from each tool Dockerfile FROM line or compose image. Read a tool version from its own pin (manifest versionFrom) — do not hardcode.',
 } as const;
 
 /** Naming-convention legend embedded inside the `env_injection` section. */
@@ -121,7 +121,10 @@ export function projectPipeline(
     }
     runCommands[p.id] = { ...p.runCommands };
     envInjection[p.id] = projectEnvToken(p.envToken);
-    dockerBase[p.id] = `${tool.docker.baseImage} (+ ${tool.docker.extras.join(', ')})`;
+    const { baseImage, extras } = tool.docker;
+    if (baseImage !== '') {
+      dockerBase[p.id] = extras.length > 0 ? `${baseImage} (+ ${extras.join(', ')})` : baseImage;
+    }
     artifactPaths[p.id] = [...p.artifactPaths];
   }
 

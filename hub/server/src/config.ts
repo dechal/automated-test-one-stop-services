@@ -19,8 +19,8 @@ export const SCRIPTS_DIR = path.join(WORKSPACE_ROOT, 'scripts');
 export const SERVER_PKG_DIR = path.join(here, '..');
 
 /**
- * Directory holding Hub runtime data: the Local_DB file plus the legacy
- * JSON/NDJSON sources that DB_Migration imports. Resolves to `hub/server/data`.
+ * Directory holding Hub runtime data (the Local_DB file). Resolves to
+ * `hub/server/data`.
  */
 export const DATA_DIR = path.join(SERVER_PKG_DIR, 'data');
 

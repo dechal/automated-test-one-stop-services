@@ -8,7 +8,7 @@ export default defineConfig({
   entry: ['src/**/*.ts', '!src/**/*.test.ts', '!src/**/*.spec.ts', '!src/**/__tests__/**'],
   outDir: 'dist',
   format: 'esm',
-  target: 'node22',
+  target: 'node26',
   bundle: false,
   splitting: false,
   sourcemap: true,

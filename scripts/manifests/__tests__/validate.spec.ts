@@ -298,3 +298,40 @@ describe('validateRegistry — pass-through and immutability', () => {
     expect(forward).toEqual(reversed);
   });
 });
+
+describe('validateManifest — root socket fields', () => {
+  it('accepts a manifest without docker and resolves an empty docker block', () => {
+    const json = baseManifest();
+    delete json.docker;
+    const res = validateManifest(json);
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.manifest.docker).toEqual({ baseImage: '', extras: [] });
+  });
+
+  it('accepts env, clean and requires[].install and defaults clean lists', () => {
+    const json = {
+      ...baseManifest(),
+      env: { CACHE_DIR: '{root}/.cache/x' },
+      clean: { paths: ['test-results'] },
+      requires: [{ cmd: 'ocr', install: { scoop: 'ocr', winget: 'Vendor.Ocr' } }],
+    };
+    const res = validateManifest(json);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.manifest.clean).toEqual({ paths: ['test-results'], commands: [] });
+      expect(res.manifest.requires[0]?.install).toEqual({ scoop: 'ocr', winget: 'Vendor.Ocr' });
+    }
+  });
+
+  it.each([
+    ['lower-case env key', { env: { cache_dir: 'x' } }],
+    ['clean path that climbs out', { clean: { paths: ['..'] } }],
+    ['clean path with a separator', { clean: { paths: ['a/b'] } }],
+    ['unknown installer', { requires: [{ cmd: 'ocr', install: { npm: 'ocr' } }] }],
+    ['package name with a space', { requires: [{ cmd: 'ocr', install: { apt: 'a b' } }] }],
+  ])('rejects %s', (_label, patch) => {
+    const res = validateManifest({ ...baseManifest(), ...patch });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(codesOf(res.errors)).toContain('SCHEMA_FAIL');
+  });
+});

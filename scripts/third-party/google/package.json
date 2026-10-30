@@ -8,9 +8,14 @@
   },
   "license": "ISC",
   "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "devDependencies": {
     "@google-cloud/local-auth": "^3.0.1",
+    "@googleapis/sheets": "^18.1.1",
+    "@types/node": "catalog:",
     "google-auth-library": "^11.1.0",
-    "googleapis": "^182.0.0"
+    "typescript": "catalog:"
   }
 }

@@ -4,16 +4,15 @@
   "description": "Web UI control panel for the test workspace",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @hub/server run dev & pnpm --filter @hub/client run dev",
     "build": "pnpm --filter @hub/shared run build && pnpm --filter @hub/server run build && pnpm --filter @hub/client run build",
     "start": "pnpm --filter @hub/server run start",
     "typecheck": "pnpm --filter @hub/shared run typecheck && pnpm --filter @hub/server run typecheck && pnpm --filter @hub/client run typecheck",
     "test": "pnpm --filter @hub/server run test && pnpm --filter @hub/client run test",
-    "test:smoke": "pnpm run build && pnpm exec playwright test -c e2e/playwright.config.ts",
+    "test:smoke": "pnpm exec playwright test -c e2e/playwright.config.ts",
     "lint": "biome check .",
     "format": "biome check --write ."
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0"
+    "@playwright/test": "catalog:"
   }
 }

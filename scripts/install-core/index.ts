@@ -37,15 +37,6 @@ export {
   runInstallPipeline,
 } from './pipeline.js';
 export {
-  type BrowserProvisionOutcome,
-  type CoreInstallReport,
-  decideProvisionAction,
-  effectiveRevision,
-  type ProvisionAction,
-  type ProvisionInputs,
-  reportCoreInstall,
-} from './provision.js';
-export {
   isSafeGitRef,
   isSafeGitUrl,
   isSafeToolId,

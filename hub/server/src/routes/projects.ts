@@ -1,12 +1,13 @@
 import type { ToolId } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { BASH_PATH, WORKSPACE_ROOT } from '../config.js';
-import { SAFE_ID } from '../lib/safe-id.js';
+import { SAFE_GIT_URL, SAFE_ID } from '../lib/safe-id.js';
+import { getBundleJob, startBundleJob } from '../services/bundle-jobs.js';
 import { runChild } from '../services/exec.js';
+import { getExportModule } from '../services/export-module.js';
 import { getEnabledTools } from '../services/manifest-registry.js';
 import { rejectStandaloneTarget } from '../services/path-guard.js';
 import { type ProjectCleanupResult, removeProjectCascade } from '../services/project-cleanup.js';
-import { exportProjectStandalone, isStandaloneSupported } from '../services/project-standalone.js';
 import { invalidateProjectTagsCache } from '../services/project-tags.js';
 import {
   invalidateProjectCache,
@@ -23,15 +24,6 @@ import { withResync } from '../services/workspace-sync.js';
  * could escape the shell or write outside the projects directory.
  */
 const SAFE_IDENT = /^[a-zA-Z0-9._/-]+$/;
-
-/**
- * Validator for a git URL. Accepts:
- *   - https://host/path[.git]
- *   - git@host:path[.git]
- *   - ssh://git@host[:port]/path[.git]
- * Rejects anything containing whitespace, shell metacharacters, or NUL.
- */
-const SAFE_GIT_URL = /^(?:https:\/\/|ssh:\/\/git@|git@)[A-Za-z0-9._:/~@?=+-]+(?:\.git)?$/;
 
 /**
  * A single safe path segment for a derived project folder: starts alphanumeric,
@@ -261,7 +253,8 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       }
       const toolErr = await rejectUnknownTool(tool, reply);
       if (toolErr) return toolErr;
-      if (!isStandaloneSupported(tool)) {
+      const exportModule = await getExportModule();
+      if (!exportModule.isStandaloneSupported(tool)) {
         reply.status(422);
         return {
           success: false,
@@ -294,7 +287,13 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         };
       }
 
-      const result = await exportProjectStandalone({ tool, type, project, targetDir });
+      const result = await exportModule.exportProjectStandalone({
+        workspaceRoot: WORKSPACE_ROOT,
+        tool,
+        type,
+        project,
+        targetDir,
+      });
       if ('code' in result) {
         reply.status(result.code === 'TOOL_NOT_SUPPORTED' ? 422 : 400);
         return { success: false, code: result.code, message: result.message };
@@ -302,6 +301,97 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       return { success: true, output: result };
     },
   );
+
+  app.post<{
+    Body: {
+      tool: ToolId;
+      type: string;
+      project: string;
+      targetDir: string;
+      withEnv?: unknown;
+      zip?: unknown;
+    };
+  }>('/api/projects/bundle', async (req, reply) => {
+    const { tool, type, project, targetDir, withEnv, zip } = req.body ?? {};
+    if (!tool || !type || !project || !targetDir) {
+      reply.status(400);
+      return { code: 'BAD_REQUEST', message: 'tool, type, project and targetDir are required' };
+    }
+    const toolErr = await rejectUnknownTool(tool, reply);
+    if (toolErr) return toolErr;
+    const exportModule = await getExportModule();
+    if (!exportModule.isBundleSupported(tool)) {
+      reply.status(422);
+      return {
+        success: false,
+        code: 'TOOL_NOT_SUPPORTED',
+        message: `Offline bundle export is not yet supported for '${tool}'`,
+      };
+    }
+    if (!exportModule.isSafeIdent(type) || !exportModule.isSafeIdent(project)) {
+      reply.status(400);
+      return { code: 'INVALID_IDENT', message: 'type/project contains unsafe characters' };
+    }
+    if (
+      (withEnv !== undefined && typeof withEnv !== 'boolean') ||
+      (zip !== undefined && typeof zip !== 'boolean')
+    ) {
+      reply.status(400);
+      return { code: 'BAD_REQUEST', message: 'withEnv and zip must be booleans when present' };
+    }
+    const targetErr = rejectStandaloneTarget(targetDir);
+    if (targetErr) {
+      reply.status(400);
+      return {
+        success: false,
+        code: 'INVALID_TARGET',
+        message:
+          targetErr === 'NOT_ABSOLUTE'
+            ? 'targetDir must be an absolute path'
+            : 'targetDir must be outside the workspace',
+      };
+    }
+    const projects = await listProjects(tool, type);
+    if (!projects.includes(project)) {
+      reply.status(404);
+      return {
+        code: 'PROJECT_NOT_FOUND',
+        message: `Project '${tool}/${type}/${project}' not found`,
+      };
+    }
+
+    const jobId = startBundleJob(exportModule.BUNDLE_STAGES, (onStage) =>
+      exportModule.exportProjectBundle({
+        workspaceRoot: WORKSPACE_ROOT,
+        tool,
+        type,
+        project,
+        targetDir,
+        withEnv: withEnv === true,
+        zip: zip === true,
+        onStage,
+      }),
+    );
+    if (jobId === null) {
+      reply.status(409);
+      return {
+        success: false,
+        code: 'EXPORT_BUSY',
+        message: 'Another offline bundle export is still running',
+      };
+    }
+    reply.status(202);
+    return { jobId };
+  });
+
+  app.get<{ Params: { jobId: string } }>('/api/projects/bundle/:jobId', async (req, reply) => {
+    const job = getBundleJob(req.params.jobId);
+    if (!job) {
+      reply.status(404);
+      return { code: 'JOB_NOT_FOUND', message: `Bundle job '${req.params.jobId}' not found` };
+    }
+    return job;
+  });
 }
 
 export default projectRoutes;

@@ -1,10 +1,9 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import { mapPool } from '../lib/map-pool.js';
 import { rebuildHub, scheduleHubRestart } from '../services/hub-rebuild.js';
+import { sweepOutputs } from '../services/outputs-retention.js';
 import { isUnderOutputs, isUnderWorkspace } from '../services/path-guard.js';
 import { loadJson, saveJson } from '../services/persistence.js';
 import { invalidateReportsCache, listReports } from '../services/reports.js';
@@ -26,55 +25,8 @@ function saveRetention(settings: RetentionSettings): void {
   saveJson(RETENTION_FILE, settings);
 }
 
-const MONTHS: Record<string, number> = {
-  Jan: 0,
-  Feb: 1,
-  Mar: 2,
-  Apr: 3,
-  May: 4,
-  Jun: 5,
-  Jul: 6,
-  Aug: 7,
-  Sep: 8,
-  Oct: 9,
-  Nov: 10,
-  Dec: 11,
-};
-
-/**
- * Parse a report timestamp into epoch ms.
- *
- * Reports are emitted by the test reporters under a directory tree where
- * the time component is encoded as `YYYY-Mon-DDTHH-MM` (with `-` instead
- * of `:` because Windows file paths cannot contain `:`). Native `Date`
- * does not understand the `-` separator, so we fall back to manual parsing.
- *
- * Returns `NaN` for unrecognised inputs; callers should treat that as
- * "unknown" and skip the record.
- */
-function parseTimestamp(ts: string): number {
-  const native = new Date(ts).getTime();
-  if (!Number.isNaN(native)) return native;
-  const match = ts.match(/^(\d{4})-(\w+)-(\d{1,2})T([\d:-]+)$/);
-  if (!match) return Number.NaN;
-  const [, year, monthStr, day, timeRaw] = match;
-  const monthIdx = MONTHS[monthStr ?? ''];
-  if (monthIdx === undefined) return Number.NaN;
-  const timeParts = (timeRaw ?? '').replace(/-/g, ':').split(':');
-  const hours = Number.parseInt(timeParts[0] ?? '0', 10);
-  const minutes = Number.parseInt(timeParts[1] ?? '0', 10);
-  return new Date(
-    Number.parseInt(year ?? '0', 10),
-    monthIdx,
-    Number.parseInt(day ?? '1', 10),
-    hours,
-    minutes,
-  ).getTime();
-}
-
 const CLEANUP_HISTORY_FILE = 'cleanup-history.json';
 const MAX_CLEANUP_HISTORY = 50;
-const CLEANUP_DELETE_PARALLELISM = 4;
 
 interface CleanupRecord {
   timestamp: string;
@@ -99,32 +51,8 @@ async function runCleanup(
   days: number,
   trigger: 'manual' | 'auto' = 'manual',
 ): Promise<{ deleted: number; total: number }> {
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   const reports = await listReports();
-  const targets: string[] = [];
-
-  for (const report of reports) {
-    // The lock exists precisely to survive this sweep — `/api/reports/lock` is
-    // documented as "prevent auto-cleanup" — but the check was missing, so a
-    // locked (and therefore any favourited) report was deleted on age like any
-    // other. `locked` is already true for every favourite.
-    if (report.locked) continue;
-    const ts = parseTimestamp(report.timestamp);
-    if (Number.isNaN(ts) || ts >= cutoff) continue;
-    const htmlResultsDir = path.dirname(report.reportPath);
-    const timeDir = path.dirname(htmlResultsDir);
-    if (fs.existsSync(timeDir)) targets.push(timeDir);
-  }
-
-  const deletions = await mapPool(targets, CLEANUP_DELETE_PARALLELISM, async (dir) => {
-    try {
-      await fsp.rm(dir, { recursive: true, force: true });
-      return true;
-    } catch {
-      return false;
-    }
-  });
-  const deleted = deletions.filter(Boolean).length;
+  const deleted = (await sweepOutputs(days)).removed.length;
   if (deleted > 0) invalidateReportsCache();
 
   if (deleted > 0 || trigger === 'manual') {

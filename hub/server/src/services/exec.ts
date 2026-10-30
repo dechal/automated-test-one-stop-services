@@ -25,6 +25,27 @@ export interface RunChildResult {
   timedOut?: boolean;
 }
 
+const CMD_SAFE_ARG = /^[\w@+=:,./\\-]+$/;
+const POSIX_SAFE_ARG = /^[\w@%+=:,./-]+$/;
+
+function quoteCmdArg(arg: string): string {
+  return CMD_SAFE_ARG.test(arg) ? arg : `"${arg.replace(/"/g, '""')}"`;
+}
+
+function quotePosixArg(arg: string): string {
+  return POSIX_SAFE_ARG.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
+}
+
+export function toShellCommand(
+  cmd: string,
+  args: readonly string[],
+  shell: SpawnOptions['shell'],
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const quote = platform === 'win32' && shell === true ? quoteCmdArg : quotePosixArg;
+  return [cmd, ...args].map(quote).join(' ');
+}
+
 /**
  * Single shared `spawn → Promise` helper used by every server route/service that
  * needs to run a CLI. Centralizing this gives us:
@@ -57,7 +78,8 @@ export function runChild(
       resolve(result);
     }
 
-    const child = spawn(cmd, args, {
+    const viaShell = shell !== undefined && shell !== false && args.length > 0;
+    const child = spawn(viaShell ? toShellCommand(cmd, args, shell) : cmd, viaShell ? [] : args, {
       cwd,
       env: env ?? process.env,
       shell: shell ?? false,

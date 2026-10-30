@@ -15,12 +15,8 @@ outputs
 **/outputs
 __pycache__
 **/__pycache__
-.ruff_cache
-**/.ruff_cache
-.robocop_cache
-**/.robocop_cache
-.robotcode_cache
-**/.robotcode_cache
+*_cache
+**/*_cache
 **/test-results
 **/playwright-report
 **/blob-report

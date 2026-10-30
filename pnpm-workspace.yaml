@@ -11,8 +11,12 @@ packages:
   - "hub/server"
   - "hub/client"
 catalog:
+  "@dotenvx/dotenvx": ^1.67.0
+  "@playwright/test": 1.63.0
   "@types/node": ^26.6.3
   "@vitest/coverage-v8": 5.0.2
+  playwright: 1.63.0
+  tsx: ^4.23.15
   typescript: ^7.0.2
   vitest: 5.0.2
   zod: 4.6.5

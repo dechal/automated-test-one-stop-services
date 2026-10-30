@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { selectStaleTargets } from '../clean-cache.mjs';
+import { findNestedCacheDirs, selectStaleTargets } from '../clean-cache.mjs';
 
 const ROOT = path.resolve('fixture-cache');
 const DAY = 24 * 60 * 60 * 1000;
@@ -30,5 +30,29 @@ describe('selectStaleTargets', () => {
       selectStaleTargets(ROOT, list, () => Number.POSITIVE_INFINITY, 1, NOW),
       [],
     );
+  });
+});
+
+describe('findNestedCacheDirs', () => {
+  const WS = path.resolve('fixture-ws');
+  /** @type {Record<string, string[]>} */
+  const TREE = {
+    [WS]: ['.cache', 'hub', 'tools', 'outputs', 'node_modules'],
+    [path.join(WS, 'hub')]: ['.cache', 'server'],
+    [path.join(WS, 'hub', 'server')]: [],
+    [path.join(WS, 'tools')]: ['alpha'],
+    [path.join(WS, 'tools', 'alpha')]: ['projects'],
+    [path.join(WS, 'tools', 'alpha', 'projects')]: ['.cache'],
+    [path.join(WS, 'outputs')]: ['.cache'],
+    [path.join(WS, 'node_modules')]: ['.cache'],
+  };
+  /** @param {string} dir */
+  const listDirs = (dir) => (TREE[dir] ?? []).map((name) => ({ name, isDirectory: true }));
+
+  it('finds every .cache below the workspace except the root one, outputs and node_modules', () => {
+    assert.deepEqual(findNestedCacheDirs(WS, listDirs), [
+      path.join(WS, 'hub', '.cache'),
+      path.join(WS, 'tools', 'alpha', 'projects', '.cache'),
+    ]);
   });
 });

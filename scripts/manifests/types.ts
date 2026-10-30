@@ -252,13 +252,27 @@ export interface ToolManifest {
   readonly tags?: ToolTagsCapability;
   readonly versionFrom?: ToolVersionSourceConfig;
   readonly requires: readonly ToolRequirement[];
+  readonly env?: ToolEnv;
+  readonly clean?: ToolCleanConfig;
 }
+
+export type ToolEnv = Readonly<Record<string, string>>;
+
+export interface ToolCleanConfig {
+  readonly paths: readonly string[];
+  readonly commands: readonly string[];
+}
+
+export type ToolPackageInstaller = 'scoop' | 'winget' | 'brew' | 'apt';
+
+export type ToolRequirementInstall = Readonly<Partial<Record<ToolPackageInstaller, string>>>;
 
 export interface ToolRequirement {
   readonly cmd: string;
   readonly args: readonly string[];
   readonly hint: string;
   readonly optional: boolean;
+  readonly install?: ToolRequirementInstall;
 }
 
 /**

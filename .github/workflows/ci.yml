@@ -28,82 +28,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: ./.github/actions/setup
-      - name: Biome
-        run: pnpm exec biome check .
-      - name: Markdown
-        run: pnpm run md:check
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - run: pnpm -C hub/shared run typecheck
-      - run: pnpm -C hub/server run typecheck
-      - run: pnpm -C hub/client run typecheck
-      # The three script projects. `scripts/tsconfig.json` covers the top-level
-      # entry points a user runs daily (`runner.ts`, `create-project.ts`,
-      # `sync-projects.ts`, `install-tool.ts`); before it existed they were in NO
-      # project, so nothing type-checked them. `install-core` was likewise gated by
-      # neither a hook nor CI, and only `manifests` had a pre-commit hook — which a
-      # `--no-verify` commit skips, so CI owns all three.
-      - name: Script projects
-        run: |
-          pnpm exec tsc --noEmit -p scripts/tsconfig.json
-          pnpm exec tsc --noEmit -p scripts/manifests/tsconfig.json
-          pnpm exec tsc --noEmit -p scripts/install-core/tsconfig.json
-
-  # The tools carry the test code users actually write, so their TypeScript is
-  # worth the same gate as the Hub's — this mirrors the `tools/*/tsconfig.json`
-  # loop in `task check`. Each tool is skipped when its repo could not be cloned
-  # (private / unreachable), but a tool that IS present must install and
-  # typecheck: a real signal about real code, not a soft warning. robot-framework
-  # has no tsconfig (Python), so it is not in the loop.
-  typecheck-tools:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - uses: ./.github/actions/clone-tools
-      - name: Typecheck every tool present
-        run: |
-          for d in tools/*/; do
-            t=$(basename "$d")
-            if [ ! -f "tools/$t/tsconfig.json" ] || [ ! -f "tools/$t/package.json" ]; then
-              echo "[skip] tools/$t has no TypeScript project"
-              continue
-            fi
-            echo "[typecheck] tools/$t"
-            pnpm -C "tools/$t" install --frozen-lockfile
-            pnpm exec tsc --noEmit -p "tools/$t/tsconfig.json"
-          done
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990
+      - uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611
+        with:
+          repo-token: ${{ github.token }}
       # When the tool repos are unreachable the manifest-integration tests
       # self-skip via the realToolsPresent guard — the run stays green.
       - uses: ./.github/actions/clone-tools
-      - name: Script module tests
-        run: |
-          pnpm exec vitest run --root scripts/manifests
-          pnpm exec vitest run --root scripts/install-core
-      - name: Hub tests
-        run: |
-          pnpm -C hub/server exec vitest run
-          pnpm -C hub/client exec vitest run
-      - name: Workspace script tests
-        run: node --test "scripts/__tests__/**/*.spec.mjs"
+      - run: task check
       - name: Test quality (soft signal — never blocks)
         continue-on-error: true
         run: node scripts/eval/test-quality.mjs
+
+  without-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: mv hub "$RUNNER_TEMP/hub-removed"
+      - uses: ./.github/actions/setup
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990
+      - uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611
+        with:
+          repo-token: ${{ github.token }}
+      - run: task --list
+      - run: task check
+
+  fresh-setup:
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git xz-utils
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: SETUP_SKIP_HUB=1 SETUP_NO_OPEN=1 bash scripts/setup/setup-linux.sh
+      - shell: bash
+        run: |
+          export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH" VOLTA_FEATURE_PNPM=1
+          if command -v tsx || command -v dotenvx; then exit 1; fi
+          task status
 
   # Dependency advisories. This FAILS on a high-severity finding — the tree was
   # taken to zero on 2026-08-17, so red here means "something new arrived", not
@@ -115,19 +81,19 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: ./.github/actions/setup
       - name: pnpm audit (high and above)
         run: pnpm audit --audit-level=high
 
   release:
-    needs: [lint, typecheck, typecheck-tools, test]
+    needs: [check, without-hub, fresh-setup]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       # The installers are not code-signed, so publish checksums next to them.
       # Run from scripts/setup so the file holds plain basenames — after both
       # assets are downloaded into one folder, `sha256sum -c` / `shasum -c` works.
@@ -140,7 +106,7 @@ jobs:
             > SHA256SUMS.txt
           cat SHA256SUMS.txt
       - name: Publish GitHub Release with installers
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           name: Release ${{ github.ref_name }}
           body: |

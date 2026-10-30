@@ -43,17 +43,23 @@ ARCH="$(uname -m)"
 # Node runtime authority; versions.env re-states it for the installer
 # bootstrap. No stale literal fallback -- abort if the file is missing/unreadable.
 # ---------------------------------------------------------------------------
-VERSIONS_FILE="$SETUP_ROOT/versions.env"
-if [ ! -r "$VERSIONS_FILE" ]; then
-  echo "  [error] Version source not found or unreadable: $VERSIONS_FILE"
-  echo "  [hint]  Restore scripts/setup/versions.env (KEY=value lines: NODE_VERSION, PYTHON_VERSION)."
+PACKAGE_JSON="$WORKSPACE_ROOT/package.json"
+PYTHON_VERSION_FILE="$WORKSPACE_ROOT/.python-version"
+if [ ! -r "$PACKAGE_JSON" ] || [ ! -r "$PYTHON_VERSION_FILE" ]; then
+  echo "  [error] Version source not found or unreadable: $PACKAGE_JSON / $PYTHON_VERSION_FILE"
+  echo "  [hint]  Restore package.json (\"volta\": node + pnpm) and .python-version."
   exit 1
 fi
-# shellcheck source=/dev/null
-. "$VERSIONS_FILE"
+volta_pin() {
+  sed -n '/"volta"[[:space:]]*:/,/}/p' "$PACKAGE_JSON" \
+    | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n1
+}
+NODE_VERSION="$(volta_pin node)"
+PNPM_VERSION="$(volta_pin pnpm)"
+PYTHON_VERSION="$(head -n1 "$PYTHON_VERSION_FILE" | tr -d '[:space:]')"
 if [ -z "${NODE_VERSION:-}" ] || [ -z "${PYTHON_VERSION:-}" ] || [ -z "${PNPM_VERSION:-}" ]; then
-  echo "  [error] NODE_VERSION/PYTHON_VERSION/PNPM_VERSION missing from $VERSIONS_FILE"
-  echo "  [hint]  Ensure all three KEY=value lines are present; no stale fallback is used."
+  echo "  [error] node/pnpm missing from \"volta\" in $PACKAGE_JSON, or $PYTHON_VERSION_FILE is empty"
+  echo "  [hint]  Ensure package.json has \"volta\": { \"node\", \"pnpm\" } and .python-version has a version; no stale fallback is used."
   exit 1
 fi
 UV_LINK_MODE="copy"
@@ -124,9 +130,13 @@ export HUB_PORT="${HUB_PORT:-5174}"
 # preserved so a re-run skips them; the ledger is written on every
 # step change for progress and crash-safe re-runs.
 # ---------------------------------------------------------------------------
-STATE_DIR="${SETUP_STATE_DIR:-$WORKSPACE_ROOT}"
+STATE_DIR="${SETUP_STATE_DIR:-$WORKSPACE_ROOT/.cache/state}"
 mkdir -p "$STATE_DIR"
 STATE_FILE="$STATE_DIR/.setup-state.json"
+LEGACY_STATE_FILE="$WORKSPACE_ROOT/.setup-state.json"
+if [ ! -f "$STATE_FILE" ] && [ -f "$LEGACY_STATE_FILE" ] && [ "$STATE_FILE" != "$LEGACY_STATE_FILE" ]; then
+  mv -f "$LEGACY_STATE_FILE" "$STATE_FILE"
+fi
 STATE_HELPER="$SETUP_ROOT/setup-state.mjs"
 
 declare -A ST=(
@@ -382,22 +392,6 @@ else
   echo "  Please keep this window open - it is working, not frozen."
   echo "  [$(now)] Installing Node workspace dependencies (pnpm install)..."
   pnpm -C "$WORKSPACE_ROOT" install || fail_step install-deps "install-deps 5/6" "pnpm install failed. Check network and that pnpm-lock.yaml matches package.json, then re-run."
-  echo "  [$(now)] Installing per-tool dependencies (isolated, pnpm)..."
-  # A single tool plugin's own deps are NOT fatal — this is the rule `task setup`
-  # already applies. One tool with an unfinished config (e.g. pnpm's build-script
-  # approval) must not stop the Hub and every other tool from being installed;
-  # the Hub's "Environment Status" panel finishes one tool later with "Set up".
-  DEPS_FAILED=""
-  for d in "$WORKSPACE_ROOT"/tools/*/; do
-    [ -f "${d}package.json" ] || continue
-    echo "    [deps] $(basename "$d")"
-    pnpm -C "$d" install --ignore-workspace || DEPS_FAILED="$DEPS_FAILED $(basename "$d")"
-  done
-  if [ -n "$DEPS_FAILED" ]; then
-    echo "  [warn] per-tool dependencies incomplete for:$DEPS_FAILED (non-fatal)"
-    echo "  [hint] Finish in the Hub: \"Environment Status\" panel > \"Set up\" on that tool — or re-run:"
-    echo "         pnpm -C tools/<tool> install --ignore-workspace"
-  fi
   # ---- Python toolchain (NON-FATAL) ----------------------------------------
   # Python is needed ONLY by the robot-framework tool. A locked-down network
   # (corporate proxy/policy) can fail the download — that must NOT abort setup.
@@ -405,26 +399,18 @@ else
   # with one click in the Hub's "Environment Status" panel > "Install Python"
   # (POST /api/doctor/install-python), or by re-running the command shown.
   echo "  [$(now)] Installing Python toolchain (uv python install $PYTHON_VERSION)..."
-  if uv python install "$PYTHON_VERSION" --native-tls; then
-    # uv sync only when a uv tool is present. robot-framework is a declared uv
-    # workspace member, so `uv sync` errors if its folder is absent (fresh clone).
-    if [ -d "$WORKSPACE_ROOT/tools/robot-framework" ]; then
-      echo "  [$(now)] Syncing Python dependencies (uv sync)..."
-      if ! uv sync --all-packages --native-tls --project "$WORKSPACE_ROOT"; then
-        echo "  [warn] uv sync failed — robot-framework Python deps are incomplete (non-fatal)."
-        echo "  [hint] Finish later in the Hub: \"Environment Status\" panel > \"Install Python\" button — or re-run:"
-        echo "         uv sync --all-packages --native-tls --project \"$WORKSPACE_ROOT\""
-      fi
-    else
-      echo "  [skip] uv sync — no uv tool (tools/robot-framework) present"
-    fi
-  else
+  if ! uv python install "$PYTHON_VERSION" --native-tls; then
     echo "  [warn] uv python install failed — SKIPPING Python for now (non-fatal)."
     echo "  [hint] Finish later in the Hub: \"Environment Status\" panel > \"Install Python\" button — or re-run:"
     echo "         uv python install $PYTHON_VERSION --native-tls"
   fi
-  uv tool install uv-up 2>/dev/null || true
   mark_done install-deps
+  echo "  [$(now)] Setting up the present tools (task setup: pnpm install per tool, uv sync, each tool's setup)..."
+  if ! task --dir "$WORKSPACE_ROOT" setup; then
+    echo "  [warn] task setup did not finish — some tool dependencies are incomplete (non-fatal)."
+    echo "  [hint] Finish later in the Hub: \"Environment Status\" panel > \"Set up\" on that tool — or re-run:"
+    echo "         task --dir \"$WORKSPACE_ROOT\" setup"
+  fi
 fi
 
 # ===========================================================================
@@ -432,13 +418,16 @@ fi
 # ===========================================================================
 echo ""
 echo "[step] start-hub (6/6)  [$(now)]"
-# `status` exits 0 only while the Hub answers on its port, so a ledger entry left
-# over from a machine that has since rebooted (auto-start blocked by policy) no
-# longer skips this step and leaves the readiness check to fail later.
-if [ "${ST[start-hub]}" = "done" ] \
-  && node "$WORKSPACE_ROOT/hub/bin/hub-service.mjs" status >/dev/null 2>&1; then
-  echo "  [SKIPPED] Hub already running (state: done)"
-else
+HUB_STATE="skipped"
+hub_warn() {
+  ST[start-hub]=failed
+  write_state
+  HUB_STATE="failed"
+  echo "  [warn] $1 The CLI (task ...) works without the Hub (non-fatal)."
+  echo "  [hint] $2"
+  echo "  [state] Progress saved to $STATE_FILE. Re-run to retry the Hub; completed steps are skipped."
+}
+start_hub() {
   if [ "${ST[start-hub]}" = "done" ]; then
     echo "  [warn] state says done but the Hub is not responding — starting it again."
   fi
@@ -448,21 +437,42 @@ else
     echo "  [skip] Hub bundle already built — starting it without a rebuild."
   else
     echo "  [$(now)] Building the Hub (shared + server + client) - this can take a couple of minutes..."
-    pnpm -C "$WORKSPACE_ROOT/hub" run build || fail_step start-hub "start-hub 6/6" "Hub build failed. Inspect the build output above, then re-run."
+    pnpm -C "$WORKSPACE_ROOT/hub" run build || {
+      hub_warn "Hub build failed." "Inspect the build output above, then re-run."
+      return 1
+    }
   fi
   # Delegate process management to the shared launcher: it frees the port and
   # starts the Hub as a daemonless detached background process (no daemon of our
   # own, so nothing to be blocked by locked-down/corporate policy). One code
   # path, cross-OS.
   echo "  [$(now)] Starting Hub (daemonless background process)..."
-  node "$WORKSPACE_ROOT/hub/bin/hub-service.mjs" start \
-    || fail_step start-hub "start-hub 6/6" "Hub failed to start. Run 'node hub/bin/hub-service.mjs status' for details, then re-run."
+  node "$WORKSPACE_ROOT/hub/bin/hub-service.mjs" start || {
+    hub_warn "Hub failed to start." "Run 'node hub/bin/hub-service.mjs status' for details, then re-run."
+    return 1
+  }
   # Register boot auto-start: a systemd --user unit (Restart=always) + lingering,
   # so the Hub starts at boot even on a headless box with no login. Best-effort
   # (|| true): never fails setup if systemd/linger is unavailable.
   echo "  Enabling auto-start at boot (systemd --user)..."
   node "$WORKSPACE_ROOT/hub/bin/hub-service.mjs" enable-boot || true
   mark_done start-hub
+  HUB_STATE="running"
+}
+# `status` exits 0 only while the Hub answers on its port, so a ledger entry left
+# over from a machine that has since rebooted (auto-start blocked by policy) no
+# longer skips this step and leaves the readiness check to fail later.
+if [ ! -f "$WORKSPACE_ROOT/hub/package.json" ]; then
+  echo "  [skip] No Hub in this workspace (hub/package.json absent) — the CLI works without it."
+  mark_done start-hub
+elif [ "${SETUP_SKIP_HUB:-}" = "1" ]; then
+  echo "  [skip] Hub build and start skipped (SETUP_SKIP_HUB=1)."
+elif [ "${ST[start-hub]}" = "done" ] \
+  && node "$WORKSPACE_ROOT/hub/bin/hub-service.mjs" status >/dev/null 2>&1; then
+  echo "  [SKIPPED] Hub already running (state: done)"
+  HUB_STATE="running"
+else
+  start_hub
 fi
 
 # ===========================================================================
@@ -484,12 +494,34 @@ verify node "-v"
 verify pnpm "-v"
 verify uv "--version"
 verify task "--version"
+echo "[verify] Workspace binaries the root tasks run (pnpm exec, no global install)"
+verify_local() {
+  if (cd "$WORKSPACE_ROOT" && pnpm exec "$1" --version >/dev/null 2>&1); then
+    printf "  [OK] %s %s\n" "$1" "$(cd "$WORKSPACE_ROOT" && pnpm exec "$1" --version 2>/dev/null | head -n1)"
+  else
+    echo "  [MISSING] $1 (root devDependency; run: pnpm install)"
+    MISSING="$MISSING $1"
+  fi
+}
+verify_local tsx
+verify_local dotenvx
 echo "---------------------------------------------------"
 if [ -n "$MISSING" ]; then
   echo ""
-  echo "  [error] Verification failed. Missing on PATH:$MISSING"
+  echo "  [error] Verification failed. Missing:$MISSING"
   echo "  [hint]  Open a new shell to refresh PATH, then re-run this script; completed steps are skipped."
   exit 1
+fi
+
+if [ "$HUB_STATE" != "running" ]; then
+  echo ""
+  echo "==================================================="
+  echo "  SETUP COMPLETED — CLI ready, all 4 Core tools verified (Hub not started)"
+  echo "==================================================="
+  echo "  Run tasks from $WORKSPACE_ROOT: task --list"
+  [ "$HUB_STATE" = "failed" ] && echo "  [warn] The Hub step failed (see above). Re-run this script to retry it."
+  echo "==================================================="
+  exit 0
 fi
 
 echo ""
@@ -498,9 +530,9 @@ echo "  SETUP COMPLETED — Hub started, all 4 Core tools verified"
 echo "==================================================="
 echo "  Open http://localhost:${HUB_PORT}"
 echo ""
-echo "  One more click before your first web test: browsers are downloaded per"
-echo "  tool, not by this installer. In the Hub open the \"Environment Status\""
-echo "  panel and press \"Set up\" on the tool you want (or run: task setup)."
+echo "  The present tools were set up by 'task setup' above. If a tool reported a"
+echo "  warning, open the Hub \"Environment Status\" panel and press \"Set up\" on"
+echo "  that tool (or run: task setup)."
 echo "==================================================="
 
 echo ""

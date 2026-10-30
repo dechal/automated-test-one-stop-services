@@ -22,16 +22,19 @@ includes:
     taskfile: ./Taskfile.tools.yml
     optional: true
     flatten: true
+  hub-block:
+    taskfile: ./hub/Taskfile.yml
+    dir: ./hub
+    optional: true
+    flatten: true
 
 env:
   # Test-output run folder segments:
   #   outputs/<tool>/<type>/<project>/<status>/<CURRENT_DATE>/<CURRENT_TIME>/
   # ISO-style (YYYY-MM-DD / HH-MM-SS) so runs sort chronologically in both the
   # file explorer and the Hub, with minimal nesting.
-  CURRENT_DATE:
-    sh: date +%Y-%m-%d
-  CURRENT_TIME:
-    sh: date +%H-%M-%S
+  CURRENT_DATE: '{{now | date "2006-01-02"}}'
+  CURRENT_TIME: '{{now | date "15-04-05"}}'
   # CURRENT_USER is an AUDIT field only (the "executed by" column in the Google
   # Sheet usage log) — it is NOT part of the output-dir path.
   CURRENT_USER:
@@ -52,14 +55,17 @@ env:
   PLAYWRIGHT_BROWSERS_PATH: "{{.ROOT_DIR}}/.cache/playwright-browsers"
 
 vars:
-  LAST_RUN_FILE: .last-run
+  LAST_RUN_FILE: .cache/state/last-run
+  LEGACY_LAST_RUN_FILE: .last-run
+  CACHE_PRUNE_DAYS: 7
 
 tasks:
   default:
     desc: Interactive test runner
     deps: [_init-env]
     cmds:
-      - dotenvx run --quiet -f ./scripts/.env -- tsx scripts/runner.ts
+      - node scripts/clean-cache.mjs --prune-days={{.CACHE_PRUNE_DAYS}}
+      - pnpm exec dotenvx run --quiet -f ./scripts/.env -- tsx scripts/runner.ts
 
   # ==============================================================================
   # HELP & INFO
@@ -83,7 +89,7 @@ tasks:
         echo ""
         echo "  Direct Commands (skip menu):"
         echo "  --------------------------------------------------------------------------"
-        tsx scripts/tools-info.ts commands
+        pnpm exec tsx scripts/tools-info.ts commands
         echo ""
         echo "  Setup & Maintenance:"
         echo "  --------------------------------------------------------------------------"
@@ -92,14 +98,8 @@ tasks:
         echo "  task create-project   -> Scaffold a new project from template"
         echo "  task pull             -> Pull root + all git subprojects"
         echo "  task clean            -> Remove all outputs"
-        echo ""
-        echo "  Hub (optional web UI):"
-        echo "  --------------------------------------------------------------------------"
-        echo "  task hub              -> Dev mode: UI on :5173, API on :5174"
-        echo "  task hub-build        -> Build for production"
-        echo "  task hub-start        -> Serve the built Hub (:5174)"
-        echo "  task hub-stop         -> Stop the Hub running on HUB_PORT"
-        echo "  task hub-status       -> Port, pid, and boot auto-start state"
+        echo "  task clean-outputs    -> Remove runs older than OUTPUTS_RETENTION_DAYS (-- --dry-run)"
+        echo "  task --list           -> Every task, including installed blocks"
         echo ""
         echo "  Tips:"
         echo "  --------------------------------------------------------------------------"
@@ -112,7 +112,7 @@ tasks:
     desc: List all detected projects across tools
     silent: true
     cmds:
-      - tsx scripts/tools-info.ts status
+      - pnpm exec tsx scripts/tools-info.ts status
 
   # ==============================================================================
   # UTILITIES
@@ -121,12 +121,7 @@ tasks:
   _init-env:
     internal: true
     cmds:
-      - |
-        if [ -f scripts/.env.template ] && [ ! -f scripts/.env ]; then
-            cp scripts/.env.template scripts/.env
-            echo "  [bootstrap] created scripts/.env from template"
-        fi
-      - tsx scripts/sync-projects.ts
+      - pnpm exec tsx scripts/sync-projects.ts
 
   setup:
     desc: Install all dependencies (Node + Python) and run each present tool's setup
@@ -158,7 +153,7 @@ tasks:
         # the plan into a variable first and feed the loop via a here-string,
         # which mvdan/sh supports cross-platform. A here-string (not a pipe) also
         # keeps the loop in the current shell so $FAILED survives the loop.
-        PLAN=$(tsx scripts/manifests/setup-planner.ts plan)
+        PLAN=$(pnpm exec tsx scripts/manifests/setup-planner.ts plan)
         FAILED=""
         while read -r kind id; do
           case "$kind" in
@@ -167,8 +162,8 @@ tasks:
               pnpm -C "tools/$id" install --ignore-workspace || echo "  [deps] WARN: pnpm install failed for tools/$id"
               ;;
             UVSYNC)
-              echo "  [deps] uv sync (root workspace)"
-              uv sync --all-packages --native-tls || echo "  [deps] WARN: uv sync failed"
+              echo "  [deps] uv sync (root dev tools)"
+              uv sync --native-tls || echo "  [deps] WARN: uv sync failed"
               ;;
             SETUP)
               echo "  [setup] tools/$id"
@@ -179,7 +174,7 @@ tasks:
           esac
         done <<< "$PLAN"
         if [ -n "$FAILED" ]; then
-          tsx scripts/manifests/setup-planner.ts report $FAILED || true
+          pnpm exec tsx scripts/manifests/setup-planner.ts report $FAILED || true
         fi
 
   setup-android:
@@ -229,14 +224,27 @@ tasks:
         check "uv" "--version"
         check "task" "--version"
         check "docker" "--version"
-        tsx scripts/tools-info.ts doctor
+        pnpm exec tsx scripts/tools-info.ts doctor
+        echo ""
+        echo "Scratch cache (dry run, nested .cache folders included):"
+        node scripts/clean-cache.mjs --include-nested --dry-run
         echo ""
         echo "Environment check complete."
 
   create-project:
     desc: "Scaffold a new project from template (pass args after --)"
     cmds:
-      - tsx scripts/create-project.ts {{.CLI_ARGS}}
+      - pnpm exec tsx scripts/create-project.ts {{.CLI_ARGS}}
+
+  export-bundle:
+    desc: "Export an offline zero-install bundle — TOOL= TYPE= PROJECT= OUT=<abs dir> [WITH_ENV=1] [ZIP=1]"
+    cmds:
+      - pnpm exec tsx scripts/export/cli.ts bundle --tool "{{.TOOL}}" --type "{{.TYPE}}" --project "{{.PROJECT}}" --out "{{.OUT}}" {{if .WITH_ENV}}--with-env{{end}} {{if .ZIP}}--zip{{end}}
+
+  export-standalone:
+    desc: "Export a standalone project folder — TOOL= TYPE= PROJECT= OUT=<abs dir>"
+    cmds:
+      - pnpm exec tsx scripts/export/cli.ts standalone --tool "{{.TOOL}}" --type "{{.TYPE}}" --project "{{.PROJECT}}" --out "{{.OUT}}"
 
   clean:
     desc: Remove outputs and ephemeral artifacts
@@ -257,8 +265,16 @@ tasks:
         if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
             docker exec grafana sh -c "rm -rf /var/lib/grafana/dashboards/*" 2>/dev/null || true
         fi
+      - task: _tools-clean
+      - |
         echo ""
         echo "Cleanup complete."
+
+  clean-outputs:
+    desc: "Remove tool runs older than OUTPUTS_RETENTION_DAYS (default 30) by their YYYY-MM-DD/HH-MM-SS path; skips .lock/.favorite runs (-- --dry-run to preview, -- --days=N to override)"
+    silent: true
+    cmds:
+      - pnpm exec dotenvx run --quiet -f ./scripts/.env -- node scripts/lib/outputs-retention.mjs {{.CLI_ARGS}}
 
   clean-modules:
     desc: Remove all node_modules directories (run task setup to reinstall)
@@ -274,22 +290,32 @@ tasks:
         echo "Run 'task setup' to reinstall."
 
   clean-cache:
-    desc: "Clean disposable .cache scratch (default: deletable/; -- --deep adds regenerable/; -- --root-scratch adds legacy loose files; -- --dry-run to preview). Never touches playwright-browsers."
+    desc: "Clean disposable .cache scratch (default: deletable/; -- --deep adds regenerable/; -- --root-scratch adds legacy loose files; -- --include-nested adds stray .cache folders outside the root; -- --dry-run to preview). Never touches the protected browser cache or state/."
     silent: true
     cmds:
       - node scripts/clean-cache.mjs {{.CLI_ARGS}}
+
+  sync-test-status:
+    desc: "Write a run report's verdicts into the test-case .edited.json overlays (default: newest results.json/output.xml under outputs/; -- <report> for one file)"
+    silent: true
+    cmds:
+      - node scripts/lib/testcase-run-sync.mjs {{.CLI_ARGS}}
 
   rerun:
     desc: Re-run the last task command from .last-run history
     silent: true
     cmds:
       - |
-        if [ ! -f "{{.LAST_RUN_FILE}}" ]; then
+        RUN_FILE="{{.LAST_RUN_FILE}}"
+        if [ ! -f "$RUN_FILE" ]; then
+            RUN_FILE="{{.LEGACY_LAST_RUN_FILE}}"
+        fi
+        if [ ! -f "$RUN_FILE" ]; then
             echo "[ERROR] No previous run found."
             echo "        -> Run 'task' or 'task default' first to create a run history."
             exit 1
         fi
-        LAST_CMD=$(cat "{{.LAST_RUN_FILE}}")
+        LAST_CMD=$(cat "$RUN_FILE")
         echo "Re-running last command:"
         echo "   $LAST_CMD"
         echo ""
@@ -299,42 +325,7 @@ tasks:
     desc: Pull root repo + all git subprojects under tools/
     silent: true
     cmds:
-      - |
-        echo ""
-        echo "Pulling all git subprojects..."
-        echo ""
-        ROOT_DIR=$(pwd)
-        ERRORS=0
-
-        echo "  [root] pulling..."
-        if git pull --ff-only; then
-            echo "  [root] done"
-        else
-            echo "  [root] failed"
-            ERRORS=$((ERRORS + 1))
-        fi
-        echo ""
-
-        for git_dir in $(node scripts/lib/list-git-dirs.mjs tools); do
-            proj_dir=$(dirname "$git_dir")
-            proj_name=$(echo "$proj_dir" | sed 's|tools/||')
-            echo "  [$proj_name] pulling..."
-            cd "$proj_dir"
-            if git pull --ff-only; then
-                echo "  [$proj_name] done"
-            else
-                echo "  [$proj_name] failed"
-                ERRORS=$((ERRORS + 1))
-            fi
-            cd "$ROOT_DIR"
-            echo ""
-        done
-
-        if [ $ERRORS -eq 0 ]; then
-            echo "All repos pulled successfully."
-        else
-            echo "$ERRORS repo(s) failed to pull."
-        fi
+      - node scripts/lib/pull-repos.mjs
 
   # ==============================================================================
   # WORKSPACE HEALTH
@@ -365,8 +356,8 @@ tasks:
       # `task` stops at the first failing suite.
       - pnpm exec vitest run --root scripts/manifests
       - pnpm exec vitest run --root scripts/install-core
-      - pnpm -C hub/server exec vitest run
-      - pnpm -C hub/client exec vitest run
+      - pnpm exec vitest run --root scripts/export
+      - pnpm -r --if-present --workspace-concurrency=1 run test
       - node --test "scripts/__tests__/**/*.spec.mjs"
 
   check:
@@ -384,16 +375,7 @@ tasks:
       # `ty check <absent path>` reports an io diagnostic, so both are presence-gated.
       - uv run ruff check .
       - uv run ruff format --check .
-      - |
-        if [ -d tools/robot-framework ]; then
-          echo "[robocop] tools/robot-framework"
-          uv run robocop check --config tools/robot-framework/robot.toml tools/robot-framework || exit 1
-          echo "[ty] tools/robot-framework"
-          uv run ty check tools/robot-framework || exit 1
-        fi
-      - pnpm -C hub/shared run typecheck
-      - pnpm -C hub/server run typecheck
-      - pnpm -C hub/client run typecheck
+      - pnpm -r --if-present run typecheck
       # The three script projects, mirroring the CI `typecheck` job. Each
       # tsconfig is folder-local (`include: ["*.ts"]`): `scripts/` covers the
       # top-level entry points this Taskfile itself runs (runner.ts,
@@ -404,52 +386,7 @@ tasks:
       - pnpm exec tsc --noEmit -p scripts/tsconfig.json
       - pnpm exec tsc --noEmit -p scripts/manifests/tsconfig.json
       - pnpm exec tsc --noEmit -p scripts/install-core/tsconfig.json
-      - |
-        for cfg in tools/playwright/tsconfig.json tools/k6/tsconfig.json; do
-          if [ -f "$cfg" ]; then
-            echo "[typecheck] $cfg"
-            pnpm exec tsc --noEmit -p "$cfg" || exit 1
-          fi
-        done
+      - pnpm exec tsc --noEmit -p scripts/lib/tsconfig.json
+      - pnpm exec tsc --noEmit -p scripts/export/tsconfig.json
+      - node scripts/lib/run-tool-task.mjs check
       - task test
-
-  hub:
-    desc: Start the Hub server + client (development mode)
-    cmds:
-      - |
-        echo "Starting Hub (server + client)..."
-        (cd hub/server && tsx watch src/index.ts) &
-        (cd hub/client && pnpm exec vite) &
-        wait
-
-  hub-build:
-    desc: Build the Hub for production (shared + server + client)
-    cmds:
-      - pnpm -C hub build
-
-  hub-start:
-    desc: Serve the production Hub build (run task hub-build first)
-    cmds:
-      - pnpm -C hub start
-
-  # hub-stop / hub-restart / hub-status delegate to hub/bin/hub-service.mjs — the
-  # single owner of "is the Hub running" across the start scripts, setup, and the
-  # in-app Update button. They act on whatever holds HUB_PORT (the detached
-  # background instance, an OS boot supervisor, or a foreground `task hub-start`),
-  # so there is no separate stop path per way of starting it. `task hub` (dev,
-  # foreground vite + tsx watch) is stopped with Ctrl+C instead.
-
-  hub-stop:
-    desc: Stop the Hub running on HUB_PORT (built/served instance, not dev mode)
-    cmds:
-      - node hub/bin/hub-service.mjs stop
-
-  hub-restart:
-    desc: Restart the Hub (stop, wait for the port, start the built server)
-    cmds:
-      - node hub/bin/hub-service.mjs restart
-
-  hub-status:
-    desc: "Hub status: port, daemonless pid, boot auto-start state"
-    cmds:
-      - node hub/bin/hub-service.mjs status

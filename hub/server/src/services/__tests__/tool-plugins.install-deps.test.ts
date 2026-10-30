@@ -125,6 +125,13 @@ vi.mock('../manifest-registry.js', () => ({
   invalidateManifestRegistry: vi.fn(),
 }));
 
+vi.mock('../export-module.js', () => ({
+  getExportModule: async () => ({
+    isStandaloneSupported: () => false,
+    isBundleSupported: () => false,
+  }),
+}));
+
 // withResync just runs the mutation and wraps it — the real implementation does
 // an in-process workspace re-sync we don't exercise here.
 vi.mock('../workspace-sync.js', () => ({
@@ -168,7 +175,11 @@ describe('installFromRegistry confirm-phase dependency install', () => {
     expect(mockExecSync).toHaveBeenCalledTimes(1);
     const [command, options] = mockExecSync.mock.calls[0] as [string, Record<string, unknown>];
     expect(command).toBe('uv sync');
-    expect(options).toMatchObject({ cwd: '/workspace', stdio: 'pipe', timeout: 180_000 });
+    expect(options).toMatchObject({
+      cwd: path.join('/workspace/tools', 'pytool'),
+      stdio: 'pipe',
+      timeout: 180_000,
+    });
 
     expect(result).not.toHaveProperty('depsError');
   });

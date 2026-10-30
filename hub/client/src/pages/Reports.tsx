@@ -1,39 +1,25 @@
-import type { ReportEntry, RunSummary, ToolId } from '@hub/shared';
-import { parseTagExpr } from '@hub/shared';
+import type { ReportEntry, ToolId } from '@hub/shared';
 import {
-  ActionIcon,
   Badge,
   Button,
-  Checkbox,
   Group,
   Pagination,
   Paper,
-  ScrollArea,
   Select,
   Skeleton,
   Stack,
-  Switch,
-  Table,
   Text,
-  TextInput,
-  Tooltip,
 } from '@mantine/core';
-import { DatePickerInput, type DateValue } from '@mantine/dates';
+import type { DateValue } from '@mantine/dates';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import {
   TbAlertTriangle,
-  TbCalendar,
-  TbExternalLink,
   TbFilter,
-  TbLock,
-  TbLockOpen,
   TbPlayerPlay,
   TbReportAnalytics,
-  TbStar,
-  TbStarFilled,
   TbTrash,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
@@ -41,71 +27,20 @@ import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { ErrorState } from '~/components/ErrorState.js';
 import { PageHeader } from '~/components/PageHeader.js';
-import { PassScoreCell } from '~/components/PassScoreCell.js';
-import { RunStatusBadge } from '~/components/RunStatusBadge.js';
-import { ArtifactMenu } from '~/components/reports/ArtifactMenu.js';
-import { SavedFiltersBar } from '~/components/SavedFilters.js';
+import { ReportsFilterPanel } from '~/components/reports/ReportsFilterPanel.js';
+import { type ReportsSortField, ReportsTable } from '~/components/reports/ReportsTable.js';
 import { toast } from '~/components/Toast.js';
-import { PAGE_SIZE_OPTIONS, SortableHeader } from '~/components/table/SortableHeader.js';
+import { PAGE_SIZE_OPTIONS } from '~/components/table/SortableHeader.js';
 import { useTableSort } from '~/hooks/useTableSort.js';
 import { useTools } from '~/hooks/useTools.js';
-import { type TranslationKey, useT } from '~/i18n/index.js';
+import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
-import { formatAbsolute, formatDurationMs, formatRelative } from '~/utils/datetime.js';
-import { formatCompactNumber } from '~/utils/format-number.js';
 import { isCrashReport, isHubOrigin } from '~/utils/report-origin.js';
-import {
-  formatPneBreakdown,
-  getStatusColor,
-  getStatusIcon,
-  statusLabelKey,
-} from '~/utils/run-status.js';
-
-const ALL_STATUSES = ['success', 'error'];
-const STATUS_FILTER_LABEL: Record<string, TranslationKey> = {
-  success: 'status.allPassed',
-  error: 'status.testsFailed',
-};
+import { toggleInSet } from '~/utils/toggle-in-set.js';
 
 // The server emits report timestamps as ISO-8601 strings (same shape as a
 // run's `startedAt`), so they parse with a plain `dayjs(iso)` — no month-name
 // custom format, and they sort chronologically as strings.
-
-type SortField = 'timestamp' | 'tool' | 'project' | 'type' | 'status';
-
-/**
- * "Cases" cell: total test-case count for a report, with a red badge when any
- * failed and a full pass/fail/skip breakdown in the tooltip. Shows a dash when
- * the report has no matching run summary (e.g. an aged-out run).
- */
-function CaseCountCell({ summary }: { summary?: RunSummary }) {
-  const t = useT();
-  if (!summary) {
-    return (
-      <Text size="xs" c="dimmed">
-        —
-      </Text>
-    );
-  }
-  const total = summary.passed + summary.failed + (summary.skipped ?? 0);
-  const breakdown = `${total.toLocaleString()} ${t('reports.cases').toLowerCase()} — ${summary.passed.toLocaleString()} ${t('run.passed')} · ${summary.failed.toLocaleString()} ${t('run.failed')}${
-    summary.skipped ? ` · ${summary.skipped.toLocaleString()} ${t('run.skipped')}` : ''
-  }${summary.pne ? ` (${formatPneBreakdown(summary.pne, t)})` : ''}`;
-  return (
-    <Tooltip label={breakdown} withArrow>
-      <Group gap={5} wrap="nowrap">
-        <Text size="xs" fw={600}>
-          {formatCompactNumber(total)}
-        </Text>
-        {summary.failed > 0 && (
-          <Badge size="xs" color="red" variant="light">
-            {formatCompactNumber(summary.failed)}
-          </Badge>
-        )}
-      </Group>
-    </Tooltip>
-  );
-}
 
 export function ReportsPage() {
   const t = useT();
@@ -120,7 +55,7 @@ export function ReportsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const { sortField, sortDir, handleSort } = useTableSort<SortField>('timestamp');
+  const { sortField, sortDir, handleSort } = useTableSort<ReportsSortField>('timestamp');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   // Tool and Mode are engineering metadata: shown only in advanced mode. Sort
   // state is untouched when a hidden column is the active sort field.
@@ -263,13 +198,6 @@ export function ReportsPage() {
   }
 
   const availableTypes = [...new Set((reports.data ?? []).map((r) => r.type))].sort();
-
-  function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
-    const next = new Set(set);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    return next;
-  }
 
   function toggleRow(reportPath: string) {
     setSelectedRows((prev) => toggleInSet(prev, reportPath));
@@ -437,155 +365,25 @@ export function ReportsPage() {
       </div>
 
       {showFilters && (
-        // Bounded so a tall filter panel scrolls itself instead of squeezing
-        // the table out of the clipped root.
-        <Paper p="md" withBorder mah="40vh" style={{ flexShrink: 0, overflowY: 'auto' }}>
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-                {t('reports.advancedSearch')}
-              </Text>
-              <Group gap="sm">
-                <Switch
-                  size="xs"
-                  checked={hideLocalOrigin}
-                  onChange={(e) => {
-                    setHideLocalOrigin(e.currentTarget.checked);
-                    setCurrentPage(1);
-                  }}
-                  label={t('reports.hideLocalOrigin')}
-                />
-                {activeFilterCount > 0 && (
-                  <Button size="compact-xs" variant="subtle" color="gray" onClick={clearFilters}>
-                    {t('common.clearAll')}
-                  </Button>
-                )}
-              </Group>
-            </Group>
-
-            <SavedFiltersBar
-              page="reports"
-              currentFilters={{
-                tools: [...selectedTools],
-                statuses: [...selectedStatuses],
-                types: [...selectedTypes],
-                project: filterProject,
-              }}
-              onLoad={(filters) => {
-                const f = filters as {
-                  tools?: string[];
-                  statuses?: string[];
-                  types?: string[];
-                  project?: string;
-                };
-                setSelectedTools(new Set(f.tools ?? []) as Set<ToolId>);
-                setSelectedStatuses(new Set(f.statuses ?? []));
-                setSelectedTypes(new Set(f.types ?? []));
-                setFilterProject(f.project ?? '');
-                setCurrentPage(1);
-              }}
-            />
-
-            <Group grow align="flex-end">
-              <DatePickerInput
-                type="range"
-                label={t('table.dateRange')}
-                size="xs"
-                value={dateRange as [DateValue, DateValue]}
-                onChange={(v) => {
-                  setDateRange(v);
-                  setCurrentPage(1);
-                }}
-                placeholder={t('filter.pickDates')}
-                leftSection={<TbCalendar size={14} />}
-                clearable
-                valueFormat="DD MMM YYYY"
-              />
-              <TextInput
-                label={t('run.project')}
-                size="xs"
-                value={filterProject}
-                onChange={(e) => {
-                  setFilterProject(e.currentTarget.value);
-                  setCurrentPage(1);
-                }}
-                placeholder={t('filter.filterByName')}
-              />
-            </Group>
-
-            <Group gap="xl" align="flex-start" wrap="wrap">
-              <Stack gap={4}>
-                <Text size="xs" c="dimmed">
-                  {t('filter.tools')}
-                </Text>
-                <Group gap={6}>
-                  {toolIds.map((t) => (
-                    <Badge
-                      key={t}
-                      size="sm"
-                      variant={selectedTools.has(t) ? 'filled' : 'outline'}
-                      color={selectedTools.has(t) ? 'blue' : 'gray'}
-                      onClick={() => {
-                        setSelectedTools(toggleInSet(selectedTools, t));
-                        setCurrentPage(1);
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {t}
-                    </Badge>
-                  ))}
-                </Group>
-              </Stack>
-              {availableTypes.length > 0 && (
-                <Stack gap={4}>
-                  <Text size="xs" c="dimmed">
-                    {t('table.type')}
-                  </Text>
-                  <Group gap={6}>
-                    {availableTypes.map((t) => (
-                      <Badge
-                        key={t}
-                        size="sm"
-                        variant={selectedTypes.has(t) ? 'filled' : 'outline'}
-                        color={selectedTypes.has(t) ? 'blue' : 'gray'}
-                        onClick={() => {
-                          setSelectedTypes(toggleInSet(selectedTypes, t));
-                          setCurrentPage(1);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {t}
-                      </Badge>
-                    ))}
-                  </Group>
-                </Stack>
-              )}
-              <Stack gap={4}>
-                <Text size="xs" c="dimmed">
-                  {t('table.status')}
-                </Text>
-                <Group gap={6}>
-                  {ALL_STATUSES.map((s) => (
-                    <Badge
-                      key={s}
-                      size="sm"
-                      variant={selectedStatuses.has(s) ? 'filled' : 'outline'}
-                      color={selectedStatuses.has(s) ? getStatusColor(s) : 'gray'}
-                      leftSection={getStatusIcon(s)}
-                      onClick={() => {
-                        setSelectedStatuses(toggleInSet(selectedStatuses, s));
-                        setCurrentPage(1);
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {t(STATUS_FILTER_LABEL[s] ?? statusLabelKey(s))}
-                    </Badge>
-                  ))}
-                </Group>
-              </Stack>
-            </Group>
-          </Stack>
-        </Paper>
+        <ReportsFilterPanel
+          activeFilterCount={activeFilterCount}
+          clearFilters={clearFilters}
+          hideLocalOrigin={hideLocalOrigin}
+          setHideLocalOrigin={setHideLocalOrigin}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          filterProject={filterProject}
+          setFilterProject={setFilterProject}
+          toolIds={toolIds}
+          selectedTools={selectedTools}
+          setSelectedTools={setSelectedTools}
+          availableTypes={availableTypes}
+          selectedTypes={selectedTypes}
+          setSelectedTypes={setSelectedTypes}
+          selectedStatuses={selectedStatuses}
+          setSelectedStatuses={setSelectedStatuses}
+          setCurrentPage={setCurrentPage}
+        />
       )}
 
       {/* The values whose columns folded away because every row shared them.
@@ -688,354 +486,23 @@ export function ReportsPage() {
       )}
 
       {paginatedData.length > 0 && (
-        <Paper
-          withBorder
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Bounded ScrollArea → the table scrolls inside the card (sticky
-              header) instead of growing the page. `miw` keeps a horizontal
-              scroll on narrow screens. Pagination below stays pinned. */}
-          <ScrollArea type="auto" style={{ flex: 1, minHeight: 0 }}>
-            <Table
-              striped
-              highlightOnHover
-              verticalSpacing="xs"
-              stickyHeader
-              // +60px over the previous 1100/820: lock and delete are their own
-              // icons again, so the Actions column needs the room rather than
-              // squeezing the Tag and Timestamp columns.
-              miw={advancedMode ? 1430 : 1150}
-            >
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th w={40}>
-                    {/* Select-all skips favourites — they are undeletable, so
-                        including them would leave the box permanently
-                        indeterminate and offer a doomed bulk delete. */}
-                    <Checkbox
-                      size="xs"
-                      checked={
-                        selectablePaths.length > 0 &&
-                        selectablePaths.every((p) => selectedRows.has(p))
-                      }
-                      indeterminate={
-                        selectablePaths.some((p) => selectedRows.has(p)) &&
-                        !selectablePaths.every((p) => selectedRows.has(p))
-                      }
-                      onChange={() => toggleAllRows(selectablePaths)}
-                      aria-label={t('reports.selectAll')}
-                    />
-                  </Table.Th>
-                  <Table.Th w={1}>
-                    <SortableHeader
-                      label={t('table.status')}
-                      field="status"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
-                  {advancedMode && (
-                    <Table.Th>
-                      <SortableHeader
-                        label={t('run.tool')}
-                        field="tool"
-                        currentField={sortField}
-                        currentDir={sortDir}
-                        onSort={handleSort}
-                      />
-                    </Table.Th>
-                  )}
-                  {sharedProject === null && (
-                    <Table.Th>
-                      <SortableHeader
-                        label={t('run.project')}
-                        field="project"
-                        currentField={sortField}
-                        currentDir={sortDir}
-                        onSort={handleSort}
-                      />
-                    </Table.Th>
-                  )}
-                  {sharedType === null && (
-                    <Table.Th>
-                      <SortableHeader
-                        label={t('run.type')}
-                        field="type"
-                        currentField={sortField}
-                        currentDir={sortDir}
-                        onSort={handleSort}
-                      />
-                    </Table.Th>
-                  )}
-                  <Table.Th>{t('reports.cases')}</Table.Th>
-                  <Table.Th>{t('reports.passScore')}</Table.Th>
-                  <Table.Th>{t('table.duration')}</Table.Th>
-                  <Table.Th>{t('table.tag')}</Table.Th>
-                  {advancedMode && <Table.Th>{t('table.mode')}</Table.Th>}
-                  <Table.Th>{t('table.environment')}</Table.Th>
-                  <Table.Th>
-                    <SortableHeader
-                      label={t('table.timestamp')}
-                      field="timestamp"
-                      currentField={sortField}
-                      currentDir={sortDir}
-                      onSort={handleSort}
-                    />
-                  </Table.Th>
-                  <Table.Th>{t('table.actions')}</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {paginatedData.map((r) => (
-                  <Table.Tr
-                    key={r.id}
-                    bg={
-                      selectedRows.has(r.reportPath)
-                        ? 'var(--mantine-color-brand-light)'
-                        : undefined
-                    }
-                  >
-                    <Table.Td>
-                      {/* A favourite cannot be selected at all: the only thing the
-                          selection drives is bulk delete, so allowing the tick
-                          would offer an action that is guaranteed to be refused. */}
-                      <Checkbox
-                        size="xs"
-                        checked={selectedRows.has(r.reportPath)}
-                        disabled={r.favorite}
-                        onChange={() => toggleRow(r.reportPath)}
-                        aria-label={`${t('reports.selectRow')} ${r.project}`}
-                      />
-                    </Table.Td>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      {/* Outcome, not the raw output folder. `r.status` only says
-                          which directory the runner wrote into, so a run with a
-                          few failing tests badged as `ERROR` — indistinguishable
-                          from a run that never produced a result. */}
-                      <RunStatusBadge status={r.status} summary={r.summary} />
-                    </Table.Td>
-                    {advancedMode && (
-                      <Table.Td>
-                        <Tooltip label={r.tool} withArrow>
-                          <Text size="xs" truncate maw={120}>
-                            {r.tool}
-                          </Text>
-                        </Tooltip>
-                      </Table.Td>
-                    )}
-                    {sharedProject === null && (
-                      <Table.Td>
-                        <Tooltip label={r.project} withArrow>
-                          <Text size="xs" fw={500} truncate maw={150}>
-                            {r.project}
-                          </Text>
-                        </Tooltip>
-                      </Table.Td>
-                    )}
-                    {sharedType === null && (
-                      <Table.Td>
-                        <Tooltip label={r.type} withArrow>
-                          <Text size="xs" truncate maw={80}>
-                            {r.type}
-                          </Text>
-                        </Tooltip>
-                      </Table.Td>
-                    )}
-                    <Table.Td>
-                      <CaseCountCell summary={r.summary} />
-                    </Table.Td>
-                    <Table.Td>
-                      <PassScoreCell summary={r.summary} severity={r.severity} />
-                    </Table.Td>
-                    <Table.Td>
-                      {r.durationMs !== undefined ? (
-                        <Tooltip label={`${r.durationMs.toLocaleString()} ms`} withArrow>
-                          <Text size="xs" ff="monospace">
-                            {formatDurationMs(r.durationMs)}
-                          </Text>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          —
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      {r.runTag ? (
-                        <Tooltip label={r.runTag} withArrow>
-                          <Group gap={4} wrap="nowrap" maw={150}>
-                            {/* Tags are a filter record, not a status. As outlined
-                                blue chips they out-shouted the pass rate — the
-                                one number this table exists to show.
-                                `nowrap` is load-bearing: wrapping made a two-tag
-                                row roughly 3x taller than its neighbours, and that
-                                uneven rhythm is what made the table hard to scan.
-                                The tooltip still holds the full expression, so the
-                                cell re-flows without hiding anything. */}
-                            {/* ONE tag, readable, plus a count. Two tags sharing
-                                150px each truncated to `fire-bene…` / `fire-spec…`
-                                — two fragments that identify nothing, and with
-                                exactly two tags no overflow hint appeared either.
-                                One legible name plus `+N` says more in less space;
-                                the tooltip still has the full expression. */}
-                            <Text size="xs" c="dimmed" ff="monospace" truncate>
-                              {(parseTagExpr(r.runTag)[0] ?? '').replace(/^@/, '')}
-                            </Text>
-                            {parseTagExpr(r.runTag).length > 1 && (
-                              <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                                +{parseTagExpr(r.runTag).length - 1}
-                              </Text>
-                            )}
-                          </Group>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          {t('reports.allTests')}
-                        </Text>
-                      )}
-                    </Table.Td>
-                    {advancedMode && (
-                      <Table.Td>
-                        {r.runMode ? (
-                          <Tooltip label={r.runMode} withArrow>
-                            <Badge
-                              size="xs"
-                              variant="light"
-                              color={r.runMode === 'docker' ? 'violet' : 'gray'}
-                              style={{ maxWidth: '100%' }}
-                            >
-                              {r.runMode}
-                            </Badge>
-                          </Tooltip>
-                        ) : (
-                          <Text size="xs" c="dimmed">
-                            —
-                          </Text>
-                        )}
-                      </Table.Td>
-                    )}
-                    <Table.Td>
-                      {r.envProfileName || r.environment ? (
-                        <Tooltip label={r.environment ?? '—'} withArrow>
-                          <Text size="xs" c="dimmed" truncate maw={100}>
-                            {r.envProfileName ?? r.environment}
-                          </Text>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          —
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Tooltip label={formatAbsolute(r.timestamp)} withArrow>
-                        <Text size="xs" c="dimmed">
-                          {formatRelative(r.timestamp)}
-                        </Text>
-                      </Tooltip>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs" wrap="nowrap">
-                        <Button
-                          size="compact-xs"
-                          leftSection={<TbExternalLink size={12} />}
-                          onClick={async () => {
-                            // Ask the server to open the report with the OS
-                            // default app so it loads as a real file:// path.
-                            // (A localhost page can't navigate to file://.)
-                            try {
-                              await api.post('/api/reports/open-file', { path: r.reportPath });
-                            } catch {
-                              toast.error(t('reports.openFailed'));
-                            }
-                          }}
-                        >
-                          {t('reports.open')}
-                        </Button>
-                        <ArtifactMenu reportPath={r.reportPath} />
-                        {/* Lock and delete stay as their own icons rather than
-                            collapsing into a `⋯` menu: ArtifactMenu already owns a
-                            `⋯` on this row, so a second identical trigger beside it
-                            was ambiguous, and the table scrolls horizontally, so
-                            the column has room. Delete still confirms first. */}
-                        <Tooltip
-                          label={r.favorite ? t('reports.unfavorite') : t('reports.favorite')}
-                        >
-                          <ActionIcon
-                            variant="subtle"
-                            color={r.favorite ? 'yellow' : 'gray'}
-                            size="sm"
-                            onClick={() =>
-                              favoriteMutation.mutate({ path: r.reportPath, on: !r.favorite })
-                            }
-                            aria-label={
-                              r.favorite ? t('reports.unfavorite') : t('reports.favorite')
-                            }
-                          >
-                            {r.favorite ? <TbStarFilled size={14} /> : <TbStar size={14} />}
-                          </ActionIcon>
-                        </Tooltip>
-                        {/* Disabled while favourited: the favourite owns the lock,
-                            so offering an unlock that the server would refuse is
-                            worse than showing the reason. Rendered always (never
-                            hidden) so the row's icons never shift position. */}
-                        <Tooltip
-                          label={
-                            r.favorite
-                              ? t('reports.lockedByFavorite')
-                              : r.locked
-                                ? t('reports.unlockHint')
-                                : t('reports.lockHint')
-                          }
-                        >
-                          <ActionIcon
-                            variant="subtle"
-                            color={r.locked ? 'yellow' : 'gray'}
-                            size="sm"
-                            disabled={r.favorite}
-                            onClick={() =>
-                              r.locked
-                                ? unlockMutation.mutate(r.reportPath)
-                                : lockMutation.mutate(r.reportPath)
-                            }
-                            aria-label={
-                              r.locked ? t('reports.unlockReport') : t('reports.lockReport')
-                            }
-                          >
-                            {r.locked ? <TbLock size={14} /> : <TbLockOpen size={14} />}
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip
-                          label={
-                            r.favorite ? t('reports.favoriteNoDelete') : t('reports.deleteAria')
-                          }
-                        >
-                          <ActionIcon
-                            variant="subtle"
-                            color="red"
-                            size="sm"
-                            disabled={r.favorite}
-                            onClick={() => handleDelete(r.reportPath)}
-                            aria-label={t('reports.deleteAria')}
-                          >
-                            <TbTrash size={14} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-        </Paper>
+        <ReportsTable
+          paginatedData={paginatedData}
+          selectablePaths={selectablePaths}
+          selectedRows={selectedRows}
+          advancedMode={advancedMode}
+          sharedProject={sharedProject}
+          sharedType={sharedType}
+          sortField={sortField}
+          sortDir={sortDir}
+          handleSort={handleSort}
+          toggleRow={toggleRow}
+          toggleAllRows={toggleAllRows}
+          onFavorite={(path, on) => favoriteMutation.mutate({ path, on })}
+          onLock={(reportPath) => lockMutation.mutate(reportPath)}
+          onUnlock={(reportPath) => unlockMutation.mutate(reportPath)}
+          handleDelete={handleDelete}
+        />
       )}
 
       {/* Pagination controls */}

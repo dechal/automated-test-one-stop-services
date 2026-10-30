@@ -24,7 +24,7 @@ import type { ToolManifest } from './manifests/types.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LAST_RUN_FILE = '.last-run';
+const LAST_RUN_FILE = path.join('.cache', 'state', 'last-run');
 
 const currentDir =
   typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
@@ -35,6 +35,7 @@ const WORKSPACE_ROOT = path.resolve(currentDir, '..');
 
 function saveLastRun(command: string): void {
   const lastRunPath = path.join(process.cwd(), LAST_RUN_FILE);
+  fs.mkdirSync(path.dirname(lastRunPath), { recursive: true });
   fs.writeFileSync(lastRunPath, command, 'utf8');
 }
 

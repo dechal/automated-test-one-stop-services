@@ -21,6 +21,15 @@ export function enabledTools(tools: readonly ToolView[]): ToolView[] {
   return tools.filter((t) => t.status === 'enabled');
 }
 
+export function firstEnabledTool(
+  tools: readonly Pick<ToolView, 'id' | 'status'>[],
+  preferred: string,
+): string {
+  const enabled = tools.filter((t) => t.status === 'enabled');
+  if (enabled.length === 0 || enabled.some((t) => t.id === preferred)) return preferred;
+  return enabled[0]?.id ?? preferred;
+}
+
 /**
  * Mantine `Select`/`data` options (`{ value: id, label: title }`) for the
  * enabled tools. Replaces the `tools.filter(enabled).map(...)` array that the

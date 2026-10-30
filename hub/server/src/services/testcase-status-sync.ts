@@ -1,11 +1,30 @@
 import path from 'node:path';
-import type { RunRecord, TestCaseRunResult } from '@hub/shared';
-import { TOOLS_DIR } from '../config.js';
+import { pathToFileURL } from 'node:url';
+import type { RunRecord, TestCaseRunResult, TestCaseSheet } from '@hub/shared';
+import { SCRIPTS_DIR, TOOLS_DIR } from '../config.js';
 import { getHubUser } from './hub-user.js';
 import { isUnder } from './path-guard.js';
 import { reportEntryByRun } from './reports.js';
 import { parseRunOutcomes } from './run-compare.js';
-import { applyRunStatus, listTestCaseDocs } from './testcases.js';
+import { listTestCaseDocs, readOverlay, readTestCaseGrid } from './testcases.js';
+
+interface RunSyncModule {
+  syncRunToDoc: (
+    docPath: string,
+    sheets: TestCaseSheet[],
+    resultByCaseId: Record<string, TestCaseRunResult>,
+    options: {
+      author?: { id: string; name: string };
+      runAt?: string;
+      editors: Record<string, string>;
+    },
+  ) => { matched: number; total: number };
+}
+
+function loadRunSync(): Promise<RunSyncModule> {
+  const url = pathToFileURL(path.join(SCRIPTS_DIR, 'lib', 'testcase-run-sync.mjs')).href;
+  return import(url) as Promise<RunSyncModule>;
+}
 
 /** Per-doc outcome of one sync pass. */
 export interface DocSyncResult {
@@ -82,11 +101,17 @@ export async function syncDocsForRun(
   // mapping happened automatically or by button.
   const user = getHubUser();
   const author = user ? { id: user.id, name: user.name } : undefined;
+  const { syncRunToDoc } = await loadRunSync();
   const results: DocSyncResult[] = [];
   for (const doc of listTestCaseDocs(projectDir)) {
-    const applied = await applyRunStatus(doc.path, resultByCaseId, runAt ?? undefined, author);
-    if (applied)
-      results.push({ docPath: doc.path, matched: applied.matched, total: applied.total });
+    const grid = await readTestCaseGrid(doc.path);
+    if (!grid) continue;
+    const applied = syncRunToDoc(doc.path, grid.sheets, resultByCaseId, {
+      ...(author ? { author } : {}),
+      ...(runAt ? { runAt } : {}),
+      editors: readOverlay(doc.path)?.editors ?? {},
+    });
+    results.push({ docPath: doc.path, matched: applied.matched, total: applied.total });
   }
   return { results, ...(resolved ? { reportPath: resolved } : {}), runAt };
 }

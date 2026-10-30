@@ -54,8 +54,10 @@ export type {
   ResolvedRunCapability,
   ResolvedTagsCapability,
   ToolAlias,
+  ToolCleanConfig,
   ToolComposeConfig,
   ToolDockerConfig,
+  ToolEnv,
   ToolId,
   ToolManifest,
   ToolManifestRecord,
@@ -65,6 +67,8 @@ export type {
   ToolRegistry,
   ToolRegistryEntry,
   ToolReportsCapability,
+  ToolRequirement,
+  ToolRequirementInstall,
   ToolRunCapability,
   ToolRunnerConfig,
   ToolRunnerPassAs,
@@ -188,7 +192,43 @@ function loadRecord(manifestPath: string): ToolManifestRecord {
   if (!result.ok) {
     return { path: manifestPath, status: 'invalid', manifest: null, errors: result.errors };
   }
-  return { path: manifestPath, status: 'ok', manifest: result.manifest, errors: [] };
+  const manifest = withDerivedBaseImage(path.dirname(manifestPath), result.manifest);
+  return { path: manifestPath, status: 'ok', manifest, errors: [] };
+}
+
+const DOCKERFILE = 'Dockerfile';
+const DOCKERFILE_FROM = /^\s*FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?/gim;
+const COMPOSE_IMAGE = /^\s*image:\s*["']?([^\s"'#]+)/m;
+
+function readTextOrEmpty(file: string): string {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+export function baseImageFromDockerfile(text: string): string {
+  const stages = new Set<string>();
+  let image = '';
+  for (const match of text.matchAll(DOCKERFILE_FROM)) {
+    const ref = match[1] ?? '';
+    if (!stages.has(ref.toLowerCase())) image = ref;
+    if (match[2] !== undefined) stages.add(match[2].toLowerCase());
+  }
+  return image;
+}
+
+export function baseImageFromCompose(text: string): string {
+  return COMPOSE_IMAGE.exec(text)?.[1] ?? '';
+}
+
+function withDerivedBaseImage(toolDir: string, manifest: ToolManifest): ToolManifest {
+  const derived =
+    baseImageFromDockerfile(readTextOrEmpty(path.join(toolDir, DOCKERFILE))) ||
+    baseImageFromCompose(readTextOrEmpty(path.join(toolDir, manifest.compose.template)));
+  if (derived === '' || derived === manifest.docker.baseImage) return manifest;
+  return { ...manifest, docker: { ...manifest.docker, baseImage: derived } };
 }
 
 function invalidRecord(manifestPath: string, error: ManifestError): ToolManifestRecord {

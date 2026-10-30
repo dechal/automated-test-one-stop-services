@@ -1,7 +1,7 @@
 import type { LifecycleResult, ProvisionResult, ToolRegistryView, ToolView } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { WORKSPACE_ROOT } from '../config.js';
-import { SAFE_GIT_REF, SAFE_ID } from '../lib/safe-id.js';
+import { SAFE_GIT_REF, SAFE_GIT_URL, SAFE_ID } from '../lib/safe-id.js';
 import { invalidateDoctorCache } from '../services/doctor.js';
 import { getManifestModule, getRegistry } from '../services/manifest-registry.js';
 import {
@@ -30,12 +30,6 @@ import { syncWorkspaceInProcess, withResync } from '../services/workspace-sync.j
  */
 const REACHABILITY_TTL_MS = 5 * 60_000;
 const reachabilityCache = new Map<string, { reachable: boolean; at: number }>();
-
-/**
- * Validates git URLs before they reach a shell. Accepts https://, ssh://git@,
- * or git@host:path forms. Mirrors the SAFE_GIT_URL guard in tool-plugins.ts.
- */
-const SAFE_GIT_URL = /^(?:https:\/\/|ssh:\/\/git@|git@)[A-Za-z0-9._:/~@?=+-]+(?:\.git)?$/;
 
 /**
  * Check if a git remote is reachable by running `git ls-remote --exit-code`.
@@ -182,14 +176,14 @@ export async function toolPluginRoutes(app: FastifyInstance): Promise<void> {
 
   /** POST /api/tools/install — two-phase install from the tool registry. */
   app.post<{
-    Body: { name: string; confirm?: boolean; abort?: boolean; editPyproject?: boolean };
+    Body: { name: string; confirm?: boolean; abort?: boolean };
   }>('/api/tools/install', async (req, reply) => {
-    const { name, confirm, abort, editPyproject } = req.body ?? {};
+    const { name, confirm, abort } = req.body ?? {};
     if (!name || !SAFE_ID.test(name)) {
       reply.status(400);
       return { code: 'INVALID_TOOL_NAME', message: 'name contains unsafe characters' };
     }
-    const opts: InstallOpts = { confirm, abort, editPyproject };
+    const opts: InstallOpts = { confirm, abort };
     const result: InstallResult = await installFromRegistry(name, opts);
     return result;
   });
@@ -243,22 +237,17 @@ export async function toolPluginRoutes(app: FastifyInstance): Promise<void> {
    * INVALID_TOOL_NAME. Reuses the shared resync/confirm entry point (no
    * duplicated package-manager spawn logic); origin is reported as `local`.
    */
-  app.post<{ Params: { id: string }; Body: { editPyproject?: boolean } }>(
-    '/api/tools/:id/install-deps',
-    async (req, reply) => {
-      if (!SAFE_ID.test(req.params.id)) {
-        reply.status(400);
-        return { code: 'INVALID_TOOL_NAME', message: 'id contains unsafe characters' };
-      }
-      const result: InstallDepsResult = await installDepsForTool(req.params.id, {
-        editPyproject: req.body?.editPyproject,
-      });
-      if ('code' in result) {
-        reply.status(result.code === 'TOOL_NOT_FOUND' ? 404 : 400);
-      }
-      return result;
-    },
-  );
+  app.post<{ Params: { id: string } }>('/api/tools/:id/install-deps', async (req, reply) => {
+    if (!SAFE_ID.test(req.params.id)) {
+      reply.status(400);
+      return { code: 'INVALID_TOOL_NAME', message: 'id contains unsafe characters' };
+    }
+    const result: InstallDepsResult = await installDepsForTool(req.params.id);
+    if ('code' in result) {
+      reply.status(result.code === 'TOOL_NOT_FOUND' ? 404 : 400);
+    }
+    return result;
+  });
 
   /**
    * POST /api/tools/:id/provision — (re-)run the tool's `setup` task to

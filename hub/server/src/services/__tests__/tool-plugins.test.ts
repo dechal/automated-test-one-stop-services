@@ -162,6 +162,13 @@ vi.mock('node:url', () => ({
 // We need to make that resolve to our mock. We can do this with vi.doMock:
 vi.mock('mock://manifests-module', () => mockManifestModule);
 
+vi.mock('../export-module.js', () => ({
+  getExportModule: async () => ({
+    isStandaloneSupported: () => false,
+    isBundleSupported: () => false,
+  }),
+}));
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('tool-plugins service', () => {
@@ -189,7 +196,6 @@ describe('tool-plugins service', () => {
         existsSync: vi.fn((p: string) => {
           if (typeof p === 'string' && p.endsWith('.git')) return false;
           if (typeof p === 'string' && p.includes('.tool-overrides.json')) return false;
-          if (typeof p === 'string' && p.endsWith('.kiro')) return true;
           return false;
         }),
         readFileSync: vi.fn(() => '{}'),

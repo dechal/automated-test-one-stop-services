@@ -14,7 +14,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       all: true,
-      include: ['validation.ts', 'invocation.ts', 'pipeline.ts', 'provision.ts'],
+      include: ['validation.ts', 'invocation.ts', 'pipeline.ts'],
       reporter: ['text', 'text-summary'],
     },
   },

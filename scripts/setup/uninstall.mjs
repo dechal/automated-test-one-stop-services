@@ -55,7 +55,11 @@ import { listGitDirs } from '../lib/list-git-dirs.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(HERE, '..', '..');
 const HUB_SERVICE = path.join(WORKSPACE_ROOT, 'hub', 'bin', 'hub-service.mjs');
-const STATE_FILE = path.join(process.env.SETUP_STATE_DIR || WORKSPACE_ROOT, '.setup-state.json');
+const STATE_FILE = path.join(
+  process.env.SETUP_STATE_DIR || path.join(WORKSPACE_ROOT, '.cache', 'state'),
+  '.setup-state.json',
+);
+const LEGACY_STATE_FILE = path.join(WORKSPACE_ROOT, '.setup-state.json');
 const HUB_RUN_DIR = path.join(WORKSPACE_ROOT, 'hub', '.run');
 const IS_WIN = process.platform === 'win32';
 
@@ -305,6 +309,11 @@ function plan() {
   step('Remove the start-at-login registration', () => hubService('disable-boot'));
   step('Remove the "Test Hub" desktop shortcut', () => hubService('remove-shortcut'));
   step(`Remove the setup ledger (${STATE_FILE})`, () => rmIfExists(STATE_FILE));
+  if (LEGACY_STATE_FILE !== STATE_FILE && fs.existsSync(LEGACY_STATE_FILE)) {
+    step(`Remove the old root setup ledger (${LEGACY_STATE_FILE})`, () =>
+      rmIfExists(LEGACY_STATE_FILE),
+    );
+  }
   step(`Remove the Hub run/pid/log dir (${HUB_RUN_DIR})`, () =>
     rmIfExists(HUB_RUN_DIR, { recursive: true }),
   );

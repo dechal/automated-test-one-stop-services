@@ -4,7 +4,6 @@ export const en = {
   // Nav items
   'nav.dashboard': 'Dashboard',
   'nav.runTests': 'Run Tests',
-  'nav.advanced': 'Advanced',
   'nav.results': 'Results',
   'nav.analyze': 'Analyze',
   'nav.history': 'Run History',
@@ -80,14 +79,11 @@ export const en = {
   'settings.sectionGeneral': 'General',
   'settings.sectionNotifications': 'Notifications',
   'settings.sectionData': 'Data & storage',
-  'settings.sectionExtras': 'Extra services',
-  'settings.sectionAbout': 'About',
   'settings.categoryExecution': 'Execution',
   'settings.categorySystem': 'System',
   'settings.categoryAbout': 'About',
   'settings.dockerServices': 'Docker Services',
   'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana for mobile and performance runs',
-  'settings.manageDocker': 'Manage Docker',
   'settings.appearance': 'Appearance',
   'settings.colorScheme': 'Color Scheme',
   'settings.notifications': 'Notifications',
@@ -99,7 +95,6 @@ export const en = {
   'settings.outputRetention': 'Output Retention',
   'settings.webhooks': 'Webhooks',
   'settings.webhooksDesc': 'Configure Slack/Discord/Teams/LINE notifications for test runs',
-  'settings.manageWebhooks': 'Manage Webhooks',
   'settings.importExport': 'Import / Export',
   'settings.exportDesc':
     'Save your hub setup to a JSON file you can keep or move to another machine.',
@@ -197,9 +192,7 @@ export const en = {
   'history.rerunFailedNone': 'This run had no failed cases.',
   'history.rerunFailedUntagged': 'Some failures carry no case id and cannot be re-selected',
   'run.workers': 'How many at once',
-  'run.workersHint': 'Parallel processes (workers)',
   'run.repeatEach': 'Repeat to catch flaky tests',
-  'run.repeatEachHint': 'Run every test N times (repeatEach)',
   'run.moreOptions': 'More options',
   'run.moreOptionsCollapsed': 'collapsed',
   'run.adminOptionsNote':
@@ -232,7 +225,6 @@ export const en = {
   'run.environment': 'Environment',
   'run.envCurrent': 'Current .env (no profile)',
   'run.manageEnv': 'Manage environments',
-  'run.applyBeforeRunFailed': 'Could not apply the selected environment',
   'run.runTooltip': 'Run the test (Ctrl+Enter)',
   'run.runButton': 'Run (Ctrl+Enter)',
   'run.stop': 'Stop',
@@ -247,7 +239,6 @@ export const en = {
   'run.find': 'Find',
   'run.searchOutput': 'Search in output...',
   'run.searchHint': 'Enter/Shift+Enter · Esc to close',
-  'run.command': 'Command',
   'run.rerun': 'Rerun',
   'run.copy': 'Copy',
   'run.duration': 'Duration',
@@ -289,7 +280,6 @@ export const en = {
   'history.noRuns': 'No run history yet. Execute some tests to see them here.',
   'history.noMatchFilter': 'No runs match your filters.',
   'history.startRun': 'Start a run',
-  'performance.selectProject': 'Select a k6 project to view performance trends.',
   'performance.toolMissing':
     'This page reads k6 results, and k6 is not installed. Add it from the Tools page to see performance trends here.',
   'performance.noData': 'No k6 trend data yet. Run a k6 test, then click Refresh.',
@@ -297,27 +287,18 @@ export const en = {
   'performance.searchPlaceholder': 'Search by project...',
   'performance.noMatch': 'No projects match your search.',
   'flaky.empty': 'No flaky tests detected. Run analysis to scan recent results.',
-  'flaky.emptyForProject': 'No flaky tests for this project.',
   'flaky.desc': 'Per-test pass-rate and flakiness across recent runs.',
-  'flaky.selectProject': 'Pick a tool, type, and project to see its test trends.',
   'flaky.unavailable':
     'No per-test results for this project yet. Per-test trends need Playwright runs that kept their results.json (not silent or discarded).',
   'flaky.flakyBadge': 'flaky',
-  'flaky.runs': 'runs',
   'flaky.passRate': 'Pass rate',
   'flaky.searchPlaceholder': 'Search by test, project, or tool...',
   'flaky.noMatch': 'No tests match your search.',
   'coverage.desc': 'Documented test cases vs their latest run outcome, grouped by requirement.',
   'coverage.searchPlaceholder': 'Search by case, scenario, requirement, project, or tool...',
   'coverage.noMatch': 'No projects match your search.',
-  'coverage.selectProject': 'Pick a tool, type, and project to see its coverage.',
   'coverage.empty': 'No documented test cases found for this project.',
-  'coverage.noRun':
-    'No latest-run outcome could be joined (non-Playwright, or no results.json on disk). Cases show as not-run.',
-  'coverage.coveredLabel': 'Cases covered by the latest run',
   'coverage.passed': 'passed',
-  'coverage.failed': 'failed',
-  'coverage.notRun': 'not run',
   'coverage.unmapped': 'No requirement ref',
   'coverage.outcome.passed': 'Passed',
   'coverage.outcome.failed': 'Failed',
@@ -510,7 +491,6 @@ export const en = {
 
   // Filter controls (shared across list pages)
   'filter.allTools': 'All tools',
-  'filter.allProjects': 'All projects',
   'filter.filterProject': 'Filter project...',
   'filter.filterByName': 'Filter by name...',
   'filter.pickDates': 'Pick dates',
@@ -518,7 +498,6 @@ export const en = {
   'filter.noGrouping': 'No grouping',
   'filter.groupByTool': 'Group by Tool',
   'filter.groupByProject': 'Group by Project',
-  'filter.selectProject': 'Select project',
   'filter.showing': 'Showing',
   'filter.of': 'of',
 
@@ -553,7 +532,6 @@ export const en = {
   'compare.noRuns': 'No comparable tests found.',
   'nav.testCases': 'Test Cases',
   'nav.testCases.desc': 'Browse test-case documents for a project',
-  'testcases.selectProject': 'Pick a tool, type, and project to see its test-case documents.',
   'testcases.none': 'No test-case documents found for this project.',
   'testcases.open': 'Open',
   'testcases.download': 'Download',
@@ -808,13 +786,6 @@ export const en = {
   'history.copyCommand': 'Copy command',
 
   // Flaky tests
-  'flaky.analysisStarted': 'Flaky analysis started',
-  'flaky.analysisDone': 'Analysis complete — flaky tests found',
-  'flaky.dismissed': 'Test dismissed',
-  'flaky.analysisFailed': 'Analysis failed',
-  'flaky.dismissFailed': 'Dismiss failed',
-  'flaky.dismiss': 'Dismiss',
-  'flaky.dismissAria': 'Dismiss flaky test',
 
   // Performance
   'performance.refreshed': 'Trends refreshed',
@@ -953,7 +924,6 @@ export const en = {
 
   // Shared verbs / nouns reused across pages
   'common.copy': 'Copy',
-  'common.copied': 'Copied',
   'common.copyFailed': "Couldn't copy",
   'common.start': 'Start',
   'common.stop': 'Stop',
@@ -1034,8 +1004,6 @@ export const en = {
   'flaky.flakiness': 'Flakiness',
   'flaky.passFail': 'Pass / Fail',
   'flaky.recent': 'Recent',
-  'flaky.lastSeen': 'Last seen',
-  'flaky.analyze': 'Analyze',
 
   // Docker services
   'docker.localServices': 'Local services',
@@ -1124,7 +1092,6 @@ export const en = {
   'run.technicalOutput': 'Run output',
   'run.verdictAllPassed': 'All {total} checks passed',
   'run.verdictFailed': '{failed} of {total} checks did not pass',
-  'run.verdictCritical': '{n} of them are Critical',
   'run.verdictNoChecks': 'Finished without running any check',
 
   // Compact layout + remembered preferences
@@ -1146,9 +1113,7 @@ export const en = {
   'status.runError': 'Run error',
   'status.cancelled': 'Cancelled',
   'status.unknown': 'Unknown',
-  'status.runErrorHelp': 'The run stopped before producing any result — check the output',
   'status.sameForAllRows': 'Same for every row on this page',
-  'status.moreTags': '+{n} more',
   'nav.webhooks': 'Webhooks',
   'nav.webhooks.desc': 'Notify other systems when a run finishes',
   'spotlight.placeholder': 'Search pages, projects, bookmarks…',
@@ -1201,6 +1166,31 @@ export const en = {
   'webhook.namePlaceholder': 'CI Notifications',
   'heatmap.less': 'Less',
   'heatmap.more': 'More',
+  'projectRow.exportBundle': 'Export offline bundle',
+  'bundleModal.title': 'Export offline bundle',
+  'bundleModal.desc':
+    'Packs this project with its runtimes and dependencies into one folder. Copy or zip it to another Windows PC and start run.bat there, nothing to install.',
+  'bundleModal.button': 'Export',
+  'bundleModal.targetLabel': 'Target directory',
+  'bundleModal.targetDesc':
+    'An absolute path to an empty folder outside the workspace, 200 characters at most. It will be created if needed.',
+  'bundleModal.targetPlaceholder': 'C:\\bundles\\my-project',
+  'bundleModal.withEnv': 'Include .env',
+  'bundleModal.withEnvWarn':
+    '.env usually holds passwords and tokens. Anyone who gets the bundle can read them.',
+  'bundleModal.zip': 'Also create a .zip',
+  'bundleModal.sizeNote':
+    'The export downloads runtimes and takes a few minutes. Expect about 200 MB to 1.1 GB; web projects that carry a browser are the largest.',
+  'bundleModal.stage': 'Step {n} of {total}: {stage}',
+  'bundleModal.starting': 'Starting the export...',
+  'bundleModal.done': 'Bundle ready',
+  'bundleModal.folder': 'Folder',
+  'bundleModal.zipFile': 'Zip',
+  'bundleModal.size': 'Size',
+  'bundleModal.zipFailed': 'The folder is ready, but creating the .zip failed:',
+  'bundleModal.failed': 'Export failed',
+  'bundleModal.jobLost':
+    'The Hub lost track of this export, most likely because it restarted. The folder may be incomplete: empty it or pick another folder, then export again.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

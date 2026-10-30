@@ -23,3 +23,12 @@ export const SAFE_ID = /^[a-z][a-z0-9-]+$/;
  * in `tool-plugins.ts` to argv-form `runChild` (no shell) and drop this guard.
  */
 export const SAFE_GIT_REF = /^(?!-)(?!.*\.\.)[A-Za-z0-9._/-]+$/;
+
+/**
+ * Validator for a git URL. Accepts:
+ *   - https://host/path[.git]
+ *   - git@host:path[.git]
+ *   - ssh://git@host[:port]/path[.git]
+ * Rejects anything containing whitespace, shell metacharacters, or NUL.
+ */
+export const SAFE_GIT_URL = /^(?:https:\/\/|ssh:\/\/git@|git@)[A-Za-z0-9._:/~@?=+-]+(?:\.git)?$/;

@@ -2,16 +2,19 @@ import type { ToolId } from '@hub/shared';
 import { Group, Loader, Paper, Select, Stack } from '@mantine/core';
 import { useState } from 'react';
 import { EnvProfileManager } from '~/components/env-profiles/EnvProfileManager.js';
-import { PageHeader } from '~/components/PageHeader.js';
 import { useProjectList, useProjectTypes } from '~/hooks/useProjectQueries';
-import { useToolOptions } from '~/hooks/useTools.js';
+import { useToolOptions, useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { DEFAULT_TOOL } from '~/stores/hub.js';
+import { firstEnabledTool } from '~/utils/tool-label.js';
 
 export function EnvProfilesBody() {
   const t = useT();
 
   // Cascading selectors
-  const [tool, setTool] = useState('playwright');
+  const [toolChoice, setTool] = useState('');
+  const { data: allTools = [] } = useTools();
+  const tool = toolChoice || firstEnabledTool(allTools, DEFAULT_TOOL);
   const [type, setType] = useState('');
   const [project, setProject] = useState('');
 
@@ -75,16 +78,6 @@ export function EnvProfilesBody() {
       </Paper>
 
       <EnvProfileManager tool={tool} type={type} project={project} />
-    </Stack>
-  );
-}
-
-export function EnvProfilesPage() {
-  const t = useT();
-  return (
-    <Stack gap="md">
-      <PageHeader title={t('nav.envProfiles')} description={t('nav.envProfiles.desc')} />
-      <EnvProfilesBody />
     </Stack>
   );
 }

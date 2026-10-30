@@ -5,16 +5,15 @@
 // `SAFE_ID` / `SAFE_GIT_URL` / `SAFE_GIT_REF`, and BOTH consumers of the
 // pipeline use this copy:
 // - the headless CLI (`scripts/install-tool.ts`) imports it directly;
-// - the Hub Post_Install_Hook reaches install-core by the SAME
-// runtime dynamic-import mechanism the Hub already uses for
-// `scripts/manifests` (`manifest-registry.ts` → `pathToFileURL` + `await
-// import` through the tsx ESM loader registered in `hub/server/src/index.ts`).
+// - the Hub does not import install-core; its Post_Install_Hook spawns the
+// same `setup` task command (`runToolSetupTask` in
+// `hub/server/src/services/tool-plugins.ts` mirrors `buildToolSetupInvocation`).
 //
 // Why the patterns are RE-STATED here rather than imported from
-// `hub/server/src/lib/safe-id.ts`: the Hub's `src/` is a separate tsconfig
-// `include` and Biome bans deep `../../*` imports, so `scripts/` cannot statically
-// import a `hub/server/src` module — and `hub/server` cannot statically import
-// `scripts/`. There is no single physical file both *static* import graphs can
+// `hub/server/src/lib/safe-id.ts`: Biome bans deep `../../*` imports, so `scripts/`
+// cannot statically import a `hub/server/src` module, and the Hub server's only
+// path alias into `scripts/` is `@manifests/*`, which does not cover install-core.
+// There is no single physical file both *static* import graphs can
 // share. install-core is therefore the single definition for the install
 // pipeline; the patterns are byte-identical to the Hub guards they mirror:
 // - SAFE_ID ← hub/server/src/lib/safe-id.ts (SAFE_ID)

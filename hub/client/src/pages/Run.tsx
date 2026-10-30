@@ -24,10 +24,10 @@ import { EmptyState } from '~/components/EmptyState.js';
 import { RunQueuePanel } from '~/components/RunQueuePanel.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
-import { useNotifications } from '~/stores/hub.js';
+import { DEFAULT_TOOL, useNotifications } from '~/stores/hub.js';
 import { type SessionTab, useNavigationStore, useRunSessions } from '~/stores/navigation.js';
 import { getStatusColor } from '~/utils/run-status.js';
-import { toolLabel } from '~/utils/tool-label.js';
+import { firstEnabledTool, toolLabel } from '~/utils/tool-label.js';
 import { RunSession, type SessionRef } from './RunSession.js';
 
 function genId(): string {
@@ -201,12 +201,12 @@ export function RunPage() {
   const getActiveConfig = useCallback(
     (): RunRequest =>
       sessionRefs.current.get(activeId)?.getConfig() ?? {
-        tool: 'playwright',
+        tool: firstEnabledTool(tools, DEFAULT_TOOL),
         type: '',
         project: '',
         mode: 'local',
       },
-    [activeId],
+    [activeId, tools],
   );
 
   function handleLoadBookmark(config: RunRequest) {

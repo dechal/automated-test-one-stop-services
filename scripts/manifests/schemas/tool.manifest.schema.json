@@ -19,7 +19,6 @@
     "projects",
     "compose",
     "tsconfigGen",
-    "docker",
     "runner",
     "pipeline"
   ],
@@ -53,7 +52,41 @@
             "items": { "type": "string", "pattern": "^[A-Za-z0-9._=-]+$" }
           },
           "hint": { "type": "string" },
-          "optional": { "type": "boolean" }
+          "optional": { "type": "boolean" },
+          "install": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Optional. Host package that provides `cmd`, per package manager. Installers read it instead of naming the package themselves.",
+            "properties": {
+              "scoop": { "$ref": "#/definitions/packageName" },
+              "winget": { "$ref": "#/definitions/packageName" },
+              "brew": { "$ref": "#/definitions/packageName" },
+              "apt": { "$ref": "#/definitions/packageName" }
+            }
+          }
+        }
+      }
+    },
+    "env": {
+      "type": "object",
+      "description": "Optional. Env defaults every task of this tool needs. Rendered into the generated Taskfile.tools.yml; a value already set in the shell wins. Token {root} is the workspace root.",
+      "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
+      "additionalProperties": { "type": "string" }
+    },
+    "clean": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional. What `task clean` removes for this tool.",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "description": "Artefact folder names removed anywhere under tools/<id>/ (never inside .venv or node_modules).",
+          "items": { "type": "string", "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9._-]+$" }
+        },
+        "commands": {
+          "type": "array",
+          "description": "Best-effort shell commands run from tools/<id>/; a failure is ignored.",
+          "items": { "type": "string", "minLength": 1 }
         }
       }
     },
@@ -71,7 +104,7 @@
         "dependency": {
           "type": "string",
           "minLength": 1,
-          "description": "Dependency whose pinned version IS this tool's version, e.g. @playwright/test."
+          "description": "Dependency whose pinned version IS this tool's version, e.g. the test-runner package."
         }
       }
     },
@@ -179,7 +212,7 @@
     "docker": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["baseImage", "extras"],
+      "description": "Optional and informational. The displayed base image is read from the FROM line of tools/<id>/Dockerfile, else the first image: of the compose template; this value is only the fallback.",
       "properties": {
         "baseImage": { "type": "string" },
         "extras": { "type": "array", "items": { "type": "string" } }
@@ -243,6 +276,7 @@
     }
   },
   "definitions": {
+    "packageName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+@/-]*$" },
     "passAs": {
       "oneOf": [
         {

@@ -6,7 +6,6 @@ export const th: Record<TranslationKey, string> = {
   // Nav items
   'nav.dashboard': 'แดชบอร์ด',
   'nav.runTests': 'รันเทส',
-  'nav.advanced': 'ขั้นสูง',
   'nav.results': 'ผลการรัน',
   'nav.analyze': 'วิเคราะห์',
   'nav.history': 'ประวัติการรัน',
@@ -82,14 +81,11 @@ export const th: Record<TranslationKey, string> = {
   'settings.sectionGeneral': 'ทั่วไป',
   'settings.sectionNotifications': 'การแจ้งเตือน',
   'settings.sectionData': 'ข้อมูลและพื้นที่',
-  'settings.sectionExtras': 'บริการเสริม',
-  'settings.sectionAbout': 'เกี่ยวกับ',
   'settings.categoryExecution': 'การทำงาน',
   'settings.categorySystem': 'ระบบ',
   'settings.categoryAbout': 'เกี่ยวกับ',
   'settings.dockerServices': 'Docker Services',
   'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana สำหรับงานมือถือและทดสอบประสิทธิภาพ',
-  'settings.manageDocker': 'จัดการ Docker',
   'settings.appearance': 'หน้าตา',
   'settings.colorScheme': 'โทนสี',
   'settings.notifications': 'การแจ้งเตือน',
@@ -101,7 +97,6 @@ export const th: Record<TranslationKey, string> = {
   'settings.outputRetention': 'การเก็บผลลัพธ์',
   'settings.webhooks': 'Webhooks',
   'settings.webhooksDesc': 'ตั้งค่าการแจ้งเตือน Slack/Discord/Teams/LINE สำหรับการรันเทส',
-  'settings.manageWebhooks': 'จัดการ Webhooks',
   'settings.importExport': 'นำเข้า / ส่งออก',
   'settings.exportDesc': 'บันทึกการตั้งค่าของ Hub เป็นไฟล์ JSON เก็บไว้ หรือย้ายไปเครื่องอื่นได้',
   'settings.exportInclude': 'เลือกสิ่งที่จะบันทึก',
@@ -195,9 +190,7 @@ export const th: Record<TranslationKey, string> = {
   'history.rerunFailedNone': 'รันนี้ไม่มีเคสที่ fail',
   'history.rerunFailedUntagged': 'มีเคสที่ fail แต่ไม่มีรหัสเคส จึงเลือกรันซ้ำไม่ได้',
   'run.workers': 'รันพร้อมกันกี่ตัว',
-  'run.workersHint': 'โปรเซสที่รันขนาน (workers)',
   'run.repeatEach': 'รันซ้ำเพื่อหาเทสไม่เสถียร',
-  'run.repeatEachHint': 'รันทุกเคสซ้ำ N รอบ เพื่อจับ flaky (repeatEach)',
   'run.moreOptions': 'ตัวเลือกเพิ่มเติม',
   'run.moreOptionsCollapsed': 'ยุบไว้',
   'run.adminOptionsNote': 'ตัวเลือกระดับผู้ดูแล (raw args, คำสั่ง shell, ไม่บันทึกการใช้งาน) อยู่ในโหมดขั้นสูง',
@@ -229,7 +222,6 @@ export const th: Record<TranslationKey, string> = {
   'run.environment': 'Environment',
   'run.envCurrent': 'ใช้ .env ปัจจุบัน (ไม่ใช้ profile)',
   'run.manageEnv': 'จัดการ environment',
-  'run.applyBeforeRunFailed': 'ใช้ environment ที่เลือกไม่สำเร็จ',
   'run.runTooltip': 'รันเทส (Ctrl+Enter)',
   'run.runButton': 'รัน (Ctrl+Enter)',
   'run.stop': 'หยุด',
@@ -244,7 +236,6 @@ export const th: Record<TranslationKey, string> = {
   'run.find': 'ค้นหา',
   'run.searchOutput': 'ค้นหาในผลลัพธ์...',
   'run.searchHint': 'Enter/Shift+Enter · กด Esc เพื่อปิด',
-  'run.command': 'คำสั่ง',
   'run.rerun': 'รันซ้ำ',
   'run.copy': 'คัดลอก',
   'run.duration': 'ระยะเวลา',
@@ -285,7 +276,6 @@ export const th: Record<TranslationKey, string> = {
   'history.noRuns': 'ยังไม่มีประวัติการรัน รันเทสเพื่อให้แสดงที่นี่',
   'history.noMatchFilter': 'ไม่มีการรันที่ตรงกับตัวกรอง',
   'history.startRun': 'เริ่มรัน',
-  'performance.selectProject': 'เลือกโปรเจกต์ k6 เพื่อดูแนวโน้มประสิทธิภาพ',
   'performance.toolMissing':
     'หน้านี้อ่านผลจาก k6 แต่ยังไม่ได้ติดตั้ง k6 ไว้ ติดตั้งจากหน้า Tools แล้วแนวโน้มประสิทธิภาพจะขึ้นที่นี่',
   'performance.noData': 'ยังไม่มีข้อมูลแนวโน้ม k6 รัน k6 แล้วกด Refresh',
@@ -293,27 +283,18 @@ export const th: Record<TranslationKey, string> = {
   'performance.searchPlaceholder': 'ค้นหาตามโปรเจกต์...',
   'performance.noMatch': 'ไม่มีโปรเจกต์ตรงกับการค้นหา',
   'flaky.empty': 'ไม่พบเทสที่ไม่เสถียร กดวิเคราะห์เพื่อสแกนผลล่าสุด',
-  'flaky.emptyForProject': 'ไม่มีเทสที่ไม่เสถียรในโปรเจกต์นี้',
   'flaky.desc': 'อัตราการผ่านและความไม่เสถียรของแต่ละเทสข้ามการรันล่าสุด',
-  'flaky.selectProject': 'เลือกเครื่องมือ ประเภท และโปรเจกต์ เพื่อดูแนวโน้มของเทส',
   'flaky.unavailable':
     'ยังไม่มีผลรายเทสของโปรเจกต์นี้ แนวโน้มรายเทสต้องใช้การรัน Playwright ที่เก็บ results.json ไว้ (ไม่ใช่ silent หรือ discard)',
   'flaky.flakyBadge': 'ไม่เสถียร',
-  'flaky.runs': 'การรัน',
   'flaky.passRate': 'อัตราผ่าน',
   'flaky.searchPlaceholder': 'ค้นหาตามเทส โปรเจกต์ หรือเครื่องมือ...',
   'flaky.noMatch': 'ไม่มีเทสตรงกับการค้นหา',
   'coverage.desc': 'เทสเคสในเอกสารเทียบกับผลรันล่าสุด จัดกลุ่มตาม requirement',
   'coverage.searchPlaceholder': 'ค้นหาตามเคส สถานการณ์ requirement โปรเจกต์ หรือเครื่องมือ...',
   'coverage.noMatch': 'ไม่มีโปรเจกต์ตรงกับการค้นหา',
-  'coverage.selectProject': 'เลือกเครื่องมือ ประเภท และโปรเจกต์ เพื่อดูความครอบคลุม',
   'coverage.empty': 'ไม่พบเทสเคสในเอกสารของโปรเจกต์นี้',
-  'coverage.noRun':
-    'ยังจับผลรันล่าสุดไม่ได้ (ไม่ใช่ Playwright หรือไม่มี results.json บน disk) เทสเคสจะแสดงเป็นยังไม่รัน',
-  'coverage.coveredLabel': 'เทสเคสที่ครอบคลุมโดยการรันล่าสุด',
   'coverage.passed': 'ผ่าน',
-  'coverage.failed': 'ไม่ผ่าน',
-  'coverage.notRun': 'ยังไม่รัน',
   'coverage.unmapped': 'ไม่มี requirement ref',
   'coverage.outcome.passed': 'ผ่าน',
   'coverage.outcome.failed': 'ไม่ผ่าน',
@@ -503,7 +484,6 @@ export const th: Record<TranslationKey, string> = {
 
   // Filter controls (shared across list pages)
   'filter.allTools': 'ทุกเครื่องมือ',
-  'filter.allProjects': 'ทุกโปรเจกต์',
   'filter.filterProject': 'กรองโปรเจกต์...',
   'filter.filterByName': 'กรองตามชื่อ...',
   'filter.pickDates': 'เลือกช่วงวันที่',
@@ -511,7 +491,6 @@ export const th: Record<TranslationKey, string> = {
   'filter.noGrouping': 'ไม่จัดกลุ่ม',
   'filter.groupByTool': 'จัดกลุ่มตามเครื่องมือ',
   'filter.groupByProject': 'จัดกลุ่มตามโปรเจกต์',
-  'filter.selectProject': 'เลือกโปรเจกต์',
   'filter.showing': 'แสดง',
   'filter.of': 'จาก',
 
@@ -544,7 +523,6 @@ export const th: Record<TranslationKey, string> = {
   'compare.noRuns': 'ไม่พบเทสที่เปรียบเทียบได้',
   'nav.testCases': 'เทสเคส',
   'nav.testCases.desc': 'ดูเอกสารเทสเคสของโปรเจกต์',
-  'testcases.selectProject': 'เลือกเครื่องมือ ประเภท และโปรเจกต์เพื่อดูเอกสารเทสเคส',
   'testcases.none': 'ไม่พบเอกสารเทสเคสของโปรเจกต์นี้',
   'testcases.open': 'เปิด',
   'testcases.download': 'ดาวน์โหลด',
@@ -793,13 +771,6 @@ export const th: Record<TranslationKey, string> = {
   'history.copyCommand': 'คัดลอกคำสั่ง',
 
   // Flaky tests
-  'flaky.analysisStarted': 'เริ่มวิเคราะห์เทสไม่เสถียรแล้ว',
-  'flaky.analysisDone': 'วิเคราะห์เสร็จแล้ว — พบเทสไม่เสถียร',
-  'flaky.dismissed': 'ซ่อนเทสแล้ว',
-  'flaky.analysisFailed': 'วิเคราะห์ไม่สำเร็จ',
-  'flaky.dismissFailed': 'ซ่อนไม่สำเร็จ',
-  'flaky.dismiss': 'ซ่อน',
-  'flaky.dismissAria': 'ซ่อนเทสไม่เสถียร',
 
   // Performance
   'performance.refreshed': 'รีเฟรชแนวโน้มแล้ว',
@@ -937,7 +908,6 @@ export const th: Record<TranslationKey, string> = {
 
   // Shared verbs / nouns reused across pages
   'common.copy': 'คัดลอก',
-  'common.copied': 'คัดลอกแล้ว',
   'common.copyFailed': 'คัดลอกไม่ได้',
   'common.start': 'เริ่ม',
   'common.stop': 'หยุด',
@@ -1013,8 +983,6 @@ export const th: Record<TranslationKey, string> = {
   'flaky.flakiness': 'ความไม่เสถียร',
   'flaky.passFail': 'ผ่าน / ไม่ผ่าน',
   'flaky.recent': 'ล่าสุด',
-  'flaky.lastSeen': 'เห็นครั้งล่าสุด',
-  'flaky.analyze': 'วิเคราะห์',
 
   // Docker services
   'docker.localServices': 'บริการในเครื่อง',
@@ -1102,7 +1070,6 @@ export const th: Record<TranslationKey, string> = {
   'run.technicalOutput': 'ผลการรัน',
   'run.verdictAllPassed': 'ผ่านทั้งหมด {total} ข้อ',
   'run.verdictFailed': 'ไม่ผ่าน {failed} จาก {total} ข้อ',
-  'run.verdictCritical': 'ในนั้นเป็นระดับ Critical {n} ข้อ',
   'run.verdictNoChecks': 'รันจบแต่ไม่มีข้อทดสอบถูกรัน',
 
   // Compact layout + remembered preferences
@@ -1122,9 +1089,7 @@ export const th: Record<TranslationKey, string> = {
   'status.runError': 'รันไม่สำเร็จ',
   'status.cancelled': 'ยกเลิกแล้ว',
   'status.unknown': 'ไม่ทราบผล',
-  'status.runErrorHelp': 'การรันหยุดก่อนที่จะได้ผลลัพธ์ — ดูที่ผลการรัน',
   'status.sameForAllRows': 'ทุกแถวในหน้านี้ค่าเดียวกัน',
-  'status.moreTags': '+{n} รายการ',
   'nav.webhooks': 'Webhooks',
   'nav.webhooks.desc': 'แจ้งระบบอื่นเมื่อการรันจบ',
   'spotlight.placeholder': 'ค้นหาหน้า โปรเจกต์ บุ๊กมาร์ก…',
@@ -1177,4 +1142,28 @@ export const th: Record<TranslationKey, string> = {
   'webhook.namePlaceholder': 'แจ้งเตือน CI',
   'heatmap.less': 'น้อย',
   'heatmap.more': 'มาก',
+  'projectRow.exportBundle': 'ส่งออก offline bundle',
+  'bundleModal.title': 'ส่งออก offline bundle',
+  'bundleModal.desc':
+    'รวมโปรเจกต์นี้กับ runtime และ dependency ไว้ในโฟลเดอร์เดียว ก๊อปหรือ zip ไปเครื่อง Windows อื่นแล้วเปิด run.bat ได้เลย ไม่ต้องติดตั้งอะไรเพิ่ม',
+  'bundleModal.button': 'ส่งออก',
+  'bundleModal.targetLabel': 'โฟลเดอร์ปลายทาง',
+  'bundleModal.targetDesc':
+    'ใส่ absolute path ของโฟลเดอร์ว่างที่อยู่นอก workspace ยาวไม่เกิน 200 ตัวอักษร ถ้ายังไม่มีโฟลเดอร์ก็จะสร้างให้',
+  'bundleModal.targetPlaceholder': 'C:\\bundles\\my-project',
+  'bundleModal.withEnv': 'รวมไฟล์ .env ไปด้วย',
+  'bundleModal.withEnvWarn': 'ไฟล์ .env มักเก็บรหัสผ่านและ token ใครได้ bundle ไปก็อ่านได้หมด',
+  'bundleModal.zip': 'สร้างไฟล์ .zip ด้วย',
+  'bundleModal.sizeNote':
+    'ระหว่างส่งออกจะดาวน์โหลด runtime และใช้เวลาหลายนาที ขนาดราว 200 MB ถึง 1.1 GB โปรเจกต์ web ที่พา browser ไปด้วยจะใหญ่ที่สุด',
+  'bundleModal.stage': 'ขั้น {n} จาก {total}: {stage}',
+  'bundleModal.starting': 'กำลังเริ่มส่งออก...',
+  'bundleModal.done': 'bundle พร้อมใช้แล้ว',
+  'bundleModal.folder': 'โฟลเดอร์',
+  'bundleModal.zipFile': 'Zip',
+  'bundleModal.size': 'ขนาด',
+  'bundleModal.zipFailed': 'โฟลเดอร์พร้อมแล้ว แต่สร้างไฟล์ .zip ไม่สำเร็จ:',
+  'bundleModal.failed': 'ส่งออกไม่สำเร็จ',
+  'bundleModal.jobLost':
+    'Hub ไม่เห็นงานส่งออกนี้แล้ว น่าจะเพราะ Hub รีสตาร์ต โฟลเดอร์อาจยังไม่ครบ ให้ล้างโฟลเดอร์หรือเลือกโฟลเดอร์ใหม่แล้วส่งออกอีกครั้ง',
 };

@@ -1,0 +1,43 @@
+version: "3"
+
+tasks:
+  hub:
+    desc: Start the Hub server + client (development mode)
+    cmds:
+      - |
+        echo "Starting Hub (server + client)..."
+        pnpm -C server run dev &
+        pnpm -C client run dev &
+        wait
+
+  hub-build:
+    desc: Build the Hub for production (shared + server + client)
+    cmds:
+      - pnpm build
+
+  hub-start:
+    desc: Serve the production Hub build (run task hub-build first)
+    cmds:
+      - pnpm start
+
+  # hub-stop / hub-restart / hub-status delegate to hub/bin/hub-service.mjs — the
+  # single owner of "is the Hub running" across the start scripts, setup, and the
+  # in-app Update button. They act on whatever holds HUB_PORT (the detached
+  # background instance, an OS boot supervisor, or a foreground `task hub-start`),
+  # so there is no separate stop path per way of starting it. `task hub` (dev,
+  # foreground vite + tsx watch) is stopped with Ctrl+C instead.
+
+  hub-stop:
+    desc: Stop the Hub running on HUB_PORT (built/served instance, not dev mode)
+    cmds:
+      - node bin/hub-service.mjs stop
+
+  hub-restart:
+    desc: Restart the Hub (stop, wait for the port, start the built server)
+    cmds:
+      - node bin/hub-service.mjs restart
+
+  hub-status:
+    desc: "Hub status: port, daemonless pid, boot auto-start state"
+    cmds:
+      - node bin/hub-service.mjs status

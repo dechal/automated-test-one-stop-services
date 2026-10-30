@@ -7,19 +7,17 @@
 # from the checked-out repo. The release job does not use this (it installs no
 # deps).
 # =============================================================================
-
 name: Setup Node + pnpm
-description: Install pnpm and Node (node 26.x / pnpm 11.23.0), then pnpm install --frozen-lockfile.
-
+description: Install pnpm and Node from package.json `volta`, then pnpm install --frozen-lockfile.
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v4
+    - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
       with:
         version: 11.23.0
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
       with:
-        node-version: '26'
+        node-version-file: package.json
         cache: pnpm
     - name: Install dependencies
       shell: bash

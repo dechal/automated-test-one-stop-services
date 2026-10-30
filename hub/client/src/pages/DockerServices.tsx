@@ -22,7 +22,6 @@ import {
 import { api } from '~/api/client';
 import { qAppiumStatus, qDockerStatus, queryRoots } from '~/api/queries.js';
 import { ErrorState } from '~/components/ErrorState.js';
-import { PageHeader } from '~/components/PageHeader.js';
 import { GridSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
 import { type TranslationKey, useT } from '~/i18n/index.js';
@@ -39,16 +38,6 @@ const SERVICE_INFO: Record<string, { label: string; port: number; descKey: Trans
   influxdb: { label: 'InfluxDB', port: 8086, descKey: 'docker.influxDesc' },
   grafana: { label: 'Grafana', port: 3000, descKey: 'docker.grafanaDesc' },
 };
-
-export function DockerServicesPage() {
-  const t = useT();
-  return (
-    <Stack gap="md">
-      <PageHeader title={t('nav.docker')} description={t('nav.docker.desc')} />
-      <DockerServicesBody />
-    </Stack>
-  );
-}
 
 export function DockerServicesBody() {
   const t = useT();

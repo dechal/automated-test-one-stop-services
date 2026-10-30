@@ -11,26 +11,26 @@
 # realToolsPresent) and the typecheck-tools job (skips each absent tool).
 # The caller must run actions/checkout FIRST.
 # =============================================================================
-
 name: Clone tool repos (best-effort)
-description: Clone tools/playwright, tools/robot-framework and tools/k6 when reachable; skip quietly otherwise.
-
-inputs:
-  base-url:
-    description: Group URL the tool repos live under.
-    required: false
-    default: https://gitlab.com/automated-tester-project-template/one-stop-service-tools-collections
-
+description: Clone every tool listed in config/tool-registry.json when reachable, install its deps; skip quietly otherwise.
 runs:
   using: composite
   steps:
     - name: Clone tool repos
       shell: bash
-      env:
-        BASE: ${{ inputs.base-url }}
       run: |
-        for t in playwright robot-framework k6; do
+        node -e 'for (const t of require("./config/tool-registry.json").tools) console.log(t.name, t.gitUrl, t.ref || "main")' |
+        while read -r t url ref; do
           [ -d "tools/$t/.git" ] && continue
-          git clone --depth 1 "$BASE/$t.git" "tools/$t" \
+          git clone --depth 1 --branch "$ref" "$url" "tools/$t" \
             || echo "[tools] clone of $t skipped — dependent checks will self-skip"
+        done
+    - name: Install tool deps
+      shell: bash
+      run: |
+        for d in tools/*/; do
+          t=$(basename "$d")
+          [ -d "tools/$t/.git" ] || continue
+          if [ -f "tools/$t/package.json" ]; then pnpm -C "tools/$t" install --frozen-lockfile; fi
+          if [ -f "tools/$t/pyproject.toml" ] && command -v uv >/dev/null; then uv sync --project "tools/$t"; fi
         done

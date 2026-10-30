@@ -33,18 +33,67 @@ export function renderTaskfileIncludes(
   const lines = ['# GENERATED from tools/*/tool.manifest.json by sync-projects — do not edit.'];
   lines.push('version: "3"');
   const wired = byId(tools).filter((t) => present(workspaceRoot, t, t.taskfile));
-  if (wired.length === 0) {
-    lines.push('tasks: {}');
-    return `${lines.join('\n')}\n`;
+  const env = renderEnv(wired);
+  if (env.length > 0) lines.push('env:', ...env);
+  if (wired.length > 0) {
+    lines.push('includes:');
+    for (const tool of wired) {
+      lines.push(`  ${tool.runner.taskNamespace}:`);
+      lines.push(`    taskfile: ${toolPath(tool.id, tool.taskfile)}`);
+      lines.push(`    dir: ${toolPath(tool.id, '.')}`);
+      lines.push('    optional: true');
+    }
   }
-  lines.push('includes:');
-  for (const tool of wired) {
-    lines.push(`  ${tool.runner.taskNamespace}:`);
-    lines.push(`    taskfile: ${toolPath(tool.id, tool.taskfile)}`);
-    lines.push(`    dir: ${toolPath(tool.id, '.')}`);
-    lines.push('    optional: true');
-  }
+  lines.push('tasks:', ...renderCleanTask(wired));
   return `${lines.join('\n')}\n`;
+}
+
+export const TOOLS_CLEAN_TASK = '_tools-clean';
+const ROOT_TOKEN = /\{root\}/g;
+const CLEAN_PRUNE = '.venv,node_modules';
+
+function yamlString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function renderEnv(tools: readonly ToolManifest[]): string[] {
+  const owner = new Map<string, string>();
+  const lines: string[] = [];
+  for (const tool of tools) {
+    for (const [key, value] of Object.entries(tool.env ?? {})) {
+      const first = owner.get(key);
+      if (first !== undefined) {
+        console.warn(`⚠ env ${key}: declared by ${first} and ${tool.id}; keeping ${first}`);
+        continue;
+      }
+      owner.set(key, tool.id);
+      lines.push(`  ${key}: ${yamlString(value.replace(ROOT_TOKEN, '{{.ROOT_DIR}}'))}`);
+    }
+  }
+  return lines;
+}
+
+function renderCleanTask(tools: readonly ToolManifest[]): string[] {
+  const cmds: string[] = [];
+  for (const tool of tools) {
+    const dir = toolPath(tool.id, '.');
+    const paths = tool.clean?.paths ?? [];
+    if (paths.length > 0) {
+      const names = paths.join(',');
+      cmds.push(
+        `      - ${yamlString(`node scripts/lib/rm-matching-dirs.mjs ${dir} --names ${names} --prune ${CLEAN_PRUNE}`)}`,
+      );
+    }
+    for (const command of tool.clean?.commands ?? []) {
+      cmds.push(`      - cmd: ${yamlString(`cd ${dir} && ${command}`)}`);
+      cmds.push('        ignore_error: true');
+    }
+  }
+  return [
+    `  ${TOOLS_CLEAN_TASK}:`,
+    '    internal: true',
+    ...(cmds.length > 0 ? ['    cmds:', ...cmds] : ['    cmds: []']),
+  ];
 }
 
 export function renderRootCompose(workspaceRoot: string, tools: readonly ToolManifest[]): string {

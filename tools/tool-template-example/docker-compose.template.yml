@@ -7,8 +7,8 @@
 
 x-my-tool-template: &my-tool-template
   build:
-    context: ../../
-    dockerfile: tools/my-tool/Dockerfile
+    context: .
+    dockerfile: Dockerfile
   image: automated-my-tool:latest
   volumes:
     - ./resources:/workspace/tools/my-tool/resources
@@ -19,7 +19,7 @@ x-my-tool-template: &my-tool-template
     - TYPE
     - PROJECT
     - CI=true
-    - TZ=Asia/Bangkok
+    - TZ=${TZ:-Asia/Bangkok}
   command: >
     sh -c 'echo "TODO: implement docker runner for ${TYPE}/${PROJECT}"'
 

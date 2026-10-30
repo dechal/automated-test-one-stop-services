@@ -22,6 +22,10 @@ import type {
 const ToolIdSchema = z.string().regex(/^[a-z][a-z0-9-]+$/);
 const ToolAliasSchema = z.string().regex(/^[a-z][a-z0-9]*$/);
 const NamespaceSchema = z.string().regex(/^[a-z][a-z0-9-]*$/);
+const EnvKeySchema = z.string().regex(/^[A-Z][A-Z0-9_]*$/);
+const CleanDirNameSchema = z.string().regex(/^(?!\.{1,2}$)[A-Za-z0-9._-]+$/);
+const PackageNameSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._+@/-]*$/);
+const INSTALLERS = ['scoop', 'winget', 'brew', 'apt'] as const;
 
 const PassAsSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('task'), key: z.string().regex(/^[A-Z][A-Z0-9_]*$/) }),
@@ -140,10 +144,12 @@ export const ToolManifestSchema = z.object({
       aliasTarget: z.string(),
     })
     .nullable(),
-  docker: z.object({
-    baseImage: z.string(),
-    extras: z.array(z.string()),
-  }),
+  docker: z
+    .object({
+      baseImage: z.string().default(''),
+      extras: z.array(z.string()).default([]),
+    })
+    .default({ baseImage: '', extras: [] }),
   runner: z.object({
     taskNamespace: NamespaceSchema.optional(),
     title: z.string(),
@@ -181,9 +187,17 @@ export const ToolManifestSchema = z.object({
         args: z.array(z.string().regex(/^[A-Za-z0-9._=-]+$/)).default([]),
         hint: z.string().default(''),
         optional: z.boolean().default(false),
+        install: z.partialRecord(z.enum(INSTALLERS), PackageNameSchema).optional(),
       }),
     )
     .default([]),
+  env: z.record(EnvKeySchema, z.string()).optional(),
+  clean: z
+    .object({
+      paths: z.array(CleanDirNameSchema).default([]),
+      commands: z.array(z.string().min(1)).default([]),
+    })
+    .optional(),
 });
 
 /** Successful single-manifest validation carries the fully-typed manifest. */
