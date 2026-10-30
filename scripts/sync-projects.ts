@@ -116,13 +116,15 @@ async function runManifestSync(workspaceRoot: string): Promise<string[]> {
       console.log(`✅ ${tool.id} packageManager ← versions.env PNPM_VERSION → ${pmFile}`);
     }
 
-    generateDockerCompose(workspaceRoot, tool);
-    regeneratedFiles.push(
-      path.relative(
-        workspaceRoot,
-        path.join(workspaceRoot, 'tools', tool.id, 'docker-compose.yml'),
-      ),
-    );
+    if (tool.compose !== undefined) {
+      generateDockerCompose(workspaceRoot, tool);
+      regeneratedFiles.push(
+        path.relative(
+          workspaceRoot,
+          path.join(workspaceRoot, 'tools', tool.id, 'docker-compose.yml'),
+        ),
+      );
+    }
 
     if (tool.tsconfigGen !== null) {
       generateTsConfig(workspaceRoot, tool);

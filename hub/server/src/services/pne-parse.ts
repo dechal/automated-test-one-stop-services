@@ -2,8 +2,6 @@ import path from 'node:path';
 import type { PneBreakdown } from '@hub/shared';
 import { classifyPne, readRunResults } from './results-json.js';
 
-export type PneBucket = 'positive' | 'negative' | 'edge' | 'unclassified';
-
 export { classifyPne };
 
 /**

@@ -130,12 +130,14 @@ export const ToolManifestSchema = z.object({
       message: 'fixedType is required when typeAxis is false',
       path: ['fixedType'],
     }),
-  compose: z.object({
-    template: z.string(),
-    anchor: z.string(),
-    networks: z.array(NamespaceSchema),
-    services: z.string().min(1).optional(),
-  }),
+  compose: z
+    .object({
+      template: z.string(),
+      anchor: z.string(),
+      networks: z.array(NamespaceSchema),
+      services: z.string().min(1).optional(),
+    })
+    .optional(),
   tsconfigGen: z
     .object({
       template: z.string(),

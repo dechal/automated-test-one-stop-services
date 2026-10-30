@@ -179,13 +179,6 @@ export function tableExists(db: DatabaseSync, table: string): boolean {
   return row !== undefined;
 }
 
-/** True when `table` exists and has a column named `column`. */
-export function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
-  if (!tableExists(db, table)) return false;
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Row[];
-  return cols.some((c) => c.name === column);
-}
-
 // --- scalar <-> column coercion helpers -------------------------------------
 
 /** Column value for an optional string (NULL when undefined). */

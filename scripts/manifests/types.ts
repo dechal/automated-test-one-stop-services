@@ -239,7 +239,7 @@ export interface ToolManifest {
   readonly taskfile: string;
 
   readonly projects: ToolProjectsConfig;
-  readonly compose: ToolComposeConfig;
+  readonly compose?: ToolComposeConfig;
   readonly tsconfigGen: ToolTsconfigGenConfig | null;
   readonly docker: ToolDockerConfig;
   readonly runner: ToolRunnerConfig;

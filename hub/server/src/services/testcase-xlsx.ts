@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { TestCaseSheet } from '@hub/shared';
 import ExcelJS from 'exceljs';
-import { RESULT_SUFFIX, readOverlay, readTestCaseGrid } from './testcases.js';
+import { RESULT_SUFFIX, readTestCaseGrid } from './testcases.js';
 
 /**
  * The STANDARD test-case template — the single shape every per-module doc uses.
@@ -150,9 +150,4 @@ function fillSheet(ws: ExcelJS.Worksheet, sheet: TestCaseSheet): void {
     }
     row.commit();
   }
-}
-
-/** ISO time of the run last mapped into the doc's overlay, when known. */
-export function lastRunAtFor(docPath: string): string | null {
-  return readOverlay(docPath)?.lastRunAt ?? null;
 }

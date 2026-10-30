@@ -224,9 +224,12 @@ export function baseImageFromCompose(text: string): string {
 }
 
 function withDerivedBaseImage(toolDir: string, manifest: ToolManifest): ToolManifest {
+  const composeTemplate = manifest.compose?.template;
   const derived =
     baseImageFromDockerfile(readTextOrEmpty(path.join(toolDir, DOCKERFILE))) ||
-    baseImageFromCompose(readTextOrEmpty(path.join(toolDir, manifest.compose.template)));
+    (composeTemplate === undefined
+      ? ''
+      : baseImageFromCompose(readTextOrEmpty(path.join(toolDir, composeTemplate))));
   if (derived === '' || derived === manifest.docker.baseImage) return manifest;
   return { ...manifest, docker: { ...manifest.docker, baseImage: derived } };
 }

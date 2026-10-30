@@ -25,8 +25,10 @@ import type { ToolManifest } from './types.js';
  * malformed template (logs and returns instead).
  */
 export function generateDockerCompose(workspaceRoot: string, tool: ToolManifest): void {
+  const compose = tool.compose;
+  if (compose === undefined) return;
   const toolDir = path.join(workspaceRoot, 'tools', tool.id);
-  const templatePath = path.join(toolDir, tool.compose.template);
+  const templatePath = path.join(toolDir, compose.template);
   if (!fs.existsSync(templatePath)) {
     console.error(`⚠ Compose template missing for ${tool.id}: ${templatePath}`);
     return;
@@ -49,13 +51,13 @@ export function generateDockerCompose(workspaceRoot: string, tool: ToolManifest)
 
   for (const proj of projects) {
     yamlOutput += `  ${proj}:\n`;
-    yamlOutput += `    <<: *${tool.compose.anchor}\n`;
+    yamlOutput += `    <<: *${compose.anchor}\n`;
     yamlOutput += `    container_name: ${proj}\n\n`;
   }
 
-  if (tool.compose.networks.length > 0) {
+  if (compose.networks.length > 0) {
     yamlOutput += `networks:\n`;
-    for (const network of tool.compose.networks) {
+    for (const network of compose.networks) {
       yamlOutput += `  ${network}:\n    external: true\n`;
     }
   }

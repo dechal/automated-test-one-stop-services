@@ -100,7 +100,7 @@ export function renderRootCompose(workspaceRoot: string, tools: readonly ToolMan
   const lines = ['# GENERATED from tools/*/tool.manifest.json by sync-projects — do not edit.'];
   lines.push(`name: ${ROOT_COMPOSE_PROJECT}`);
   const files = byId(tools)
-    .map((t) => ({ tool: t, file: t.compose.services }))
+    .map((t) => ({ tool: t, file: t.compose?.services }))
     .filter((e): e is { tool: ToolManifest; file: string } => e.file !== undefined)
     .filter((e) => present(workspaceRoot, e.tool, e.file));
   if (files.length === 0) {

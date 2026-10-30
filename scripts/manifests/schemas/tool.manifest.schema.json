@@ -17,7 +17,6 @@
     "packageManager",
     "taskfile",
     "projects",
-    "compose",
     "tsconfigGen",
     "runner",
     "pipeline"

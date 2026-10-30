@@ -59,15 +59,9 @@ const ALLOW_ID = [
     reason: 'per-tool export strategies; moving them into tools/<id>/ via manifest is a follow-up',
   },
   {
-    file: /^(Taskfile\.yml|scripts\/setup\/setup-linux\.sh|scripts\/setup\/setup-windows\.bat)$/,
+    file: /^(scripts\/setup\/setup-linux\.sh|scripts\/setup\/setup-windows\.bat)$/,
     line: /PLAYWRIGHT_BROWSERS_PATH/,
-    reason: 'shared browser cache env; moving it into the playwright manifest is a follow-up',
-  },
-  {
-    file: /^Taskfile\.yml$/,
-    line: /\.playwright-mcp|playwright-report/,
-    reason:
-      'clean target sweeps names of agent and report scratch; manifest clean.paths is a follow-up',
+    reason: 'installer persists the shared browser cache env for shells outside task',
   },
   {
     file: /^scripts\/clean-cache\.mjs$/,

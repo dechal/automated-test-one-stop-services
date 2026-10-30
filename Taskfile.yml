@@ -52,7 +52,6 @@ env:
   # re-resolves to the tool dir (e.g. tools/playwright), which would point the
   # path at the wrong place. Taskfile env is only a DEFAULT — a value already
   # set in the environment still wins, so a custom/shared cache override holds.
-  PLAYWRIGHT_BROWSERS_PATH: "{{.ROOT_DIR}}/.cache/playwright-browsers"
 
 vars:
   LAST_RUN_FILE: .cache/state/last-run
@@ -256,15 +255,11 @@ tasks:
         for tool_dir in tools/*/; do
             [ -f "${tool_dir}tool.manifest.json" ] && rm -rf "outputs/$(basename "$tool_dir")" 2>/dev/null
         done
-        rm -rf .playwright-mcp .playwright-cli .cache/deletable/playwright-cli 2>/dev/null
         # Cross-platform artifact sweep (replaces GNU `find ... -exec rm -rf`):
         # node is a Core tool, so `task clean` runs from cmd/PowerShell/Git Bash.
         node scripts/lib/rm-matching-dirs.mjs . \
-            --names test-results,playwright-report,blob-report,performance-results,__pycache__,.robotcode_cache,.pytest_cache \
+            --names __pycache__,.robotcode_cache,.pytest_cache \
             --prune .venv,node_modules
-        if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
-            docker exec grafana sh -c "rm -rf /var/lib/grafana/dashboards/*" 2>/dev/null || true
-        fi
       - task: _tools-clean
       - |
         echo ""

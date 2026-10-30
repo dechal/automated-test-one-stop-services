@@ -498,7 +498,7 @@ export async function runDoctor(): Promise<DoctorReport> {
   const playwrightPresent = isToolFolderPresent('playwright');
   const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
   const pythonPresent = tools.some((t) => t.packageManager === 'uv');
-  const hasSharedServices = tools.some((t) => t.compose.services !== undefined);
+  const hasSharedServices = tools.some((t) => t.compose?.services !== undefined);
 
   const checks = await Promise.all([
     ...CHECKS.map(runCheck),
