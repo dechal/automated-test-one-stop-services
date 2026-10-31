@@ -8,7 +8,7 @@
 //     `tool.manifest.json` in the workspace.
 //   - `setToolEnabled()` — flip `manifest.enabled` on disk (commit scope) and
 //     return the refreshed record.
-//   - `loadToolRegistry()` — read `config/tool-registry.json`.
+//   - `loadToolRegistry()` — read `scripts/manifests/data/tool-registry.json`.
 //   - Re-export the types + validation helpers consumers need so they only ever
 //     depend on `./manifests/index.js`.
 import * as fs from 'node:fs';
@@ -91,7 +91,7 @@ export {
 } from './validate.js';
 
 /** Path of the workspace tool registry, relative to the workspace root. */
-const TOOL_REGISTRY_PATH = path.join('config', 'tool-registry.json');
+const TOOL_REGISTRY_PATH = path.join('scripts', 'manifests', 'data', 'tool-registry.json');
 
 // ── Registry validation (zod) ───────────────────────────────────────────────
 // Mirrors `scripts/manifests/schemas/tool-registry.schema.json` (JSON Schema Draft-07).
@@ -161,7 +161,7 @@ export interface ManifestRegistry {
  *
  * RESOLUTION POINT — this is the single seam where local overrides slot in.
  * The resolver is produced by `createEnabledResolver()` (`overrides.ts`), which
- * reads `config/.tool-overrides.json` and applies the documented precedence
+ * reads `scripts/manifests/data/.tool-overrides.json` and applies the documented precedence
  * (local override > manifest.enabled > implicit true).
  */
 export type EnabledResolver = (manifest: ToolManifest) => boolean;
@@ -325,7 +325,7 @@ export async function setToolEnabled(
 const EMPTY_REGISTRY: ToolRegistry = { schemaVersion: '1', tools: [] };
 
 /**
- * Read `config/tool-registry.json`. Returns an empty registry when
+ * Read `scripts/manifests/data/tool-registry.json`. Returns an empty registry when
  * the file is absent or malformed (fail-closed) so callers can treat both cases
  * the same as "registry with no tools". Validates the loaded JSON against the
  * `ToolRegistry` schema.

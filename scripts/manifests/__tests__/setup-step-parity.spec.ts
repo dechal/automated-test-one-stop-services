@@ -71,7 +71,7 @@ describe('Core step failure: ledger failed, no start-hub, hint printed', () => {
   it('a failed Core step persists as "failed" and never resumes at start-hub', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-fail-'));
     try {
-      const stateFile = path.join(dir, '.setup-state.json');
+      const stateFile = path.join(dir, 'setup-state.json');
       // node done, pnpm failed → a re-run resumes at the failed step, not later.
       const steps = {
         node: 'done',

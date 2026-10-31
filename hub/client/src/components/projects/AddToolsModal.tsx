@@ -120,7 +120,7 @@ export function AddToolsModal({ opened, onClose, onInstalled }: AddToolsModalPro
           )}
           {!registry.isLoading && entries.length === 0 && (
             <Text size="sm" c="dimmed">
-              {t('addTools.emptyRegistry')} <Code>config/tool-registry.json</Code>.
+              {t('addTools.emptyRegistry')} <Code>scripts/manifests/data/tool-registry.json</Code>.
             </Text>
           )}
           {entries.map((entry) => (

@@ -42,7 +42,7 @@ export function rmTmpDir(dir: string): void {
 /**
  * True only when EVERY given built-in tool id has a `tool.manifest.json` on disk
  * under `<workspaceRoot>/tools/`. The built-in tools live in their own,
- * git-ignored repositories (see `config/tool-registry.json`), so they
+ * git-ignored repositories (see `scripts/manifests/data/tool-registry.json`), so they
  * are ABSENT from a fresh `git clone` / a CI checkout. Integration specs that
  * read the real manifests use this to `skipIf(!present)` instead of failing
  * with ENOENT where the tools were never provisioned.

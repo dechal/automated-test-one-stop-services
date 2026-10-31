@@ -4,7 +4,7 @@
 # ----------------------------------------------------------------------------
 # Installs the 4 Core tools from the lowest baseline, installs deps,
 # starts the Hub, then verifies. Idempotent per tool and re-runnable via a
-# state ledger ("<target>/.setup-state.json", written by the canonical engine
+# state ledger ("<target>/setup-state.json", written by the canonical engine
 # scripts/setup/setup-state.mjs):
 #
 # { "steps": { "node": "done"|"failed"|"pending", ... }, "updatedAt": "..." }
@@ -21,7 +21,7 @@
 #
 # Opt-in env:
 # SETUP_INSECURE_TLS=1 Prefetch Node tarball via curl -k (TLS proxy)
-# SETUP_STATE_DIR Where .setup-state.json lives (default: repo root)
+# SETUP_STATE_DIR Where setup-state.json lives (default: .cache/state)
 # ============================================================================
 
 set -uo pipefail
@@ -132,7 +132,7 @@ export HUB_PORT="${HUB_PORT:-5174}"
 # ---------------------------------------------------------------------------
 STATE_DIR="${SETUP_STATE_DIR:-$WORKSPACE_ROOT/.cache/state}"
 mkdir -p "$STATE_DIR"
-STATE_FILE="$STATE_DIR/.setup-state.json"
+STATE_FILE="$STATE_DIR/setup-state.json"
 LEGACY_STATE_FILE="$WORKSPACE_ROOT/.setup-state.json"
 if [ ! -f "$STATE_FILE" ] && [ -f "$LEGACY_STATE_FILE" ] && [ "$STATE_FILE" != "$LEGACY_STATE_FILE" ]; then
   mv -f "$LEGACY_STATE_FILE" "$STATE_FILE"

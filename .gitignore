@@ -16,7 +16,6 @@ Thumbs.db
 log/
 local.log
 lefthook-local.yml
-.last-run
 .setup-state.json
 *.tmp
 **/.trash/
@@ -67,10 +66,10 @@ brain/
 # Workspace-generated config (per-developer / generated projections)
 # =============================================================================
 # Local tool enable/disable overrides (per-developer, never committed)
-config/.tool-overrides.json
+scripts/manifests/data/.tool-overrides.json
 # Generated projection of tool.manifest.json by pipeline-projection.ts
-# (static parts live in config/pipeline.static.json — that IS tracked)
-config/pipeline.json
+# (static parts live in scripts/manifests/data/pipeline.static.json — that IS tracked)
+scripts/manifests/data/pipeline.json
 /Taskfile.tools.yml
 /docker-compose.yml
 

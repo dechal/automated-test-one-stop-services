@@ -115,7 +115,7 @@ describe('Setup_State ledger idempotency (execution-verified)', () => {
   const newStateFile = () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-state-'));
     tmpDirs.push(dir);
-    return path.join(dir, '.setup-state.json');
+    return path.join(dir, 'setup-state.json');
   };
 
   before(() => {

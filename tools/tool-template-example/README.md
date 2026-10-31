@@ -83,5 +83,5 @@ The image builds from the tool folder (`context: .`), so `Dockerfile` copies pat
 
 - The scanner picks up the tool automatically (manifest-driven)
 - Hub pages (Projects, Create, Clone, Run, Dashboard) show it
-- `task default` regenerates compose/tsconfig/pipeline.json
+- `task default` regenerates compose/tsconfig and `scripts/manifests/data/pipeline.json`
 - No central script edits needed

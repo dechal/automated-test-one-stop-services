@@ -40,7 +40,7 @@
 //   scripts/setup/automated-test-one-stop-service_uninstaller_windows.bat
 //   scripts/setup/automated-test-one-stop-service_uninstaller_mac-and-linux.sh
 //
-// Tunables (env): SETUP_STATE_DIR (where .setup-state.json lives),
+// Tunables (env): SETUP_STATE_DIR (where setup-state.json lives),
 // HUB_SHORTCUT_DIR (where the desktop shortcut was written).
 // ============================================================================
 
@@ -57,7 +57,7 @@ const WORKSPACE_ROOT = path.resolve(HERE, '..', '..');
 const HUB_SERVICE = path.join(WORKSPACE_ROOT, 'hub', 'bin', 'hub-service.mjs');
 const STATE_FILE = path.join(
   process.env.SETUP_STATE_DIR || path.join(WORKSPACE_ROOT, '.cache', 'state'),
-  '.setup-state.json',
+  'setup-state.json',
 );
 const LEGACY_STATE_FILE = path.join(WORKSPACE_ROOT, '.setup-state.json');
 const HUB_RUN_DIR = path.join(WORKSPACE_ROOT, 'hub', '.run');

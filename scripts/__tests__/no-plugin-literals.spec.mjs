@@ -32,7 +32,10 @@ const ALLOW_ID = [
   { file: /^biome\.json$/, reason: 'ignore list of the lint gate' },
   { file: /^\.vscode\/settings\.json$/, reason: 'editor exclude lists' },
   { file: /^\.vscode\/extensions\.json$/, reason: 'editor extension recommendations' },
-  { file: /^config\/tool-registry\.json$/, reason: 'install catalogue: tool names are its data' },
+  {
+    file: /^scripts\/manifests\/data\/tool-registry\.json$/,
+    reason: 'install catalogue: tool names are its data',
+  },
   { file: /^pyproject\.toml$/, line: /\.kiro/, reason: 'ruff / ty exclude entries' },
   {
     file: /^pnpm-workspace\.yaml$/,
@@ -126,7 +129,9 @@ function registryNames(file) {
  * @returns {string[]}
  */
 export function knownToolIds(root) {
-  const ids = new Set(registryNames(path.join(root, 'config', 'tool-registry.json')));
+  const ids = new Set(
+    registryNames(path.join(root, 'scripts', 'manifests', 'data', 'tool-registry.json')),
+  );
   const toolsDir = path.join(root, 'tools');
   if (fs.existsSync(toolsDir)) {
     for (const entry of fs.readdirSync(toolsDir, { withFileTypes: true })) {
@@ -219,7 +224,10 @@ test('scanner flags a tool path, a bare tool id and .kiro, and honours the allow
 
 test('root files name no tool and no AI layer outside the allow-list (guard G-02)', () => {
   const ids = knownToolIds(ROOT);
-  assert.ok(ids.length > 0, 'no tool ids found: config/tool-registry.json is missing or empty');
+  assert.ok(
+    ids.length > 0,
+    'no tool ids found: scripts/manifests/data/tool-registry.json is missing or empty',
+  );
   const hits = scan(ROOT, trackedFiles(ROOT), ids);
   const report = hits.map((h) => `  ${h.kind} ${h.file}:${h.line}  ${h.text}`).join('\n');
   assert.equal(

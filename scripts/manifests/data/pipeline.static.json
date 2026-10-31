@@ -1,5 +1,5 @@
 {
-  "_comment": "Static (manifest-independent) sections of pipeline.json. These parts are NOT derived from any tool.manifest.json — they are spread verbatim into the generated config/pipeline.json by scripts/manifests/pipeline-projection.ts. Edit here; the generated pipeline.json is a build artifact (gitignored).",
+  "_comment": "Static (manifest-independent) sections of pipeline.json. These parts are NOT derived from any tool.manifest.json — they are spread verbatim into the generated scripts/manifests/data/pipeline.json by scripts/manifests/pipeline-projection.ts. Edit here; the generated pipeline.json is a build artifact (gitignored).",
 
   "routing": {
     "_comment": "Pipeline order + the ONLY payload fields each stage receives (strict routing — forward nothing else). delivery = merged git+ops.",

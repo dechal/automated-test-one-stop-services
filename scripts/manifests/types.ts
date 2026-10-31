@@ -308,7 +308,7 @@ export interface ToolManifestRecord {
 }
 
 // ── Tool Registry types (formerly registry.types.ts) ────────────────────────
-// Shape of `config/tool-registry.json` — the workspace-local list of
+// Shape of `scripts/manifests/data/tool-registry.json` — the workspace-local list of
 // installable tool repositories. Repository pointers only; no manifest content
 // is embedded.
 

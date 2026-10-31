@@ -7,10 +7,17 @@
 // (plain vitest + fc.assert, tmp-dir round-trip like the discovery property).
 //
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as fc from 'fast-check';
 import { afterEach, describe, expect, it } from 'vitest';
-import { readState, STEP_ORDER, selectResumeStep, writeState } from '../../setup/setup-state.mjs';
+import {
+  migrateLegacyState,
+  readState,
+  STEP_ORDER,
+  selectResumeStep,
+  writeState,
+} from '../../setup/setup-state.mjs';
 import { makeTmpDir, rmTmpDir } from './_helpers.js';
 
 const tmpDirs: string[] = [];
@@ -34,7 +41,7 @@ describe('Ledger round-trip and resume selection', () => {
   it('round-trips the ledger and resumes at the first non-done step', () => {
     const dir = makeTmpDir('setup-state-');
     tmpDirs.push(dir);
-    const stateFile = path.join(dir, '.setup-state.json');
+    const stateFile = path.join(dir, 'setup-state.json');
 
     fc.assert(
       fc.property(arbLedgerSteps, (steps) => {
@@ -53,5 +60,21 @@ describe('Ledger round-trip and resume selection', () => {
       }),
       { numRuns: 200 },
     );
+  });
+});
+describe('Legacy ledger migration', () => {
+  it('moves a legacy ledger onto an absent state file and keeps its steps', () => {
+    const dir = makeTmpDir('setup-state-legacy-');
+    tmpDirs.push(dir);
+    const legacy = path.join(dir, '.setup-state.json');
+    const stateFile = path.join(dir, '.cache', 'state', 'setup-state.json');
+    const steps = Object.fromEntries(STEP_ORDER.map((s) => [s, 'done']));
+    writeState(legacy, steps);
+    expect(migrateLegacyState(stateFile, legacy)).toBe(true);
+    expect(fs.existsSync(legacy)).toBe(false);
+    expect(readState(stateFile).steps).toEqual(steps);
+    writeState(legacy, {});
+    expect(migrateLegacyState(stateFile, legacy)).toBe(false);
+    expect(readState(stateFile).steps).toEqual(steps);
   });
 });

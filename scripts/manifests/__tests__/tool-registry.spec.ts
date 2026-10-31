@@ -24,7 +24,7 @@ describe('loadToolRegistry', () => {
   });
 
   it('loads and validates a well-formed registry file', async () => {
-    const registryDir = path.join(tmpDir, 'config');
+    const registryDir = path.join(tmpDir, 'scripts', 'manifests', 'data');
     fs.mkdirSync(registryDir, { recursive: true });
     const registry = {
       schemaVersion: '1',
@@ -55,7 +55,7 @@ describe('loadToolRegistry', () => {
   });
 
   it('returns empty registry with console warning for invalid JSON (fail-closed)', async () => {
-    const registryDir = path.join(tmpDir, 'config');
+    const registryDir = path.join(tmpDir, 'scripts', 'manifests', 'data');
     fs.mkdirSync(registryDir, { recursive: true });
     fs.writeFileSync(path.join(registryDir, 'tool-registry.json'), 'not valid json{{{');
 
@@ -69,7 +69,7 @@ describe('loadToolRegistry', () => {
   });
 
   it('returns empty registry with console warning when schemaVersion is wrong (fail-closed)', async () => {
-    const registryDir = path.join(tmpDir, 'config');
+    const registryDir = path.join(tmpDir, 'scripts', 'manifests', 'data');
     fs.mkdirSync(registryDir, { recursive: true });
     const registry = { schemaVersion: '99', tools: [] };
     fs.writeFileSync(path.join(registryDir, 'tool-registry.json'), JSON.stringify(registry));
@@ -84,7 +84,7 @@ describe('loadToolRegistry', () => {
   });
 
   it('returns empty registry when a tool entry has an invalid name pattern (fail-closed)', async () => {
-    const registryDir = path.join(tmpDir, 'config');
+    const registryDir = path.join(tmpDir, 'scripts', 'manifests', 'data');
     fs.mkdirSync(registryDir, { recursive: true });
     const registry = {
       schemaVersion: '1',
@@ -110,7 +110,7 @@ describe('loadToolRegistry', () => {
   });
 
   it('returns empty registry when required fields are missing from a tool entry', async () => {
-    const registryDir = path.join(tmpDir, 'config');
+    const registryDir = path.join(tmpDir, 'scripts', 'manifests', 'data');
     fs.mkdirSync(registryDir, { recursive: true });
     const registry = {
       schemaVersion: '1',
@@ -126,7 +126,7 @@ describe('loadToolRegistry', () => {
   });
 
   it('accepts optional fields (manifestPath, compatibleWith)', async () => {
-    const registryDir = path.join(tmpDir, 'config');
+    const registryDir = path.join(tmpDir, 'scripts', 'manifests', 'data');
     fs.mkdirSync(registryDir, { recursive: true });
     const registry = {
       schemaVersion: '1',

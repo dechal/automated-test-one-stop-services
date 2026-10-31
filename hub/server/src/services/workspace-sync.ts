@@ -22,7 +22,7 @@ interface SyncProjectsModule {
  *
  * Regenerates: pnpm-workspace.yaml, pyproject.toml [tool.uv.workspace],
  * root docker-compose.yml, per-tool docker-compose.yml, per-tool tsconfig.json,
- * and config/pipeline.json.
+ * and scripts/manifests/data/pipeline.json.
  */
 export async function syncWorkspaceInProcess(): Promise<
   Pick<LifecycleResult<unknown>, 'resynced' | 'regeneratedFiles' | 'resyncError'>

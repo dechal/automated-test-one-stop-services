@@ -22,7 +22,13 @@ import { makeTmpDir, mkDir, realToolsPresent, rmTmpDir } from './_helpers.js';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const REAL_TOOLS_DIR = path.join(WORKSPACE_ROOT, 'tools');
-const REAL_STATIC = path.join(WORKSPACE_ROOT, 'config', 'pipeline.static.json');
+const REAL_STATIC = path.join(
+  WORKSPACE_ROOT,
+  'scripts',
+  'manifests',
+  'data',
+  'pipeline.static.json',
+);
 const CYPRESS_FIXTURE = path.join(import.meta.dirname, 'fixtures', 'cypress-mock');
 
 /** Tool IDs present in the real workspace (the "remaining" tools). */
@@ -82,14 +88,14 @@ function seedBaseWorkspace(): string {
       fs.copyFileSync(tsconfigTemplate, path.join(toolDir, 'tsconfig.template.json'));
     }
   }
-  const settings = mkDir(tmpDir, 'config');
+  const settings = mkDir(tmpDir, 'scripts', 'manifests', 'data');
   fs.copyFileSync(REAL_STATIC, path.join(settings, 'pipeline.static.json'));
   return tmpDir;
 }
 
 /** Read and parse pipeline.json from a workspace root. */
 function readPipeline(tmpDir: string): Record<string, unknown> {
-  const pipelinePath = path.join(tmpDir, 'config', 'pipeline.json');
+  const pipelinePath = path.join(tmpDir, 'scripts', 'manifests', 'data', 'pipeline.json');
   return JSON.parse(fs.readFileSync(pipelinePath, 'utf8')) as Record<string, unknown>;
 }
 
@@ -156,8 +162,14 @@ describe.skipIf(!TOOLS_PRESENT)('integration: drop-in and removal', () => {
           `tool.manifest.json for ${id} must not be modified by sync`,
         ).toBe(fs.readFileSync(originalManifest, 'utf8'));
       }
-      // config/pipeline.static.json must also be untouched
-      const seededStatic = path.join(tmpDir, 'config', 'pipeline.static.json');
+      // scripts/manifests/data/pipeline.static.json must also be untouched
+      const seededStatic = path.join(
+        tmpDir,
+        'scripts',
+        'manifests',
+        'data',
+        'pipeline.static.json',
+      );
       expect(
         fs.readFileSync(seededStatic, 'utf8'),
         'pipeline.static.json must not be modified by sync',

@@ -20,7 +20,13 @@ import { makeTmpDir, mkDir, realToolsPresent, rmTmpDir } from './_helpers.js';
 /** Absolute path to the real workspace root (three levels up from this file). */
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const REAL_TOOLS_DIR = path.join(WORKSPACE_ROOT, 'tools');
-const REAL_STATIC = path.join(WORKSPACE_ROOT, 'config', 'pipeline.static.json');
+const REAL_STATIC = path.join(
+  WORKSPACE_ROOT,
+  'scripts',
+  'manifests',
+  'data',
+  'pipeline.static.json',
+);
 
 const TOOL_IDS = ['playwright', 'robot-framework', 'k6'] as const;
 
@@ -34,7 +40,7 @@ function seedWorkspace(): string {
       path.join(dir, 'tool.manifest.json'),
     );
   }
-  const settings = mkDir(ws, 'config');
+  const settings = mkDir(ws, 'scripts', 'manifests', 'data');
   fs.copyFileSync(REAL_STATIC, path.join(settings, 'pipeline.static.json'));
   return ws;
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-//  setup-state.mjs — canonical .setup-state.json reader/writer for the shell
+//  setup-state.mjs — canonical setup-state.json reader/writer for the shell
 //  Setup_Bootstrap scripts (setup-windows.bat / setup-linux.sh).
 //
 //  Ledger shape: { "steps": { <name>: "pending" | "done" | "failed" }, "updatedAt": ISO }
@@ -34,6 +34,26 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const STEP_ORDER = ['node', 'pnpm', 'uv', 'task', 'install-deps', 'start-hub'];
+const WORKSPACE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+export const STATE_FILE_NAME = 'setup-state.json';
+export const DEFAULT_STATE_FILE = path.join(WORKSPACE_ROOT, '.cache', 'state', STATE_FILE_NAME);
+export const LEGACY_STATE_FILE = path.join(WORKSPACE_ROOT, '.setup-state.json');
+/**
+ * Move a legacy ledger onto `stateFile` when `stateFile` is absent, so a
+ * machine set up before the move keeps its "done" steps. Returns true on move.
+ */
+export function migrateLegacyState(stateFile, legacyFile = LEGACY_STATE_FILE) {
+  const target = path.resolve(stateFile);
+  const legacy = path.resolve(legacyFile);
+  if (target === legacy || fs.existsSync(target) || !fs.existsSync(legacy)) return false;
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.renameSync(legacy, target);
+  return true;
+}
+function migrateIfDefault(stateFile) {
+  migrateLegacyState(stateFile, path.join(path.dirname(stateFile), '.setup-state.json'));
+  if (path.resolve(stateFile) === DEFAULT_STATE_FILE) migrateLegacyState(stateFile);
+}
 
 const VALID = new Set(['pending', 'done', 'failed']);
 
@@ -152,6 +172,7 @@ function main() {
     process.stderr.write('usage: setup-state.mjs <read|write> <stateFile> [name=status ...]\n');
     process.exit(2);
   }
+  migrateIfDefault(stateFile);
   if (mode === 'read') {
     cmdRead(stateFile);
   } else if (mode === 'write') {

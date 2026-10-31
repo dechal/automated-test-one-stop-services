@@ -45,7 +45,7 @@ import { type CoverageScan, isCaseRunnable, isCoverageKnown } from '~/utils/case
 import { applyEnter } from '~/utils/list-continuation.js';
 import { buildTagExpr } from '~/utils/tag-selection.js';
 
-// Standard dropdown values — mirror config/pipeline.static.json `test_case_vocab`
+// Standard dropdown values — mirror scripts/manifests/data/pipeline.static.json `test_case_vocab`
 // (Status has no pipeline vocab; these are Hub-local, aligned with run outcomes).
 const SEVERITY = ['Critical', 'High', 'Medium', 'Low'];
 const COLUMN_OPTIONS: Record<string, string[]> = {

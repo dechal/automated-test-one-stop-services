@@ -334,7 +334,7 @@ function toCapabilitiesView(resolved: ResolvedCapabilities): ToolCapabilitiesVie
 /**
  * Enable or disable a tool. Two scopes:
  * - `'commit'`: writes `manifest.enabled` directly in `tool.manifest.json`
- * - `'local'`: writes to `config/.tool-overrides.json` (gitignored, no commit)
+ * - `'local'`: writes to `scripts/manifests/data/.tool-overrides.json` (gitignored, no commit)
  *
  * After mutation, invalidates the scanner cache so `/api/projects` reflects
  * the new state immediately.
@@ -946,10 +946,16 @@ export async function installDepsForTool(id: string): Promise<InstallDepsResult>
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Path of the local overrides file (gitignored). */
-const OVERRIDES_PATH = path.join(WORKSPACE_ROOT, 'config', '.tool-overrides.json');
+const OVERRIDES_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts',
+  'manifests',
+  'data',
+  '.tool-overrides.json',
+);
 
 /**
- * Write a per-tool enabled override to `config/.tool-overrides.json`.
+ * Write a per-tool enabled override to `scripts/manifests/data/.tool-overrides.json`.
  * Creates the file if it doesn't exist; preserves other entries.
  */
 function writeLocalOverride(id: string, enabled: boolean): void {

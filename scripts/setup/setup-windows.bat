@@ -7,7 +7,7 @@ REM AUTOMATED TEST ENVIRONMENT SETUP (Windows) - Setup_Bootstrap
 REM ===========================================================================
 REM Installs the 4 Core tools from the lowest baseline, installs deps,
 REM starts the Hub, then verifies. Idempotent per tool and re-runnable via a
-REM state ledger ("<target>\.setup-state.json", written by the canonical engine
+REM state ledger ("<target>\setup-state.json", written by the canonical engine
 REM scripts\setup\setup-state.mjs):
 REM
 REM { "steps": { "node": "done"|"failed"|"pending", ... }, "updatedAt": "..." }
@@ -20,7 +20,7 @@ REM (scripts\setup\windows\set-android-home.ps1) and never installed here.
 REM
 REM Opt-in env:
 REM SETUP_INSECURE_TLS=1 Prefetch Node tarball via curl -k (TLS proxy)
-REM SETUP_STATE_DIR Where .setup-state.json lives (default: repo root)
+REM SETUP_STATE_DIR Where setup-state.json lives (default: .cache\state)
 REM SETUP_NO_PAUSE=1 Do not pause at the end (used by Release_Launcher)
 REM SETUP_DISABLE_SHELL_DECOUPLE=1 Skip exposing Git's bundled GNU tools (find/
 REM sed/cp/...) on the user PATH. Decoupling is ON by
@@ -127,7 +127,7 @@ REM total step count (M) is known for progress.
 REM --------------------------------------------------------------------------
 if not defined SETUP_STATE_DIR set "SETUP_STATE_DIR=%WORKSPACE_ROOT%\.cache\state"
 if not exist "%SETUP_STATE_DIR%" mkdir "%SETUP_STATE_DIR%"
-set "STATE_FILE=%SETUP_STATE_DIR%\.setup-state.json"
+set "STATE_FILE=%SETUP_STATE_DIR%\setup-state.json"
 set "LEGACY_STATE_FILE=%WORKSPACE_ROOT%\.setup-state.json"
 if not exist "%STATE_FILE%" if exist "%LEGACY_STATE_FILE%" if /I not "%STATE_FILE%"=="%LEGACY_STATE_FILE%" move /Y "%LEGACY_STATE_FILE%" "%STATE_FILE%" >nul
 call :loadState
@@ -400,7 +400,7 @@ goto :eof
 
 REM ---------------------------------------------------------------------------
 REM :writeState
-REM Persist current ST_<step> vars to .setup-state.json in the canonical
+REM Persist current ST_<step> vars to setup-state.json in the canonical
 REM shape { "steps": {..}, "updatedAt": ".." }. Steps with no recorded value
 REM are written as "pending". Prefers node for a correct atomic write; the
 REM node-less fallback emits the same flat JSON by hand so early steps (before

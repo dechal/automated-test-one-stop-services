@@ -1,6 +1,6 @@
 // scripts/manifests/pipeline-projection.ts
 //
-// Projects the enabled tool manifests into the `config/pipeline.json`
+// Projects the enabled tool manifests into the `scripts/manifests/data/pipeline.json`
 // shape consumed by every agent skill (Auto, TCD, Defect, Delivery, …).
 //
 // `pipeline.json` is a *generated projection* of
@@ -9,7 +9,7 @@
 // `manifest.pipeline.*` into the familiar section layout.
 //
 // The static (manifest-independent) sections — `routing` and `id_conventions`
-// — live in `config/pipeline.static.json` and are spread in verbatim
+// — live in `scripts/manifests/data/pipeline.static.json` and are spread in verbatim
 // via `staticParts`.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -27,7 +27,7 @@ const ENV_KEY_PLACEHOLDER = '{KEY}';
 const ENV_KEY_SAMPLE = 'ENV_X';
 
 /** Default location of the static-parts file, relative to the workspace root. */
-const PIPELINE_STATIC_PATH = path.join('config', 'pipeline.static.json');
+const PIPELINE_STATIC_PATH = path.join('scripts', 'manifests', 'data', 'pipeline.static.json');
 
 /**
  * Section-level `_comment` strings baked into the projection. These mirror the
@@ -56,7 +56,7 @@ const ENV_NAMING = {
 
 /**
  * Manifest-independent sections spread verbatim into the projection. Sourced
- * from `config/pipeline.static.json`. Kept as `unknown` because their
+ * from `scripts/manifests/data/pipeline.static.json`. Kept as `unknown` because their
  * internal shape is owned by the agents that consume them, not by this module.
  */
 export interface PipelineStaticParts {
@@ -143,7 +143,7 @@ export function projectPipeline(
 }
 
 /**
- * Read `config/pipeline.static.json` from `workspaceRoot`. Returns
+ * Read `scripts/manifests/data/pipeline.static.json` from `workspaceRoot`. Returns
  * empty `routing` / `id_conventions` / `test_case_vocab` objects when the file
  * is absent OR unparseable, so callers can still generate a (partial)
  * pipeline.json rather than crashing.

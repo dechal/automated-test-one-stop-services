@@ -1,11 +1,11 @@
 // scripts/manifests/overrides.ts
 //
 // Local override resolution (no-commit disable). Reads the gitignored
-// `config/.tool-overrides.json` and produces an enabled-resolver that the
+// `scripts/manifests/data/.tool-overrides.json` and produces an enabled-resolver that the
 // manifest registry plugs into its resolution seam.
 //
 // Resolution order (highest precedence first):
-//   1. local override        — `config/.tool-overrides.json` entry for the tool
+//   1. local override        — `scripts/manifests/data/.tool-overrides.json` entry for the tool
 //   2. manifest.enabled       — the committed value in `tool.manifest.json`
 //   3. implicit `true`        — when neither source defines a value
 //
@@ -16,18 +16,23 @@ import * as path from 'node:path';
 import type { ToolManifest } from './types.js';
 
 /** Path of the local overrides file, relative to the workspace root. */
-export const TOOL_OVERRIDES_PATH = path.join('config', '.tool-overrides.json');
+export const TOOL_OVERRIDES_PATH = path.join(
+  'scripts',
+  'manifests',
+  'data',
+  '.tool-overrides.json',
+);
 
 /** Per-tool override entry. Only `enabled` is honoured today. */
 export interface ToolOverrideEntry {
   readonly enabled?: boolean;
 }
 
-/** Shape of `config/.tool-overrides.json`: `{ "<toolId>": { "enabled": bool } }`. */
+/** Shape of `scripts/manifests/data/.tool-overrides.json`: `{ "<toolId>": { "enabled": bool } }`. */
 export type ToolOverrides = Readonly<Record<string, ToolOverrideEntry>>;
 
 /**
- * Read + parse `config/.tool-overrides.json`. Never throws: an absent,
+ * Read + parse `scripts/manifests/data/.tool-overrides.json`. Never throws: an absent,
  * unreadable, or malformed file resolves to "no overrides" (`{}`) so a stray
  * local file can never break discovery for the whole workspace.
  */

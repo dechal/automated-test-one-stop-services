@@ -194,9 +194,13 @@ on the installer has no effect:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SETUP_STATE_DIR` | repo root | Where the `.setup-state.json` resume ledger is written. |
+| `SETUP_STATE_DIR` | `.cache/state` | Where the `setup-state.json` resume ledger is written. A legacy root `.setup-state.json` is moved here on the next run, and so is a `.setup-state.json` already inside `SETUP_STATE_DIR`. |
 | `SETUP_NO_OPEN=1` | off | Do not open the browser when setup finishes. |
 | `SETUP_NO_PAUSE=1` | off | Windows: skip the final "press any key". For unattended runs. |
+
+Local tool disables moved from `config/.tool-overrides.json` to
+`scripts/manifests/data/.tool-overrides.json`. An older clone has to move that file by hand,
+or its local disables stop applying.
 
 A test reading an env var and getting an empty string usually means the key was never
 declared, so nothing told you to set it. Each project's committed `.env.template` is

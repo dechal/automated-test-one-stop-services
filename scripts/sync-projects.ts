@@ -2,7 +2,7 @@
 //
 // Synchronises workspace artefacts: .env files from templates, per-tool
 // docker-compose.yml, per-tool tsconfig.json (Playwright), and the generated
-// config/pipeline.json.
+// scripts/manifests/data/pipeline.json.
 //
 // Manifest-driven — iterates the manifest registry to generate all artefacts.
 //
@@ -76,7 +76,7 @@ function syncRegularTemplates(dir: string): void {
 
 // ─── Manifest path ───────────────────────────────────────────────────────────
 
-const PIPELINE_JSON_PATH = path.join('config', 'pipeline.json');
+const PIPELINE_JSON_PATH = path.join('scripts', 'manifests', 'data', 'pipeline.json');
 
 /**
  * Run the manifest-driven sync at `workspaceRoot`. Generates per-tool

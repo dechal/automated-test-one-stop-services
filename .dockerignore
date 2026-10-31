@@ -24,7 +24,6 @@ __pycache__
 **/robot_output
 **/*.tsbuildinfo
 .setup-state.json
-.last-run
 **/.env*
 !**/.env.template
 Dockerfile

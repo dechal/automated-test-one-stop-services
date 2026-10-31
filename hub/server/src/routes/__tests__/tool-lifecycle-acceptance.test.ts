@@ -27,7 +27,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const REAL_WORKSPACE_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..', '..');
 const REAL_TOOLS_DIR = path.join(REAL_WORKSPACE_ROOT, 'tools');
-const REAL_STATIC = path.join(REAL_WORKSPACE_ROOT, 'config', 'pipeline.static.json');
+const REAL_STATIC = path.join(
+  REAL_WORKSPACE_ROOT,
+  'scripts',
+  'manifests',
+  'data',
+  'pipeline.static.json',
+);
 
 const EXISTING_TOOL_IDS = ['playwright', 'robot-framework', 'k6'] as const;
 
@@ -121,7 +127,7 @@ function seedWorkspace(): string {
       fs.copyFileSync(tsconfigTemplate, path.join(toolDir, 'tsconfig.template.json'));
     }
   }
-  const settings = mkDir(tmpDir, 'config');
+  const settings = mkDir(tmpDir, 'scripts', 'manifests', 'data');
   fs.copyFileSync(REAL_STATIC, path.join(settings, 'pipeline.static.json'));
   return tmpDir;
 }
@@ -232,7 +238,7 @@ function createTestServices(tmpDir: string, mod: ManifestModule, sync: SyncModul
     });
   }
 
-  const OVERRIDES_PATH = path.join(tmpDir, 'config', '.tool-overrides.json');
+  const OVERRIDES_PATH = path.join(tmpDir, 'scripts', 'manifests', 'data', '.tool-overrides.json');
 
   function writeLocalOverride(id: string, enabled: boolean): void {
     let overrides: Record<string, { enabled?: boolean }> = {};
@@ -447,7 +453,7 @@ describe.skipIf(!TOOLS_PRESENT)('tool lifecycle: end-to-end on temp workspace', 
 
   // ── Scenario 4: POST /api/tools/k6/disable { scope: 'local' } ─────────────
 
-  it('POST /api/tools/k6/disable with scope:local writes config/.tool-overrides.json', async () => {
+  it('POST /api/tools/k6/disable with scope:local writes scripts/manifests/data/.tool-overrides.json', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/tools/k6/disable',
@@ -458,7 +464,7 @@ describe.skipIf(!TOOLS_PRESENT)('tool lifecycle: end-to-end on temp workspace', 
     expect(body.result.status).toBe('disabled');
 
     // Verify override file is written correctly
-    const overridesPath = path.join(tmpDir, 'config', '.tool-overrides.json');
+    const overridesPath = path.join(tmpDir, 'scripts', 'manifests', 'data', '.tool-overrides.json');
     expect(fs.existsSync(overridesPath)).toBe(true);
     const overrides = JSON.parse(fs.readFileSync(overridesPath, 'utf8'));
     expect(overrides).toEqual({ k6: { enabled: false } });
@@ -471,7 +477,7 @@ describe.skipIf(!TOOLS_PRESENT)('tool lifecycle: end-to-end on temp workspace', 
 
   // Clean up local override for the broken-template test
   it('cleanup: remove override and re-enable k6 to restore state', async () => {
-    const overridesPath = path.join(tmpDir, 'config', '.tool-overrides.json');
+    const overridesPath = path.join(tmpDir, 'scripts', 'manifests', 'data', '.tool-overrides.json');
     if (fs.existsSync(overridesPath)) fs.rmSync(overridesPath);
 
     const res = await app.inject({
@@ -492,7 +498,7 @@ describe.skipIf(!TOOLS_PRESENT)('tool lifecycle: end-to-end on temp workspace', 
     // so renaming a template alone won't cause a throw. Instead, corrupt
     // pipeline.static.json so that JSON.parse fails inside loadPipelineStatic,
     // which propagates up through syncWorkspace as an unhandled throw.
-    const pipelinePath = path.join(tmpDir, 'config', 'pipeline.json');
+    const pipelinePath = path.join(tmpDir, 'scripts', 'manifests', 'data', 'pipeline.json');
     fs.rmSync(pipelinePath, { recursive: true, force: true });
     fs.mkdirSync(pipelinePath);
 

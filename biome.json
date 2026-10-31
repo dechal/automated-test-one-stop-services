@@ -106,7 +106,7 @@
       "!**/package*.json",
       "!**/tsconfig.json",
       "!**/docs/**/*.xlsx.edited.json",
-      "!config/pipeline.json"
+      "!scripts/manifests/data/pipeline.json"
     ]
   },
   "overrides": [

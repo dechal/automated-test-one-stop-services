@@ -12,14 +12,14 @@
 # The caller must run actions/checkout FIRST.
 # =============================================================================
 name: Clone tool repos (best-effort)
-description: Clone every tool listed in config/tool-registry.json when reachable, install its deps; skip quietly otherwise.
+description: Clone every tool listed in scripts/manifests/data/tool-registry.json when reachable, install its deps; skip quietly otherwise.
 runs:
   using: composite
   steps:
     - name: Clone tool repos
       shell: bash
       run: |
-        node -e 'for (const t of require("./config/tool-registry.json").tools) console.log(t.name, t.gitUrl, t.ref || "main")' |
+        node -e 'for (const t of require("./scripts/manifests/data/tool-registry.json").tools) console.log(t.name, t.gitUrl, t.ref || "main")' |
         while read -r t url ref; do
           [ -d "tools/$t/.git" ] && continue
           git clone --depth 1 --branch "$ref" "$url" "tools/$t" \
