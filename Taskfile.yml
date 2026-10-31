@@ -235,14 +235,14 @@ tasks:
       - pnpm exec tsx scripts/create-project.ts {{.CLI_ARGS}}
 
   export-bundle:
-    desc: "Export an offline zero-install bundle — TOOL= TYPE= PROJECT= OUT=<abs dir> [WITH_ENV=1] [ZIP=1]"
+    desc: "Export an offline zero-install bundle — TOOL= TYPE= PROJECT= OUT=<abs dir> [WITH_ENV=1] [ZIP=1] [CI_PROVIDER=gitlab|github|both]"
     cmds:
-      - pnpm exec tsx scripts/export/cli.ts bundle --tool "{{.TOOL}}" --type "{{.TYPE}}" --project "{{.PROJECT}}" --out "{{.OUT}}" {{if .WITH_ENV}}--with-env{{end}} {{if .ZIP}}--zip{{end}}
+      - pnpm exec tsx scripts/export/cli.ts bundle --tool "{{.TOOL}}" --type "{{.TYPE}}" --project "{{.PROJECT}}" --out "{{.OUT}}" {{if .WITH_ENV}}--with-env{{end}} {{if .ZIP}}--zip{{end}} {{if .CI_PROVIDER}}--ci "{{.CI_PROVIDER}}"{{end}}
 
   export-standalone:
-    desc: "Export a standalone project folder — TOOL= TYPE= PROJECT= OUT=<abs dir>"
+    desc: "Export a standalone project folder — TOOL= TYPE= PROJECT= OUT=<abs dir> [CI_PROVIDER=gitlab|github|both]"
     cmds:
-      - pnpm exec tsx scripts/export/cli.ts standalone --tool "{{.TOOL}}" --type "{{.TYPE}}" --project "{{.PROJECT}}" --out "{{.OUT}}"
+      - pnpm exec tsx scripts/export/cli.ts standalone --tool "{{.TOOL}}" --type "{{.TYPE}}" --project "{{.PROJECT}}" --out "{{.OUT}}" {{if .CI_PROVIDER}}--ci "{{.CI_PROVIDER}}"{{end}}
 
   clean:
     desc: Remove outputs and ephemeral artifacts

@@ -7,6 +7,7 @@ import { WORKSPACE_ROOT } from '../../config.js';
 interface BundleCallOptions {
   readonly withEnv?: boolean;
   readonly zip?: boolean;
+  readonly ci?: string;
   readonly onStage?: (stage: string) => void;
 }
 
@@ -19,12 +20,20 @@ vi.mock('../../services/manifest-registry.js', () => ({
 }));
 
 const mockExportBundle = vi.fn<(opts: BundleCallOptions) => Promise<unknown>>();
+const mockExportStandalone = vi.fn<(opts: BundleCallOptions) => Promise<unknown>>(async () => ({
+  result: { tool: 'k6' },
+  resynced: false,
+  regeneratedFiles: [],
+}));
 const mockIsBundleSupported = vi.fn<(tool: string) => boolean>();
 vi.mock('../../services/export-module.js', () => ({
   getExportModule: async () => ({
     BUNDLE_STAGES: STAGES,
+    CI_CHOICES: ['none', 'gitlab', 'github', 'both'],
+    isCiSupported: (tool: string, kind: string) => tool === 'k6' && kind === 'bundle',
     isBundleSupported: (tool: string) => mockIsBundleSupported(tool),
-    isStandaloneSupported: () => false,
+    isStandaloneSupported: (tool: string) => tool === 'k6',
+    exportProjectStandalone: (opts: BundleCallOptions) => mockExportStandalone(opts),
     isSafeIdent: (value: string) => /^[a-zA-Z0-9._/-]+$/.test(value),
     exportProjectBundle: (opts: BundleCallOptions) => mockExportBundle(opts),
   }),
@@ -110,6 +119,18 @@ describe('POST /api/projects/bundle', () => {
     expect(res.json().code).toBe('BAD_REQUEST');
   });
 
+  it('400 INVALID_CI for an unknown provider', async () => {
+    const res = await post({ ...valid, ci: 'jenkins' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_CI');
+    expect(mockExportBundle).not.toHaveBeenCalled();
+  });
+  it('passes a valid ci provider to the exporter', async () => {
+    const res = await post({ ...valid, ci: 'both' });
+    expect(res.statusCode).toBe(202);
+    await flush();
+    expect(mockExportBundle.mock.calls[0]?.[0].ci).toBe('both');
+  });
   it('400 INVALID_TARGET for a relative targetDir', async () => {
     const res = await post({ ...valid, targetDir: 'relative/out' });
     expect(res.statusCode).toBe(400);
@@ -165,5 +186,46 @@ describe('POST /api/projects/bundle', () => {
     const res = await app.inject({ method: 'GET', url: '/api/projects/bundle/unknown' });
     expect(res.statusCode).toBe(404);
     expect(res.json().code).toBe('JOB_NOT_FOUND');
+  });
+});
+
+describe('POST /api/projects/standalone ci', () => {
+  let app: FastifyInstance;
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mockGetEnabledTools.mockResolvedValue([{ id: 'k6' }]);
+    app = Fastify();
+    const { projectRoutes } = await import('../projects.js');
+    await app.register(projectRoutes);
+    await app.ready();
+  });
+  afterEach(async () => {
+    await app.close();
+  });
+  function postStandalone(ci: unknown) {
+    return app.inject({
+      method: 'POST',
+      url: '/api/projects/standalone',
+      payload: { tool: 'k6', type: 'performance', project: 'demo', targetDir: OUTSIDE, ci },
+    });
+  }
+  it('400 INVALID_CI for a non-string or unknown provider', async () => {
+    for (const ci of [true, 'jenkins']) {
+      const res = await postStandalone(ci);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().code).toBe('INVALID_CI');
+    }
+    expect(mockExportStandalone).not.toHaveBeenCalled();
+  });
+  it('422 CI_NOT_SUPPORTED when the tool has no standalone CI', async () => {
+    const res = await postStandalone('gitlab');
+    expect(res.statusCode).toBe(422);
+    expect(res.json().code).toBe('CI_NOT_SUPPORTED');
+  });
+  it('passes ci none through and returns the export', async () => {
+    const res = await postStandalone('none');
+    expect(res.statusCode).toBe(200);
+    expect(mockExportStandalone.mock.calls[0]?.[0].ci).toBe('none');
   });
 });

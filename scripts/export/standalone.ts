@@ -1,5 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  appendCiReadme,
+  type CiChoice,
+  checkCiOption,
+  generateCiFiles,
+  mergeWritten,
+} from './ci.js';
 import { runChild } from './exec.js';
 
 export interface LifecycleResult<T> {
@@ -51,6 +58,9 @@ export interface StandaloneError {
     | 'SOURCE_MISSING'
     | 'TARGET_NOT_EMPTY'
     | 'TARGET_TOOL_MISMATCH'
+    | 'INVALID_CI'
+    | 'CI_NOT_SUPPORTED'
+    | 'ENTRY_NOT_FOUND'
     | 'EXPORT_FAILED';
   readonly message: string;
 }
@@ -62,6 +72,7 @@ export interface StandaloneExport {
   readonly targetDir: string;
   readonly mode: 'fresh' | 'migrate';
   readonly written: readonly string[];
+  readonly ciFiles?: readonly string[];
   readonly installError?: { readonly code: string; readonly message: string };
 }
 
@@ -71,6 +82,7 @@ export interface StandaloneOptions {
   readonly type: string;
   readonly project: string;
   readonly targetDir: string;
+  readonly ci?: CiChoice;
   readonly onStage?: (stage: StandaloneStage) => void;
 }
 
@@ -236,7 +248,7 @@ interface ToolPackageVersions {
   readonly playwright: string;
 }
 
-function readToolPackageVersions(workspaceRoot: string, tool: string): ToolPackageVersions {
+export function readToolPackageVersions(workspaceRoot: string, tool: string): ToolPackageVersions {
   try {
     const raw = fs.readFileSync(path.join(toolsDir(workspaceRoot), tool, 'package.json'), 'utf8');
     const parsed = JSON.parse(raw) as {
@@ -554,9 +566,10 @@ function buildK6Gitignore(project: string): string {
   ].join('\n');
 }
 
+export const K6_DOCKER_IMAGE = 'grafana/k6:2.0.0';
 function buildK6Dockerfile(): string {
   return [
-    'FROM grafana/k6:2.0.0',
+    `FROM ${K6_DOCKER_IMAGE}`,
     'WORKDIR /home/k6',
     'COPY . .',
     'ENTRYPOINT ["k6"]',
@@ -1236,6 +1249,8 @@ export async function exportProjectStandalone(
     };
   }
 
+  const ciCheck = checkCiOption(opts.ci, tool, 'standalone');
+  if ('code' in ciCheck) return ciCheck;
   const ctx: StandaloneContext = { workspaceRoot, tool, type, project };
   const source = strategy.resolveSource(ctx);
   if ('code' in source) return source;
@@ -1274,7 +1289,9 @@ export async function exportProjectStandalone(
 
     onStage?.('generate');
     written.push(...strategy.generateFiles(targetDir, ctx, mode));
-
+    const ci = generateCiFiles({ ...ctx, targetDir, kind: 'standalone' }, ciCheck.choice);
+    if ('code' in ci) return ci;
+    appendCiReadme(targetDir, ci.readme);
     onStage?.('embed-key');
     writeEmbedKey(workspaceRoot, targetDir, tool, type, project);
     written.push(EMBED_KEY_FILE);
@@ -1288,7 +1305,8 @@ export async function exportProjectStandalone(
       project,
       targetDir,
       mode,
-      written,
+      written: mergeWritten(written, ci),
+      ...(ci.files.length > 0 ? { ciFiles: ci.files } : {}),
       ...(installError ? { installError } : {}),
     };
     return { result, resynced: false, regeneratedFiles: [] };

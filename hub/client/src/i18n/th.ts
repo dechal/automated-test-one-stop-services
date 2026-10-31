@@ -1166,4 +1166,12 @@ export const th: Record<TranslationKey, string> = {
   'bundleModal.failed': 'ส่งออกไม่สำเร็จ',
   'bundleModal.jobLost':
     'Hub ไม่เห็นงานส่งออกนี้แล้ว น่าจะเพราะ Hub รีสตาร์ต โฟลเดอร์อาจยังไม่ครบ ให้ล้างโฟลเดอร์หรือเลือกโฟลเดอร์ใหม่แล้วส่งออกอีกครั้ง',
+  'ciSelect.label': 'ไปป์ไลน์ CI/CD',
+  'ciSelect.desc':
+    'เพิ่ม Dockerfile กับไปป์ไลน์ที่รันเทสต์และเก็บผลไว้ให้ ค่าลับดึงจากตัวแปร CI ที่ตั้งชื่อตามคีย์ใน .env.template',
+  'ciSelect.none': 'ไม่ใช้',
+  'ciSelect.gitlab': 'GitLab CI',
+  'ciSelect.github': 'GitHub Actions',
+  'ciSelect.both': 'GitLab CI และ GitHub Actions',
+  'ciSelect.files': 'ไฟล์ CI',
 };

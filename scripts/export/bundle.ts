@@ -1,6 +1,13 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {
+  appendCiReadme,
+  type CiChoice,
+  checkCiOption,
+  generateCiFiles,
+  mergeWritten,
+} from './ci.js';
 import { type Exec, runChild } from './exec.js';
 import { buildRunBat, LAUNCHER_FILE, type LauncherSpec } from './launcher.js';
 import {
@@ -87,6 +94,7 @@ export interface BundleOptions {
   readonly targetDir: string;
   readonly withEnv?: boolean;
   readonly zip?: boolean;
+  readonly ci?: CiChoice;
   readonly onStage?: (stage: BundleStage) => void;
   readonly log?: (line: string) => void;
   readonly exec?: Exec;
@@ -211,6 +219,15 @@ const K6_REWRITE_DIRS = ['resources', 'src', 'automations'];
 const K6_ENTRY_FILE = 'e2e.spec.ts';
 const K6_SPECS_DIR = path.join('automations', 'specs');
 
+export function rewriteK6DayjsImportsIn(targetDir: string): void {
+  for (const dir of K6_REWRITE_DIRS) {
+    for (const file of walkFiles(path.join(targetDir, dir), (n) => /\.(ts|js)$/.test(n))) {
+      const before = fs.readFileSync(file, 'utf8');
+      const after = rewriteDayjsImports(before, path.dirname(file), targetDir);
+      if (after !== before) fs.writeFileSync(file, after, 'utf8');
+    }
+  }
+}
 export function findK6Entry(targetDir: string): string | null {
   const found = walkFiles(path.join(targetDir, K6_SPECS_DIR), (n) => n === K6_ENTRY_FILE)
     .map((f) => toPosix(path.relative(targetDir, f)))
@@ -218,7 +235,7 @@ export function findK6Entry(targetDir: string): string | null {
   return found[0] ?? null;
 }
 
-function readToolDependencies(workspaceRoot: string, tool: string): Record<string, string> {
+export function readToolDependencies(workspaceRoot: string, tool: string): Record<string, string> {
   const pkg = readJsonObject(path.join(workspaceRoot, 'tools', tool, 'package.json'));
   return readStringRecord(pkg?.dependencies);
 }
@@ -244,13 +261,7 @@ async function pnpmInstallHoisted(
 const k6BundleStrategy: BundleStrategy = {
   runtimes: ['k6'],
   rewrite(ctx) {
-    for (const dir of K6_REWRITE_DIRS) {
-      for (const file of walkFiles(path.join(ctx.targetDir, dir), (n) => /\.(ts|js)$/.test(n))) {
-        const before = fs.readFileSync(file, 'utf8');
-        const after = rewriteDayjsImports(before, path.dirname(file), ctx.targetDir);
-        if (after !== before) fs.writeFileSync(file, after, 'utf8');
-      }
-    }
+    rewriteK6DayjsImportsIn(ctx.targetDir);
   },
   generate(ctx) {
     const entry = findK6Entry(ctx.targetDir);
@@ -999,6 +1010,8 @@ export async function exportProjectBundle(
       message: `Offline bundle export is not yet supported for tool '${tool}'`,
     };
   }
+  const ciCheck = checkCiOption(opts.ci, tool, 'bundle');
+  if ('code' in ciCheck) return ciCheck;
   const sctx: StandaloneContext = { workspaceRoot, tool, type, project };
   const source = standalone.resolveSource(sctx);
   if ('code' in source) return source;
@@ -1043,6 +1056,11 @@ export async function exportProjectBundle(
     written.push(...standalone.generateFiles(targetDir, sctx, mode));
     const prepared = strategy.generate(ctx);
     if ('code' in prepared) return prepared;
+    const ci = generateCiFiles(
+      { workspaceRoot, tool, type, project, targetDir, kind: 'bundle' },
+      ciCheck.choice,
+    );
+    if ('code' in ci) return ci;
 
     onStage?.('embed-key');
     const runtimes: Record<string, string> = {};
@@ -1090,6 +1108,7 @@ export async function exportProjectBundle(
       buildBundleReadme(ctx, prepared, strategy, runtimes, envIncluded),
       'utf8',
     );
+    appendCiReadme(targetDir, ci.readme);
     written.push(LAUNCHER_FILE);
 
     onStage?.('verify-layout');
@@ -1132,7 +1151,8 @@ export async function exportProjectBundle(
       project,
       targetDir,
       mode,
-      written,
+      written: mergeWritten(written, ci),
+      ...(ci.files.length > 0 ? { ciFiles: ci.files } : {}),
       kind: BUNDLE_KIND,
       platform,
       runtimes,

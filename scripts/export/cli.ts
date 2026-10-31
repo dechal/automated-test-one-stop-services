@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { BUNDLE_STAGES, exportProjectBundle } from './bundle.js';
+import { type CiChoice, parseCiChoice } from './ci.js';
 import { exportProjectStandalone, STANDALONE_STAGES } from './standalone.js';
 import { checkTargetPath, isSafeIdent, MAX_TARGET_PATH } from './validate.js';
 
@@ -10,13 +11,15 @@ export const EXIT_FAILED = 1;
 export const EXIT_USAGE = 2;
 
 const USAGE =
-  'usage: cli.ts <bundle|standalone> --tool <id> --type <type> --project <name> --out <abs dir> [--with-env] [--zip]';
+  'usage: cli.ts <bundle|standalone> --tool <id> --type <type> --project <name> --out <abs dir> [--with-env] [--zip] [--ci none|gitlab|github|both]';
 const USAGE_CODES: ReadonlySet<string> = new Set([
   'INVALID_IDENT',
   'INVALID_TARGET',
   'TOOL_NOT_SUPPORTED',
   'SOURCE_MISSING',
   'PROJECT_NOT_FOUND',
+  'INVALID_CI',
+  'CI_NOT_SUPPORTED',
 ]);
 const IN_WORKSPACE_ALLOWED: readonly string[] = ['.cache', 'outputs'];
 const BYTES_PER_MB = 1024 * 1024;
@@ -31,6 +34,7 @@ export interface CliArgs {
   readonly out: string;
   readonly withEnv: boolean;
   readonly zip: boolean;
+  readonly ci: CiChoice;
 }
 
 export interface CliIo {
@@ -76,7 +80,9 @@ export function parseCliArgs(argv: readonly string[]): CliArgs | { readonly erro
   if (kind === 'standalone' && (withEnv || zip)) {
     return { error: '--with-env and --zip apply to "bundle" only' };
   }
-  return { kind, tool, type, project, out, withEnv, zip };
+  const ci = parseCiChoice(values.ci);
+  if (ci === null) return { error: '--ci must be one of none, gitlab, github, both' };
+  return { kind, tool, type, project, out, withEnv, zip, ci };
 }
 
 interface ParsedCliOptions {
@@ -87,6 +93,7 @@ interface ParsedCliOptions {
     readonly out?: string;
     readonly 'with-env'?: boolean;
     readonly zip?: boolean;
+    readonly ci?: string;
   };
   readonly positionals: readonly string[];
 }
@@ -103,6 +110,7 @@ function parseCliOptions(argv: readonly string[]): ParsedCliOptions {
       out: { type: 'string' },
       'with-env': { type: 'boolean' },
       zip: { type: 'boolean' },
+      ci: { type: 'string' },
     },
   });
 }
@@ -143,6 +151,7 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
     type: args.type,
     project: args.project,
     targetDir: path.resolve(args.out),
+    ci: args.ci,
   };
   if (args.kind === 'standalone') {
     const exportStandalone = deps.exportStandalone ?? exportProjectStandalone;
@@ -155,6 +164,7 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
       return exitCodeForError(res.code);
     }
     io.out(`standalone written to ${res.result.targetDir} (${res.result.mode})`);
+    if (res.result.ciFiles) io.out(`ci: ${res.result.ciFiles.join(', ')}`);
     if (res.result.installError) {
       io.err(`warning ${res.result.installError.code}: ${res.result.installError.message}`);
     }
@@ -180,6 +190,7 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
     `bundle written to ${r.targetDir} (${r.mode}, ${(r.sizeBytes / BYTES_PER_MB).toFixed(1)} MB)`,
   );
   io.out(`runtimes: ${runtimes || 'none'}; .env included: ${r.envIncluded ? 'yes' : 'no'}`);
+  if (r.ciFiles) io.out(`ci: ${r.ciFiles.join(', ')}`);
   if (r.zipPath) io.out(`zip: ${r.zipPath}`);
   if (r.zipError) io.err(`warning ${r.zipError.code}: ${r.zipError.message}`);
   return EXIT_OK;

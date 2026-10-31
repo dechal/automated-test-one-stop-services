@@ -9,6 +9,7 @@ export {
   exportProjectBundle,
   isBundleSupported,
 } from './bundle.js';
+export { CI_CHOICES, type CiChoice, isCiSupported } from './ci.js';
 export type { Exec, RunChildOptions, RunChildResult } from './exec.js';
 export {
   DEFAULT_PLATFORM,

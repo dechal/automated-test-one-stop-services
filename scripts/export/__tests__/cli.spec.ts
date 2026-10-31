@@ -70,10 +70,17 @@ describe('parseCliArgs', () => {
       out,
       withEnv: true,
       zip: true,
+      ci: 'none',
     });
   });
 
+  it('parses --ci for both kinds', () => {
+    expect(parseCliArgs(args('bundle', ['--ci', 'gitlab']))).toMatchObject({ ci: 'gitlab' });
+    expect(parseCliArgs(args('standalone', ['--ci', 'both']))).toMatchObject({ ci: 'both' });
+  });
+
   it.each([
+    [args('bundle', ['--ci', 'jenkins']), '--ci must be one of'],
     [['bundle'], 'missing'],
     [['zip-it', '--tool', 'k6'], 'first argument'],
     [args('bundle', ['--bogus']), 'bogus'],
@@ -141,5 +148,34 @@ describe('runCli exit codes', () => {
     });
     expect(await runCli(args('standalone'), c.deps)).toBe(EXIT_OK);
     expect(c.stderr.join('\n')).toContain('INSTALL_FAILED');
+  });
+  it('passes --ci to the exporter, prints the CI files and maps CI codes to 2', async () => {
+    const seen: string[] = [];
+    const c = capture({
+      exportStandalone: async (o) => {
+        seen.push(o.ci ?? 'unset');
+        return {
+          result: {
+            tool: 'k6',
+            type: 'performance',
+            project: 'demo',
+            targetDir: out,
+            mode: 'fresh',
+            written: [],
+            ciFiles: ['Dockerfile', '.gitlab-ci.yml'],
+          },
+          resynced: false,
+          regeneratedFiles: [],
+        };
+      },
+    });
+    expect(await runCli(args('standalone', ['--ci', 'gitlab']), c.deps)).toBe(EXIT_OK);
+    expect(seen).toEqual(['gitlab']);
+    expect(c.stdout).toContain('ci: Dockerfile, .gitlab-ci.yml');
+    const failCi = capture({
+      exportBundle: async () => ({ code: 'CI_NOT_SUPPORTED', message: 'x' }),
+    });
+    expect(await runCli(args('bundle', ['--ci', 'both']), failCi.deps)).toBe(EXIT_USAGE);
+    expect(await runCli(args('bundle', ['--ci', 'nope']), capture().deps)).toBe(EXIT_USAGE);
   });
 });

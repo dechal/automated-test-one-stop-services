@@ -15,6 +15,7 @@ export interface StandaloneExportResult {
   readonly targetDir: string;
   readonly mode: 'fresh' | 'migrate';
   readonly written: readonly string[];
+  readonly ciFiles?: readonly string[];
   readonly installError?: ExportError;
 }
 
@@ -24,6 +25,7 @@ export interface StandaloneExportOptions {
   readonly type: string;
   readonly project: string;
   readonly targetDir: string;
+  readonly ci?: string;
   readonly onStage?: (stage: string) => void;
 }
 
@@ -46,11 +48,14 @@ export interface BundleExportOptions {
   readonly targetDir: string;
   readonly withEnv?: boolean;
   readonly zip?: boolean;
+  readonly ci?: string;
   readonly onStage?: (stage: string) => void;
 }
 
 export interface ExportModule {
   readonly BUNDLE_STAGES: readonly string[];
+  readonly CI_CHOICES: readonly string[];
+  isCiSupported(tool: string, kind: 'standalone' | 'bundle'): boolean;
   isStandaloneSupported(tool: string): boolean;
   isBundleSupported(tool: string): boolean;
   isSafeIdent(value: string): boolean;

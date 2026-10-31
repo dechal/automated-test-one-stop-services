@@ -195,6 +195,31 @@ describe('exportProjectBundle (k6)', () => {
     expect(fs.readFileSync(path.join(target, 'README.md'), 'utf8')).toContain('offline bundle');
   });
 
+  it('adds the CI container and both pipelines with ci both', async () => {
+    const target = path.join(root, 'ci-both');
+    const res = await exportProjectBundle(options(target, { ci: 'both' }));
+    if ('code' in res) throw new Error(`${res.code}: ${res.message}`);
+    expect(res.result.ciFiles).toEqual([
+      'Dockerfile',
+      '.dockerignore',
+      '.gitlab-ci.yml',
+      '.github/workflows/test.yml',
+    ]);
+    expect(res.result.written).not.toContain('.github/workflows/ci.yml');
+    expect(fs.existsSync(path.join(target, '.github', 'workflows', 'ci.yml'))).toBe(false);
+    const readme = fs.readFileSync(path.join(target, 'README.md'), 'utf8');
+    expect(readme).toContain('offline bundle');
+    expect(readme).toContain('## CI/CD');
+    expect(fs.readFileSync(path.join(target, '.gitlab-ci.yml'), 'utf8')).toContain('-e BASE_URL');
+  });
+  it('keeps the default output without ci', async () => {
+    const target = path.join(root, 'ci-none');
+    const res = await exportProjectBundle(options(target));
+    if ('code' in res) throw new Error(`${res.code}: ${res.message}`);
+    expect(res.result.ciFiles).toBeUndefined();
+    expect(fs.existsSync(path.join(target, '.gitlab-ci.yml'))).toBe(false);
+    expect(fs.existsSync(path.join(target, '.github', 'workflows', 'ci.yml'))).toBe(true);
+  });
   it('copies .env only with withEnv', async () => {
     const target = path.join(root, 'with-env');
     const res = await exportProjectBundle(options(target, { withEnv: true }));

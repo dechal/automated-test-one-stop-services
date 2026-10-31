@@ -6,6 +6,7 @@ import { TbAlertTriangle, TbCircleCheck, TbPackage } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { formatSize } from '~/components/artifacts/ArtifactViews.js';
 import { FormModal } from '~/components/FormModal.js';
+import { type CiChoice, CiProviderSelect } from '~/components/projects/CiProviderSelect.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
 
@@ -26,6 +27,7 @@ interface BundleJob {
       targetDir: string;
       sizeBytes: number;
       zipPath?: string;
+      ciFiles?: string[];
       zipError?: { code: string; message: string };
     };
   };
@@ -42,6 +44,7 @@ export function BundleModal({ target, onClose }: BundleModalProps) {
   const [targetDir, setTargetDir] = useState('');
   const [withEnv, setWithEnv] = useState(false);
   const [zip, setZip] = useState(false);
+  const [ci, setCi] = useState<CiChoice>('none');
   const [jobId, setJobId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export function BundleModal({ target, onClose }: BundleModalProps) {
       setTargetDir('');
       setWithEnv(false);
       setZip(false);
+      setCi('none');
       setJobId(null);
     }
   }, [target]);
@@ -62,6 +66,7 @@ export function BundleModal({ target, onClose }: BundleModalProps) {
         targetDir: targetDir.trim(),
         withEnv,
         zip,
+        ci,
       }),
     onSuccess: (res) => setJobId(res.jobId),
   });
@@ -135,6 +140,7 @@ export function BundleModal({ target, onClose }: BundleModalProps) {
         onChange={(e) => setZip(e.currentTarget.checked)}
         disabled={running}
       />
+      <CiProviderSelect value={ci} onChange={setCi} disabled={running} />
       <Text size="xs" c="dimmed">
         {t('bundleModal.sizeNote')}
       </Text>
@@ -172,6 +178,11 @@ export function BundleModal({ target, onClose }: BundleModalProps) {
             <Text size="xs">
               {t('bundleModal.size')}: {formatSize(output.sizeBytes)}
             </Text>
+            {output.ciFiles && (
+              <Text size="xs" style={{ overflowWrap: 'anywhere' }}>
+                {t('ciSelect.files')}: <Code>{output.ciFiles.join(', ')}</Code>
+              </Text>
+            )}
             {output.zipError && (
               <Text size="xs" c="yellow">
                 {t('bundleModal.zipFailed')} {output.zipError.message}

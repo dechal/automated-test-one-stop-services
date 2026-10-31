@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { TbPackageExport } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { FormModal } from '~/components/FormModal.js';
+import { type CiChoice, CiProviderSelect } from '~/components/projects/CiProviderSelect.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
 
@@ -15,6 +16,7 @@ interface StandaloneResult {
   output?: {
     mode: 'fresh' | 'migrate';
     written: string[];
+    ciFiles?: string[];
     installError?: { code: string; message: string };
   };
 }
@@ -29,11 +31,13 @@ export function StandaloneModal({ target, onClose, onSuccess }: StandaloneModalP
   const t = useT();
   const [targetDir, setTargetDir] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [ci, setCi] = useState<CiChoice>('none');
 
   useEffect(() => {
     if (target) {
       setTargetDir('');
       setError(null);
+      setCi('none');
     }
   }, [target]);
 
@@ -44,6 +48,7 @@ export function StandaloneModal({ target, onClose, onSuccess }: StandaloneModalP
         type: target?.type,
         project: target?.name,
         targetDir,
+        ci,
       }),
     onSuccess: (res) => {
       if (!res.success) {
@@ -58,6 +63,9 @@ export function StandaloneModal({ target, onClose, onSuccess }: StandaloneModalP
             ? t('projects.standaloneUpdated')
             : t('projects.standaloneDone'),
         );
+      }
+      if (res.output?.ciFiles) {
+        toast.success(`${t('ciSelect.files')}: ${res.output.ciFiles.join(', ')}`);
       }
       onSuccess();
     },
@@ -92,6 +100,7 @@ export function StandaloneModal({ target, onClose, onSuccess }: StandaloneModalP
         onChange={(e) => setTargetDir(e.currentTarget.value)}
         placeholder={t('projects.standaloneTargetPlaceholder')}
       />
+      <CiProviderSelect value={ci} onChange={setCi} disabled={mutation.isPending} />
     </FormModal>
   );
 }

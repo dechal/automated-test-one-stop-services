@@ -1191,6 +1191,14 @@ export const en = {
   'bundleModal.failed': 'Export failed',
   'bundleModal.jobLost':
     'The Hub lost track of this export, most likely because it restarted. The folder may be incomplete: empty it or pick another folder, then export again.',
+  'ciSelect.label': 'CI/CD pipeline',
+  'ciSelect.desc':
+    'Adds a Dockerfile and a pipeline that runs the tests and keeps the results. Secrets come from CI variables named like the .env.template keys.',
+  'ciSelect.none': 'None',
+  'ciSelect.gitlab': 'GitLab CI',
+  'ciSelect.github': 'GitHub Actions',
+  'ciSelect.both': 'GitLab CI and GitHub Actions',
+  'ciSelect.files': 'CI files',
 } as const;
 
 export type TranslationKey = keyof typeof en;

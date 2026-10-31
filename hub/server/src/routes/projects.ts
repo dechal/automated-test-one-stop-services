@@ -4,7 +4,7 @@ import { BASH_PATH, WORKSPACE_ROOT } from '../config.js';
 import { SAFE_GIT_URL, SAFE_ID } from '../lib/safe-id.js';
 import { getBundleJob, startBundleJob } from '../services/bundle-jobs.js';
 import { runChild } from '../services/exec.js';
-import { getExportModule } from '../services/export-module.js';
+import { type ExportModule, getExportModule } from '../services/export-module.js';
 import { getEnabledTools } from '../services/manifest-registry.js';
 import { rejectStandaloneTarget } from '../services/path-guard.js';
 import { type ProjectCleanupResult, removeProjectCascade } from '../services/project-cleanup.js';
@@ -58,6 +58,33 @@ async function rejectUnknownTool(
   if (!manifest) {
     reply.status(404);
     return { code: 'TOOL_NOT_FOUND', message: `Tool '${tool}' is not installed or not enabled` };
+  }
+  return null;
+}
+
+function checkCi(
+  exportModule: ExportModule,
+  ci: unknown,
+  tool: string,
+  kind: 'standalone' | 'bundle',
+): { status: number; code: string; message: string } | null {
+  if (ci === undefined || ci === 'none') return null;
+  if (typeof ci !== 'string' || !exportModule.CI_CHOICES.includes(ci)) {
+    return {
+      status: 400,
+      code: 'INVALID_CI',
+      message: `ci must be one of ${exportModule.CI_CHOICES.join(', ')}`,
+    };
+  }
+  if (!exportModule.isCiSupported(tool, kind)) {
+    return {
+      status: 422,
+      code: 'CI_NOT_SUPPORTED',
+      message:
+        kind === 'standalone' && exportModule.isCiSupported(tool, 'bundle')
+          ? `CI for '${tool}' needs the offline bundle export`
+          : `CI export is not supported for '${tool}'`,
+    };
   }
   return null;
 }
@@ -243,64 +270,71 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post<{ Body: { tool: ToolId; type: string; project: string; targetDir: string } }>(
-    '/api/projects/standalone',
-    async (req, reply) => {
-      const { tool, type, project, targetDir } = req.body ?? {};
-      if (!tool || !type || !project || !targetDir) {
-        reply.status(400);
-        return { code: 'BAD_REQUEST', message: 'tool, type, project and targetDir are required' };
-      }
-      const toolErr = await rejectUnknownTool(tool, reply);
-      if (toolErr) return toolErr;
-      const exportModule = await getExportModule();
-      if (!exportModule.isStandaloneSupported(tool)) {
-        reply.status(422);
-        return {
-          success: false,
-          code: 'TOOL_NOT_SUPPORTED',
-          message: `Standalone export is not yet supported for '${tool}'`,
-        };
-      }
-      if (!SAFE_IDENT.test(type) || !SAFE_IDENT.test(project)) {
-        reply.status(400);
-        return { code: 'INVALID_IDENT', message: 'type/project contains unsafe characters' };
-      }
-      const targetErr = rejectStandaloneTarget(targetDir);
-      if (targetErr) {
-        reply.status(400);
-        return {
-          success: false,
-          code: 'INVALID_TARGET',
-          message:
-            targetErr === 'NOT_ABSOLUTE'
-              ? 'targetDir must be an absolute path'
-              : 'targetDir must be outside the workspace',
-        };
-      }
-      const projects = await listProjects(tool, type);
-      if (!projects.includes(project)) {
-        reply.status(404);
-        return {
-          code: 'PROJECT_NOT_FOUND',
-          message: `Project '${tool}/${type}/${project}' not found`,
-        };
-      }
+  app.post<{
+    Body: { tool: ToolId; type: string; project: string; targetDir: string; ci?: unknown };
+  }>('/api/projects/standalone', async (req, reply) => {
+    const { tool, type, project, targetDir, ci } = req.body ?? {};
+    if (!tool || !type || !project || !targetDir) {
+      reply.status(400);
+      return { code: 'BAD_REQUEST', message: 'tool, type, project and targetDir are required' };
+    }
+    const toolErr = await rejectUnknownTool(tool, reply);
+    if (toolErr) return toolErr;
+    const exportModule = await getExportModule();
+    if (!exportModule.isStandaloneSupported(tool)) {
+      reply.status(422);
+      return {
+        success: false,
+        code: 'TOOL_NOT_SUPPORTED',
+        message: `Standalone export is not yet supported for '${tool}'`,
+      };
+    }
+    const ciErr = checkCi(exportModule, ci, tool, 'standalone');
+    if (ciErr) {
+      reply.status(ciErr.status);
+      return { success: false, code: ciErr.code, message: ciErr.message };
+    }
+    if (!SAFE_IDENT.test(type) || !SAFE_IDENT.test(project)) {
+      reply.status(400);
+      return { code: 'INVALID_IDENT', message: 'type/project contains unsafe characters' };
+    }
+    const targetErr = rejectStandaloneTarget(targetDir);
+    if (targetErr) {
+      reply.status(400);
+      return {
+        success: false,
+        code: 'INVALID_TARGET',
+        message:
+          targetErr === 'NOT_ABSOLUTE'
+            ? 'targetDir must be an absolute path'
+            : 'targetDir must be outside the workspace',
+      };
+    }
+    const projects = await listProjects(tool, type);
+    if (!projects.includes(project)) {
+      reply.status(404);
+      return {
+        code: 'PROJECT_NOT_FOUND',
+        message: `Project '${tool}/${type}/${project}' not found`,
+      };
+    }
 
-      const result = await exportModule.exportProjectStandalone({
-        workspaceRoot: WORKSPACE_ROOT,
-        tool,
-        type,
-        project,
-        targetDir,
-      });
-      if ('code' in result) {
-        reply.status(result.code === 'TOOL_NOT_SUPPORTED' ? 422 : 400);
-        return { success: false, code: result.code, message: result.message };
-      }
-      return { success: true, output: result };
-    },
-  );
+    const result = await exportModule.exportProjectStandalone({
+      workspaceRoot: WORKSPACE_ROOT,
+      tool,
+      type,
+      project,
+      targetDir,
+      ...(typeof ci === 'string' ? { ci } : {}),
+    });
+    if ('code' in result) {
+      reply.status(
+        result.code === 'TOOL_NOT_SUPPORTED' || result.code === 'CI_NOT_SUPPORTED' ? 422 : 400,
+      );
+      return { success: false, code: result.code, message: result.message };
+    }
+    return { success: true, output: result };
+  });
 
   app.post<{
     Body: {
@@ -310,9 +344,10 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       targetDir: string;
       withEnv?: unknown;
       zip?: unknown;
+      ci?: unknown;
     };
   }>('/api/projects/bundle', async (req, reply) => {
-    const { tool, type, project, targetDir, withEnv, zip } = req.body ?? {};
+    const { tool, type, project, targetDir, withEnv, zip, ci } = req.body ?? {};
     if (!tool || !type || !project || !targetDir) {
       reply.status(400);
       return { code: 'BAD_REQUEST', message: 'tool, type, project and targetDir are required' };
@@ -327,6 +362,11 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         code: 'TOOL_NOT_SUPPORTED',
         message: `Offline bundle export is not yet supported for '${tool}'`,
       };
+    }
+    const ciErr = checkCi(exportModule, ci, tool, 'bundle');
+    if (ciErr) {
+      reply.status(ciErr.status);
+      return { success: false, code: ciErr.code, message: ciErr.message };
     }
     if (!exportModule.isSafeIdent(type) || !exportModule.isSafeIdent(project)) {
       reply.status(400);
@@ -369,6 +409,7 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         targetDir,
         withEnv: withEnv === true,
         zip: zip === true,
+        ...(typeof ci === 'string' ? { ci } : {}),
         onStage,
       }),
     );
