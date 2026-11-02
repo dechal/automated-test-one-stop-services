@@ -12,17 +12,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@fastify/autoload": "^6.5.0",
-    "@fastify/cors": "^11.3.0",
-    "@fastify/static": "^10.1.5",
-    "@fastify/websocket": "^11.3.1",
+    "@fastify/autoload": "^6.5.1",
+    "@fastify/cors": "^11.3.1",
+    "@fastify/static": "^10.1.8",
+    "@fastify/websocket": "^11.3.6",
     "@hub/shared": "workspace:*",
     "archiver": "^8.0.0",
     "exceljs": "4.4.0",
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.7",
     "fastify-type-provider-zod": "7.0.0",
-    "koffi": "3.3.2",
-    "nanoid": "^6.0.1",
+    "koffi": "3.3.6",
+    "nanoid": "^6.0.2",
     "node-cron": "^4.6.0",
     "playwright": "catalog:",
     "tsx": "^4.23.15",
@@ -32,7 +32,7 @@
     "@types/archiver": "^8.0.0",
     "@types/node": "catalog:",
     "@types/node-cron": "^3.0.11",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

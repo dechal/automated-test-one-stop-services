@@ -245,7 +245,7 @@ describe('DoctorPanel rendering', () => {
     // Collapsed by default: the always-visible summary badge shows, but the card
     // contents are hidden. Mantine 9.4 keeps Collapse children MOUNTED (hidden),
     // so assert visibility, not DOM presence.
-    expect(screen.getByText('2/2 OK')).toBeVisible();
+    expect(screen.getByText('Required 2/2 OK')).toBeVisible();
     expect(screen.getByText('srv-1.0.0')).not.toBeVisible();
     expect(screen.getByText('Required')).not.toBeVisible();
 

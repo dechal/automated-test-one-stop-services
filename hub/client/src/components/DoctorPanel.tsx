@@ -126,8 +126,6 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
   // With issues present the panel opens itself; healthy checks stay folded so the
   // problems are the content, not a needle in 11 green cards.
   const [showHealthy, setShowHealthy] = useState(false);
-  const okCount = doctor?.checks.filter((c) => c.ok).length ?? 0;
-
   // `optional-process` is Docker / InfluxDB / Grafana — infrastructure a basic
   // user never starts and cannot act on, so a stopped one reads as a broken Hub
   // rather than an unused extra. Advanced mode owns that surface.
@@ -135,6 +133,8 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
   const visibleCategories = advancedMode
     ? CATEGORIES
     : CATEGORIES.filter((c) => c.key !== 'optional-process');
+  const visibleKeys = new Set(visibleCategories.map((c) => c.key));
+  const okCount = doctor?.checks.filter((c) => c.ok && visibleKeys.has(c.category)).length ?? 0;
 
   const provision = useProvisionTool();
   // Derive per-tool provisioning UI state from the single in-flight mutation:
@@ -204,7 +204,7 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
                 size="sm"
                 leftSection={<TbCircleCheck size={12} />}
               >
-                {badge.text}
+                {`${t('doctor.catRequired')} ${badge.text}`}
               </Badge>
             ) : (
               <Badge color="red" variant="filled" size="sm" leftSection={<TbCircleX size={12} />}>

@@ -13,9 +13,9 @@
   },
   "devDependencies": {
     "@google-cloud/local-auth": "^3.0.1",
-    "@googleapis/sheets": "^18.1.1",
+    "@googleapis/sheets": "^18.1.2",
     "@types/node": "catalog:",
-    "google-auth-library": "^11.1.0",
+    "google-auth-library": "^11.3.2",
     "typescript": "catalog:"
   }
 }

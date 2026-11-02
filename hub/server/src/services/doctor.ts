@@ -114,10 +114,19 @@ async function runCheck(def: CheckDef): Promise<DoctorCheck> {
 }
 
 /** Compose-service availability probe with a friendly hint per service. */
-async function checkComposeService(
+export async function checkComposeService(
   name: 'influxdb' | 'grafana',
   port: number,
+  dockerUp: boolean,
 ): Promise<DoctorCheck> {
+  if (!dockerUp) {
+    return {
+      name,
+      ok: false,
+      hint: `Needs Docker — start Docker first, then start ${name} from the Docker Services page`,
+      category: 'optional-process',
+    };
+  }
   const status = await getComposeServiceStatus(name);
   if (status === 'running') {
     return {
@@ -130,7 +139,7 @@ async function checkComposeService(
   return {
     name,
     ok: false,
-    hint: `Start ${name}: docker compose up ${name} -d`,
+    hint: `Start ${name} from the Docker Services page, or: docker compose up ${name} -d`,
     category: 'optional-process',
   };
 }
@@ -141,8 +150,7 @@ export function dockerStartHint(platform: NodeJS.Platform = process.platform): s
     : 'Start the Docker daemon: sudo systemctl start docker';
 }
 
-async function checkDockerDaemon(): Promise<DoctorCheck> {
-  const ok = await isDockerRunning();
+function dockerDaemonCheck(ok: boolean): DoctorCheck {
   return ok
     ? { name: 'docker-running', ok: true, version: 'daemon active', category: 'optional-process' }
     : {
@@ -499,15 +507,19 @@ export async function runDoctor(): Promise<DoctorReport> {
   const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
   const pythonPresent = tools.some((t) => t.packageManager === 'uv');
   const hasSharedServices = tools.some((t) => t.compose?.services !== undefined);
+  const dockerUp = isDockerRunning();
 
   const checks = await Promise.all([
     ...CHECKS.map(runCheck),
     checkToolRequirements(tools),
     checkPython(pythonPresent),
     Promise.resolve(checkPlaywrightBrowsers(playwrightPresent)),
-    checkDockerDaemon(),
+    dockerUp.then(dockerDaemonCheck),
     ...(hasSharedServices
-      ? [checkComposeService('influxdb', 8086), checkComposeService('grafana', 3000)]
+      ? [
+          dockerUp.then((up) => checkComposeService('influxdb', 8086, up)),
+          dockerUp.then((up) => checkComposeService('grafana', 3000, up)),
+        ]
       : []),
   ]);
 

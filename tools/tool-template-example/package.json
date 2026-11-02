@@ -6,6 +6,13 @@
   "type": "module",
   "description": "My Tool — portable tool plugin template",
   "scripts": {
+    "updater": "pnpm up -i -L -r",
+    "audit:fix": "pnpm audit --fix=update",
+    "fix": "biome check --write .",
+    "lint": "biome lint .",
+    "md:check": "markdownlint-cli2 \"**/*.md\"",
+    "md:fix": "markdownlint-cli2 --fix \"**/*.md\"",
+    "prepare": "lefthook install",
     "test": "echo \"TODO: add test command\""
   },
   "dependencies": {},
