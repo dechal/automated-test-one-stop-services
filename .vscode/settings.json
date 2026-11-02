@@ -246,6 +246,7 @@
   "search.followSymlinks": false,
 
   "python.locator": "js",
+  "robotcode.python": "${workspaceFolder}/tools/robot-framework/.venv/Scripts/python.exe",
 
   "telemetry.telemetryLevel": "off",
   "workbench.activityBar.location": "top",
