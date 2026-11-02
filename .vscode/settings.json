@@ -25,7 +25,16 @@
     "**/.cache": true,
     "**/.setup-state.json": true,
     "**/.pnpm-store": true,
-    "**/.agents": true
+    "**/.agents": true,
+    "**/.github": true,
+    "**/.kiroignore": true,
+    "**/.gitattributes": true,
+    "**/.dockerignore": true,
+    "**/.editorconfig": true,
+    "**/.markdownlint-cli2": true,
+    "**/LICENSE": true,
+    "**/NOTICE": true,
+
   },
   "search.exclude": {
     "**/.git/**": true,
@@ -382,4 +391,12 @@
   "kiroAgent.agentIgnoreFiles": [".kiroignore"],
   "stringManipulation.telemetry": false,
   "python.terminal.useEnvFile": true,
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, biome.json",
+    "pyproject.toml": "uv.lock, .python-version",
+    "Taskfile.yml": "Taskfile.tools.yml, docker-compose.yml",
+    "lefthook.yml": ".markdownlint-cli2.jsonc, .gitignore, .gitattributes, .editorconfig",
+  }
 }
