@@ -108,7 +108,7 @@ const requestArb: fc.Arbitrary<RunRequest> = fc.record({
 /** Latest fake child created by the mocked spawn. */
 function latestChild() {
   const result = hoisted.spawnMock.mock.results.at(-1);
-  if (!result || result.type !== 'return') throw new Error('spawn was not called');
+  if (result?.type !== 'return') throw new Error('spawn was not called');
   return result.value as {
     stdout: { emit: (e: string, ...a: unknown[]) => boolean };
     stderr: { emit: (e: string, ...a: unknown[]) => boolean };

@@ -89,7 +89,7 @@ export async function bookmarkRoutes(app: FastifyInstance): Promise<void> {
 
       return bookmarks.map((bm): BookmarkWithStatus => {
         const result = byKey.get(groupKey(bm.config));
-        if (!result || !result.ok) return { ...bm, staleTags: [], scanFailed: true };
+        if (!result?.ok) return { ...bm, staleTags: [], scanFailed: true };
         return {
           ...bm,
           staleTags: computeStaleTags(bm.config.tool, bm.config.tag, result.tags),
