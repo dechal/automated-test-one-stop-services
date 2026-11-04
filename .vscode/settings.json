@@ -394,9 +394,6 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, biome.json",
-    "pyproject.toml": "uv.lock, .python-version",
-    "Taskfile.yml": "Taskfile.tools.yml, docker-compose.yml",
-    "lefthook.yml": ".markdownlint-cli2.jsonc, .gitignore, .gitattributes, .editorconfig",
+    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, biome.json, uv.lock, .python-version, Taskfile.tools.yml, docker-compose.yml, .markdownlint-cli2.jsonc, .gitignore, .gitattributes, .editorconfig, lefthook.yml, pyproject.toml, Taskfile.yml",
   }
 }
