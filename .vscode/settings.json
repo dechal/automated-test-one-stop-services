@@ -34,7 +34,8 @@
     "**/.markdownlint-cli2": true,
     "**/LICENSE": true,
     "**/NOTICE": true,
-
+    "**/scripts": true,
+    "**/hub": true,
   },
   "search.exclude": {
     "**/.git/**": true,
@@ -62,8 +63,8 @@
     "**/*.sqlite": true,
     "**/libs": true,
     "**/schedulers": true,
-    "**/.venv": true,
-    "**/node_modules": true,
+    "**/.venv/**": true,
+    "**/node_modules/**": true,
     "**/selectorshub": true,
     "**/.runtime": true
   },
