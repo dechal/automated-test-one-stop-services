@@ -255,9 +255,6 @@
   "robotcode.debug.outputLog": false,
   "search.followSymlinks": false,
 
-  "python.locator": "js",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
-
   "telemetry.telemetryLevel": "off",
   "workbench.activityBar.location": "top",
   "workbench.startupEditor": "none",
@@ -391,7 +388,7 @@
   },
   "kiroAgent.agentIgnoreFiles": [".kiroignore"],
   "stringManipulation.telemetry": false,
-  "python.terminal.useEnvFile": true,
+  "basedpyright.analysis.diagnosticMode": "workspace",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {

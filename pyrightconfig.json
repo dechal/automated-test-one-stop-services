@@ -1,0 +1,24 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "warning",
+  "reportUnnecessaryTypeIgnoreComment": true,
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "**/generated",
+    "**/outputs",
+    "**/results",
+    "**/reports",
+    "**/logs",
+    "**/dist",
+    "**/.git",
+    "**/.kiro",
+    "tools"
+  ]
+}
