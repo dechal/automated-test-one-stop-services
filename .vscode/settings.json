@@ -325,7 +325,12 @@
   "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
   "js/ts.validate.enabled": true,
   "js/ts.autoClosingTags.enabled": false,
-
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+  "js/ts.preferences.includePackageJsonAutoImports": "off",
+  "js/ts.implicitProjectConfig.target": "ESNext",
+  "js/ts.tsc.autoDetect": "off",
+  "js/ts.suggest.paths": true,
+  "js/ts.format.enabled": false,
   "telemetry.feedback.enabled": false,
   "telemetry.editStats.enabled": false,
   "redhat.telemetry.enabled": false,
@@ -389,6 +394,9 @@
   "kiroAgent.agentIgnoreFiles": [".kiroignore"],
   "stringManipulation.telemetry": false,
   "basedpyright.analysis.diagnosticMode": "workspace",
+  "python.defaultInterpreterPath": "c:/Users/dechal/works/automated-test-one-stop-service/.venv/Scripts/python.exe",
+  "python.languageServer": "None",
+  "python.locator": "js",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {

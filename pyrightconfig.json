@@ -2,11 +2,15 @@
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.14",
-  "typeCheckingMode": "basic",
+  "typeCheckingMode": "standard",
   "useLibraryCodeForTypes": true,
   "reportMissingImports": "warning",
   "reportMissingModuleSource": "warning",
-  "reportUnnecessaryTypeIgnoreComment": true,
+  "reportAttributeAccessIssue": "error",
+  "reportUnnecessaryTypeIgnoreComment": "warning",
+  "reportUnnecessaryComparison": "warning",
+  "reportCallIssue": "error",
+  "reportArgumentType": "error",
   "exclude": [
     "**/node_modules",
     "**/__pycache__",
@@ -19,6 +23,25 @@
     "**/dist",
     "**/.git",
     "**/.kiro",
-    "tools"
+    "**/.cache"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "tools/pywinauto",
+      "extraPaths": [
+        "tools/pywinauto/resources",
+        "tools/pywinauto/.venv/Lib/site-packages"
+      ]
+    },
+    {
+      "root": "tools/robot-framework",
+      "extraPaths": [
+        "tools/robot-framework/resources",
+        "tools/robot-framework/.venv/Lib/site-packages"
+      ]
+    },
+    {
+      "root": "."
+    }
   ]
 }

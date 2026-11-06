@@ -1,25 +1,24 @@
 {
   "recommendations": [
+    "detachhead.basedpyright",
     "biomejs.biome",
+    "exodiusstudios.comment-anchors",
     "ms-azuretools.vscode-containers",
+    "janisdd.vscode-edit-csv",
     "editorconfig.editorconfig",
     "irongeek.vscode-env",
     "usernamehw.errorlens",
     "tamasfe.even-better-toml",
     "davidanson.vscode-markdownlint",
+    "tejasvi.markless",
     "pkief.material-icon-theme",
     "techer.open-in-browser",
-    "christian-kohler.path-intellisense",
-    "ms-playwright.playwright",
     "yoavbls.pretty-ts-errors",
     // "d-biehl.robotcode",
-    "detachhead.basedpyright",
     "charliermarsh.ruff",
     "marclipovsky.string-manipulation",
-    "wayou.vscode-todo-highlight",
-    "astral-sh.ty",
     "task.vscode-task",
     "redhat.vscode-yaml",
-    "repreng.csv"
+    "ms-python.python"
   ]
 }
