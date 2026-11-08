@@ -56,10 +56,13 @@ hub/server/data/
 # Optional overlays — separate private repos cloned at these paths on a dev
 # machine. The workspace never depends on them, so they are ignored wholesale
 # here; each is cloned and managed as its own git repo:
-#   git clone <url> .kiro   &&   git clone <url> brain
+#   git clone <url> .kiro   &&   git clone <url> .claude   &&   git clone <url> brain
 # =============================================================================
 .kiro/
+.claude/
 brain/
+# Claude Code project MCP config — generated from .claude/mcp.json by the .claude installer
+/.mcp.json
 .agents/
 
 # =============================================================================
