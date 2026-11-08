@@ -36,6 +36,7 @@
     "**/NOTICE": true,
     "**/scripts": true,
     "**/hub": true,
+    "**/setup-state.json": true,
   },
   "search.exclude": {
     "**/.git/**": true,
