@@ -1,5 +1,8 @@
 import type { RunSummary } from '@hub/shared';
-import { Badge, type MantineSize, Tooltip } from '@mantine/core';
+import { Box, Group, type MantineSize, Text, Tooltip } from '@mantine/core';
+
+const DOT_SIZE = 8;
+
 import { useT } from '~/i18n/index.js';
 import { runOutcome } from '~/utils/run-status.js';
 
@@ -15,16 +18,23 @@ export function RunStatusBadge({ status, summary, size = 'sm' }: RunStatusBadgeP
   const label = t(outcome.labelKey);
   return (
     <Tooltip label={label} withArrow>
-      <Badge
-        color={outcome.color}
-        variant={outcome.emphasise ? 'filled' : 'light'}
-        size={size}
-        leftSection={outcome.icon}
-        style={{ flexShrink: 0 }}
-        styles={{ label: { overflow: 'visible' } }}
-      >
-        {label}
-      </Badge>
+      <Group gap={8} wrap="nowrap" style={{ flexShrink: 0 }}>
+        <Box
+          w={DOT_SIZE}
+          h={DOT_SIZE}
+          bg={`${outcome.color}.6`}
+          style={{ borderRadius: '50%', flexShrink: 0 }}
+          aria-hidden
+        />
+        <Text
+          size={size}
+          fw={outcome.emphasise ? 600 : 500}
+          c={outcome.emphasise ? `${outcome.color}.4` : undefined}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {label}
+        </Text>
+      </Group>
     </Tooltip>
   );
 }

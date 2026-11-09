@@ -2,15 +2,14 @@ import type { Bookmark, BookmarkWithStatus, RunRequest } from '@hub/shared';
 import {
   ActionIcon,
   Badge,
-  Box,
   Button,
   Collapse,
   Group,
   Loader,
+  Menu,
   Modal,
   Paper,
   ScrollArea,
-  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -26,8 +25,10 @@ import {
   TbChevronRight,
   TbCloudOff,
   TbDeviceFloppy,
+  TbDots,
   TbEraser,
   TbPencil,
+  TbPlayerPlay,
   TbSearch,
   TbTrash,
   TbX,
@@ -40,6 +41,7 @@ import { toast } from '~/components/Toast.js';
 import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
+import { parseTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
 export interface SaveBookmarkPayload {
@@ -65,25 +67,23 @@ export function useSaveBookmark() {
   });
 }
 
-/** Stable-ish accent per tool so Playwright/Robot/k6 groups are tellable at a glance. */
-const TOOL_COLORS = ['blue', 'grape', 'teal', 'orange', 'cyan', 'pink', 'indigo'] as const;
-function toolColor(toolId: string): string {
-  let h = 0;
-  for (let i = 0; i < toolId.length; i++) h = (h * 31 + toolId.charCodeAt(i)) | 0;
-  return TOOL_COLORS[Math.abs(h) % TOOL_COLORS.length] as string;
-}
+const MODAL_WIDTH = 800;
+const NAME_COL = 200;
+const META_COL = 150;
+const ROW_HEIGHT = 40;
 
-/** The bits that vary within a tool/type/project group — shown on each row. */
-function leafDigest(c: RunRequest): string {
+/** Run options that vary within a group, shown in the meta column. */
+function runMeta(c: RunRequest): string {
   const parts: string[] = [c.mode];
-  if (c.tag) parts.push(c.tag);
-  if (c.section) parts.push(c.section);
-  if (c.performanceType) parts.push(c.performanceType);
   if (c.headless) parts.push(c.headless);
   if (c.silent) parts.push('silent');
   if (c.discardReport) parts.push('no report');
   if (c.noTrack) parts.push('no-track');
   return parts.filter(Boolean).join(' · ');
+}
+
+function bare(tag: string): string {
+  return tag.replace(/^@/, '');
 }
 
 /** Newest first. `createdAt` is an ISO timestamp, so a lexical compare is chronological. */
@@ -117,6 +117,7 @@ function groupBookmarks(
   list: BookmarkWithStatus[],
   query: string,
   tools: ReturnType<typeof useTools>['data'],
+  currentKey: string,
 ): {
   groups: TreeGroup[];
 } {
@@ -133,6 +134,7 @@ function groupBookmarks(
   const list2 = tools ?? [];
   const groups = [...map.values()].sort(
     (a, b) =>
+      Number(b.key === currentKey) - Number(a.key === currentKey) ||
       toolLabel(a.tool, list2).localeCompare(toolLabel(b.tool, list2)) ||
       a.type.localeCompare(b.type) ||
       a.project.localeCompare(b.project),
@@ -162,6 +164,7 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
   const [opened, setOpened] = useState(false);
   const [q, setQ] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentKey, setCurrentKey] = useState('');
 
   const bookmarks = useQuery({
     ...qBookmarks(),
@@ -185,8 +188,8 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
   const list = bookmarks.data ?? [];
 
   const { groups } = useMemo(
-    () => groupBookmarks(list, q.trim().toLowerCase(), tools),
-    [list, q, tools],
+    () => groupBookmarks(list, q.trim().toLowerCase(), tools, currentKey),
+    [list, q, tools, currentKey],
   );
 
   // A live search re-expands everything: a collapsed group whose child matched
@@ -199,12 +202,37 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
     setQ('');
     setAll([]);
     setEditingId(null);
+    const live = getConfig();
+    setCurrentKey(live.project ? `${live.tool}|${live.type}|${live.project}` : '');
     setOpened(true);
   }
 
   function load(config: RunRequest) {
     onLoad(config);
     setOpened(false);
+  }
+
+  const replaceMutation = useMutation({
+    mutationFn: (body: { id: string; name: string; config: RunRequest }) =>
+      api.put(`/api/bookmarks/${body.id}`, { name: body.name, config: body.config }),
+    onSuccess: () => {
+      toast.success(t('bookmark.updated'));
+      queryClient.invalidateQueries({ queryKey: [queryRoots.bookmarks] });
+    },
+  });
+
+  async function handleReplace(bm: Bookmark) {
+    const live = getConfig();
+    if (!live.project) {
+      toast.error(t('bookmark.noFormConfig'));
+      return;
+    }
+    const ok = await confirmDialog({
+      title: t('bookmark.replaceConfirmTitle'),
+      message: t('bookmark.replaceConfirm'),
+      confirmLabel: t('common.save'),
+    });
+    if (ok) replaceMutation.mutate({ id: bm.id, name: bm.name, config: live });
   }
 
   async function handleDelete(id: string) {
@@ -242,15 +270,15 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
         opened={opened}
         onClose={() => setOpened(false)}
         title={
-          <Group gap={8}>
-            <TbBookmark size={18} />
-            <Text fw={600}>{t('bookmark.load')}</Text>
-            <Badge size="sm" variant="light" circle>
-              {list.length}
-            </Badge>
+          <Group gap={12}>
+            <TbBookmark size={18} color="var(--mantine-color-dimmed)" />
+            <Text fw={500}>{t('bookmark.load')}</Text>
+            <Text size="xs" c="dimmed" ff="monospace">
+              {t('bookmark.savedCount').replace('{count}', String(list.length))}
+            </Text>
           </Group>
         }
-        size="lg"
+        size={MODAL_WIDTH}
         centered
         scrollAreaComponent={ScrollArea.Autosize}
       >
@@ -292,9 +320,9 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
           )}
 
           {groups.length > 0 && (
-            <Stack gap="xs">
+            <Stack gap="md">
               {groups.map((g) => (
-                <Paper key={g.key} withBorder radius="md" p="xs">
+                <div key={g.key}>
                   <UnstyledButton
                     onClick={() => toggleGroup(g.key)}
                     aria-expanded={!isCollapsed(g.key)}
@@ -304,10 +332,11 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                       gap: 8,
                       width: '100%',
                       minWidth: 0,
+                      padding: '4px 4px 8px',
                     }}
                   >
                     <TbChevronRight
-                      size={15}
+                      size={12}
                       style={{
                         transform: isCollapsed(g.key) ? 'none' : 'rotate(90deg)',
                         transition: 'transform 150ms ease',
@@ -315,23 +344,23 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                         flexShrink: 0,
                       }}
                     />
-                    <Badge
-                      size="sm"
-                      variant="dot"
-                      color={toolColor(g.tool)}
-                      style={{ flexShrink: 0 }}
-                    >
-                      {toolLabel(g.tool, tools)}
-                    </Badge>
-                    <Text size="sm" fw={500} truncate style={{ flex: 1, textAlign: 'left' }}>
-                      {g.type} · {g.project}
+                    <Text size="sm" fw={500} truncate>
+                      {g.project}
                     </Text>
-                    <Badge size="xs" variant="light" color="gray" circle style={{ flexShrink: 0 }}>
+                    <Text size="xs" c="dimmed" ff="monospace" style={{ flexShrink: 0 }}>
+                      {toolLabel(g.tool, tools)} · {g.type}
+                    </Text>
+                    {g.key === currentKey && (
+                      <Badge size="xs" variant="outline" radius="sm" style={{ flexShrink: 0 }}>
+                        {t('bookmark.thisProject')}
+                      </Badge>
+                    )}
+                    <Text size="xs" c="dimmed" ff="monospace" ml="auto" style={{ flexShrink: 0 }}>
                       {g.items.length}
-                    </Badge>
+                    </Text>
                   </UnstyledButton>
                   <Collapse expanded={!isCollapsed(g.key)}>
-                    <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="xs" pt="xs">
+                    <Stack gap={2}>
                       {g.items.map((bm) =>
                         editingId === bm.id ? (
                           <InlineEdit
@@ -341,24 +370,32 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                             onDone={() => setEditingId(null)}
                           />
                         ) : (
-                          <BookmarkChip
+                          <BookmarkRow
                             key={bm.id}
                             bookmark={bm}
                             onApply={() => load(bm.config)}
-                            onEdit={() => setEditingId(bm.id)}
+                            onRename={() => setEditingId(bm.id)}
+                            onReplace={() => handleReplace(bm)}
                             onDelete={() => handleDelete(bm.id)}
                             onMigrate={() => migrateMutation.mutate(bm.id)}
                             migrating={
-                              migrateMutation.isPending && migrateMutation.variables === bm.id
+                              (migrateMutation.isPending && migrateMutation.variables === bm.id) ||
+                              (replaceMutation.isPending && replaceMutation.variables?.id === bm.id)
                             }
                           />
                         ),
                       )}
-                    </SimpleGrid>
+                    </Stack>
                   </Collapse>
-                </Paper>
+                </div>
               ))}
             </Stack>
+          )}
+
+          {list.length > 0 && (
+            <Text size="xs" c="dimmed" ff="monospace">
+              {t('bookmark.rowHint')}
+            </Text>
           )}
         </Stack>
       </Modal>
@@ -371,94 +408,118 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
  * hover reveals rename/delete. Kept as a bordered pill so a group can lay them
  * out side by side and still read cleanly.
  */
-function BookmarkChip({
+function BookmarkRow({
   bookmark,
   onApply,
-  onEdit,
+  onRename,
+  onReplace,
   onDelete,
   onMigrate,
   migrating,
 }: {
   bookmark: BookmarkWithStatus;
   onApply: () => void;
-  onEdit: () => void;
+  onRename: () => void;
+  onReplace: () => void;
   onDelete: () => void;
   onMigrate: () => void;
   migrating: boolean;
 }) {
   const t = useT();
-  const digest = leafDigest(bookmark.config);
+  const c = bookmark.config;
   const hasStale = bookmark.staleTags.length > 0 && !bookmark.scanFailed;
+  const { include, exclude } = parseTagQuery(c.tool, c.tag);
+  const scope = [...include.map(bare), c.section, c.performanceType].filter(Boolean).join(', ');
+  const meta = runMeta(c);
   return (
-    <Paper withBorder radius="sm" px={8} py={6} h="100%">
-      <Group gap={4} wrap="nowrap" h="100%" align="flex-start">
-        <Tooltip label={digest || t('bookmark.apply')} withArrow openDelay={400} multiline>
-          <UnstyledButton onClick={onApply} style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
-            <Box>
-              <Text size="xs" fw={600} truncate>
-                {bookmark.name}
-              </Text>
-              {digest && (
-                <Text size="xs" c="dimmed" lineClamp={2}>
-                  {digest}
-                </Text>
-              )}
-            </Box>
-          </UnstyledButton>
-        </Tooltip>
-        <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
+    <Group gap={4} wrap="nowrap" className="bm-row">
+      <UnstyledButton
+        onClick={onApply}
+        aria-label={`${t('bookmark.apply')} · ${bookmark.name}`}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'grid',
+          gridTemplateColumns: `${NAME_COL}px minmax(0, 1fr) ${META_COL}px`,
+          alignItems: 'center',
+          gap: 12,
+          minHeight: ROW_HEIGHT,
+          paddingLeft: 12,
+        }}
+      >
+        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+          <Text size="sm" fw={500} truncate>
+            {bookmark.name}
+          </Text>
           {hasStale && (
-            <>
-              <Tooltip
-                label={`${t('bookmark.staleTooltip')} ${bookmark.staleTags.join(', ')}`}
-                withArrow
-                multiline
-              >
-                <Text component="span" c="yellow" style={{ display: 'inline-flex' }}>
-                  <TbAlertTriangle size={13} />
-                </Text>
-              </Tooltip>
-              <ActionIcon
-                variant="subtle"
-                color="yellow"
-                size="xs"
-                onClick={onMigrate}
-                loading={migrating}
-                disabled={migrating}
-                aria-label={t('bookmark.migrate')}
-              >
-                <TbEraser size={12} />
-              </ActionIcon>
-            </>
-          )}
-          {bookmark.scanFailed && (
-            <Tooltip label={t('bookmark.scanUnavailable')} withArrow multiline>
-              <Text component="span" c="dimmed" style={{ display: 'inline-flex' }}>
-                <TbCloudOff size={13} />
+            <Tooltip
+              label={`${t('bookmark.staleTooltip')} ${bookmark.staleTags.join(', ')}`}
+              withArrow
+              multiline
+            >
+              <Text component="span" c="yellow.5" style={{ display: 'inline-flex', flexShrink: 0 }}>
+                <TbAlertTriangle size={14} />
               </Text>
             </Tooltip>
           )}
+          {bookmark.scanFailed && (
+            <Tooltip label={t('bookmark.scanUnavailable')} withArrow multiline>
+              <Text component="span" c="dimmed" style={{ display: 'inline-flex', flexShrink: 0 }}>
+                <TbCloudOff size={14} />
+              </Text>
+            </Tooltip>
+          )}
+        </Group>
+        <Text size="xs" c="dimmed" truncate>
+          {scope || (exclude.length === 0 ? t('reports.allTests') : '')}
+          {exclude.length > 0 && (
+            <>
+              {scope ? ' · ' : ''}
+              {t('bookmark.not')}{' '}
+              <Text span inherit c="red.4" td="line-through">
+                {exclude.map(bare).join(', ')}
+              </Text>
+            </>
+          )}
+        </Text>
+        <Text size="xs" c="dimmed" ff="monospace" truncate>
+          {meta}
+        </Text>
+      </UnstyledButton>
+      <Menu position="bottom-end" withinPortal>
+        <Menu.Target>
           <ActionIcon
             variant="subtle"
             color="gray"
-            size="xs"
-            onClick={onEdit}
-            aria-label={t('bookmark.edit')}
+            size="md"
+            loading={migrating}
+            aria-label={`${t('bookmark.moreActions')} · ${bookmark.name}`}
           >
-            <TbPencil size={12} />
+            <TbDots size={16} />
           </ActionIcon>
-          <ActionIcon
-            variant="subtle"
-            color="red"
-            size="xs"
-            onClick={onDelete}
-            aria-label={t('bookmark.delete')}
-          >
-            <TbTrash size={12} />
-          </ActionIcon>
-        </Group>
-      </Group>
-    </Paper>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item leftSection={<TbPlayerPlay size={14} />} onClick={onApply}>
+            {t('bookmark.apply')}
+          </Menu.Item>
+          <Menu.Item leftSection={<TbDeviceFloppy size={14} />} onClick={onReplace}>
+            {t('bookmark.syncFromForm')}
+          </Menu.Item>
+          <Menu.Item leftSection={<TbPencil size={14} />} onClick={onRename}>
+            {t('bookmark.rename')}
+          </Menu.Item>
+          {hasStale && (
+            <Menu.Item leftSection={<TbEraser size={14} />} onClick={onMigrate}>
+              {t('bookmark.migrate')}
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          <Menu.Item color="red" leftSection={<TbTrash size={14} />} onClick={onDelete}>
+            {t('bookmark.delete')}
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
+    </Group>
   );
 }
 

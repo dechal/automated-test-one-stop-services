@@ -299,7 +299,7 @@ export function DockerServicesBody() {
           for mobile testing (host emulator + host appium); Docker can't run an
           Android emulator on Windows. */}
       <div>
-        <Text size="sm" fw={700} c="dimmed" tt="uppercase" mb="xs">
+        <Text size="sm" fw={700} c="dimmed" mb="xs">
           {t('docker.localServices')}
         </Text>
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">

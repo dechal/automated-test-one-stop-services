@@ -1,6 +1,6 @@
 import type { RunSummary, SeverityBreakdown } from '@hub/shared';
 import { SEVERITY_LEVELS, weightedPassPercent } from '@hub/shared';
-import { Group, RingProgress, Text, Tooltip } from '@mantine/core';
+import { Group, Progress, Text, Tooltip } from '@mantine/core';
 import { useT } from '~/i18n/index.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
 import { formatPneBreakdown } from '~/utils/run-status.js';
@@ -11,8 +11,8 @@ import { formatPneBreakdown } from '~/utils/run-status.js';
  * and row height — which the tables' scroll maths depend on — is unchanged.
  * Mantine clamps thickness at size/4.
  */
-const RING_SIZE = 18;
-const RING_THICKNESS = 3;
+const BAR_WIDTH = 44;
+const BAR_HEIGHT = 4;
 
 /**
  * Severity-weighted pass score cell, shared by the History and Reports tables.
@@ -28,9 +28,11 @@ const RING_THICKNESS = 3;
 export function PassScoreCell({
   summary,
   severity,
+  showCount = true,
 }: {
   summary?: RunSummary;
   severity?: SeverityBreakdown;
+  showCount?: boolean;
 }) {
   const t = useT();
 
@@ -99,22 +101,20 @@ export function PassScoreCell({
       }
       withArrow
     >
-      <Group gap={6} wrap="nowrap">
+      <Group gap={8} wrap="nowrap">
         {pct !== null && (
-          <RingProgress
-            size={RING_SIZE}
-            thickness={RING_THICKNESS}
-            sections={[{ value: pct, color }]}
-            aria-hidden
-          />
+          <Progress.Root w={BAR_WIDTH} size={BAR_HEIGHT} aria-hidden>
+            <Progress.Section value={pct} color="green.7" />
+            <Progress.Section value={100 - pct} color="red.8" />
+          </Progress.Root>
         )}
-        <Text size="xs" fw={600} c={color}>
+        <Text size="xs" fw={500} c={color === 'red' ? 'red.4' : undefined} ff="monospace">
           {display}
         </Text>
-        {summary && (
-          <Text size="xs" c="dimmed">
-            ({formatCompactNumber(summary.passed)}/
-            {formatCompactNumber(summary.passed + summary.failed + (summary.skipped ?? 0))})
+        {summary && showCount && (
+          <Text size="xs" c="dimmed" ff="monospace">
+            {formatCompactNumber(summary.passed)}/
+            {formatCompactNumber(summary.passed + summary.failed + (summary.skipped ?? 0))}
           </Text>
         )}
       </Group>

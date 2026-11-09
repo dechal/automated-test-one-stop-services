@@ -290,7 +290,7 @@ export function SchedulesPage() {
                 <Stack key={group.label || '__all'} gap="xs">
                   {group.label && (
                     <Group gap="xs">
-                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                      <Text size="xs" fw={700} c="dimmed">
                         {group.label}
                       </Text>
                       <Badge size="xs" variant="light" color="gray">

@@ -271,7 +271,7 @@ function CategorySection({
   const t = useT();
   return (
     <div>
-      <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>
+      <Text size="xs" fw={700} c="dimmed" mb={6}>
         {t(cat.titleKey)}
       </Text>
       <SimpleGrid cols={{ base: 2, md: 4 }} spacing="xs">

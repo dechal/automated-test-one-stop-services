@@ -45,7 +45,7 @@ export function K6TrendChart({ runs }: { runs: K6RunSummary[] }) {
   return (
     <Stack gap="lg">
       <div>
-        <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb={4}>
+        <Text size="xs" fw={600} c="dimmed" mb={4}>
           {t('perf.trendResponseTime')}
         </Text>
         <AreaChart
@@ -65,7 +65,7 @@ export function K6TrendChart({ runs }: { runs: K6RunSummary[] }) {
       </div>
       <Group grow align="flex-start">
         <div>
-          <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb={4}>
+          <Text size="xs" fw={600} c="dimmed" mb={4}>
             {t('perf.trendThroughput')}
           </Text>
           <LineChart
@@ -78,7 +78,7 @@ export function K6TrendChart({ runs }: { runs: K6RunSummary[] }) {
           />
         </div>
         <div>
-          <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb={4}>
+          <Text size="xs" fw={600} c="dimmed" mb={4}>
             {t('perf.trendError')}
           </Text>
           <LineChart

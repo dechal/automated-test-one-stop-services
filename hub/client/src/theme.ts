@@ -117,7 +117,7 @@ export const theme = createTheme({
     sizes: {
       // h1 is the page headline (`PageHeader`). 24px, not 28: confident enough
       // to anchor the page without shouting in an app this dense.
-      h1: { fontSize: rem(24), lineHeight: '1.3', fontWeight: '700' },
+      h1: { fontSize: rem(24), lineHeight: '1.3' },
       h2: { fontSize: rem(23), lineHeight: '1.35' },
       h3: { fontSize: rem(19), lineHeight: '1.4' },
       h4: { fontSize: rem(16), lineHeight: '1.45' },
@@ -130,6 +130,7 @@ export const theme = createTheme({
   components: {
     // Every tooltip gets an arrow so pointers to their target are unambiguous.
     Tooltip: { defaultProps: { withArrow: true } },
+    NavLink: { defaultProps: { variant: 'light' } },
     // Modals centre by default (FormModal already did; now every modal matches).
     Modal: { defaultProps: { centered: true } },
     // Links underline only on hover — cleaner reading, clear affordance.

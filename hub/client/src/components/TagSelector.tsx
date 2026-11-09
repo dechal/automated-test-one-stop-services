@@ -15,7 +15,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { type ReactNode, useMemo, useState } from 'react';
-import { TbCheck, TbChevronDown, TbChevronRight, TbSearch, TbTag, TbX } from 'react-icons/tb';
+import { TbChevronDown, TbChevronRight, TbListCheck, TbSearch, TbX } from 'react-icons/tb';
 import { GridSkeleton } from '~/components/Skeletons.js';
 import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useT } from '~/i18n/index.js';
@@ -75,16 +75,7 @@ function groupRank(kind: string): number {
   return index === -1 ? DISPLAY_KIND_ORDER.length : index;
 }
 
-const GROUP_COLORS: Record<string, string> = {
-  severity: 'red',
-  'test-type': 'grape',
-  'flow-type': 'orange',
-  device: 'cyan',
-  [LOOP_KIND]: 'violet',
-  domain: 'teal',
-  'domain-single': 'green',
-  'case-id': 'gray',
-};
+const GROUP_LABEL_WIDTH = 132;
 
 /**
  * Scroll wrapper for the category-group list.
@@ -166,8 +157,6 @@ export function TagSelector({
 
   const matchingCount = matchedTests.length;
   const isFiltered = selectedTags.length > 0 || excluded.length > 0;
-  const matchColor =
-    matchingCount === 0 ? 'red' : isFiltered && matchingCount < totalCount ? 'green' : 'blue';
 
   function stateOf(tag: string): TagState {
     if (selectedTags.includes(tag)) return 'include';
@@ -265,13 +254,13 @@ export function TagSelector({
   const matchPanel =
     totalCount === 0 ? null : (
       <Paper
-        withBorder
-        px="xs"
-        py={6}
+        withBorder={matchingCount === 0}
+        px="sm"
+        py={8}
+        bg="var(--mantine-color-default-hover)"
         style={{
           flexShrink: 0,
-          borderColor: `var(--mantine-color-${matchColor}-6)`,
-          backgroundColor: `var(--mantine-color-${matchColor}-light)`,
+          borderColor: matchingCount === 0 ? 'var(--mantine-color-red-6)' : undefined,
         }}
       >
         <Stack gap={4}>
@@ -310,8 +299,8 @@ export function TagSelector({
           )}
           <Group justify="space-between" wrap="nowrap">
             <Group gap={6} wrap="nowrap">
-              <TbCheck size={14} color={`var(--mantine-color-${matchColor}-7)`} />
-              <Text size="xs" fw={700} c={`${matchColor}.8`}>
+              <TbListCheck size={14} color="var(--mantine-color-dimmed)" />
+              <Text size="xs" fw={500} c={matchingCount === 0 ? 'red.4' : undefined}>
                 {matchingCount === 0
                   ? t('tagSelector.noMatch')
                   : isFiltered
@@ -369,45 +358,36 @@ export function TagSelector({
     <Stack gap="xs" style={fill ? { flex: 1, minHeight: 0 } : undefined}>
       {matchPanelAt === 'top' && matchPanel}
 
-      {/* ─── Header ─── */}
-      <Group justify="space-between" style={{ flexShrink: 0 }}>
-        <Group gap={6}>
-          <TbTag size={14} color="var(--mantine-color-dimmed)" />
-          <Text size="xs" fw={600} c="dimmed">
-            {t('tagSelector.tags')} ({tags.all.length})
-          </Text>
-        </Group>
-        {/* Always rendered, disabled when there is nothing to clear: appearing on
-            the first selection used to grow this row and shove every chip below
-            it, so the tag the user was aiming at moved out from under the mouse. */}
-        <Button
-          size="compact-xs"
-          variant="subtle"
-          color="red"
-          disabled={!isFiltered}
-          onClick={() => {
-            onChange([]);
-            onExcludeChange?.([]);
-          }}
-        >
-          {t('common.clearAll')}
-        </Button>
-      </Group>
-
       {/* ─── Search ─── */}
       <TextInput
         size="xs"
         value={search}
         onChange={(e) => setSearch(e.currentTarget.value)}
-        placeholder={t('tagSelector.searchPlaceholder')}
+        placeholder={`${t('tagSelector.searchPlaceholder')} (${tags.all.length})`}
+        aria-label={`${t('tagSelector.tags')} (${tags.all.length})`}
         leftSection={<TbSearch size={12} />}
         style={{ flexShrink: 0 }}
+        rightSectionWidth={search ? 28 : 84}
+        rightSectionPointerEvents="auto"
         rightSection={
           search ? (
-            <UnstyledButton onClick={() => setSearch('')}>
+            <UnstyledButton onClick={() => setSearch('')} aria-label={t('common.clear')}>
               <TbX size={12} />
             </UnstyledButton>
-          ) : null
+          ) : (
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              disabled={!isFiltered}
+              onClick={() => {
+                onChange([]);
+                onExcludeChange?.([]);
+              }}
+            >
+              {t('common.clearAll')}
+            </Button>
+          )
         }
       />
 
@@ -416,7 +396,6 @@ export function TagSelector({
       <GroupList fill={fill}>
         <Stack gap={0}>
           {filteredGroups.map((group) => {
-            const color = GROUP_COLORS[group.kind] ?? 'teal';
             const groupCollapsed = isCollapsed(group.kind);
             const selectedInGroup = group.tags.filter((tag) => selectedTags.includes(tag)).length;
             const excludedInGroup = group.tags.filter((tag) => excluded.includes(tag)).length;
@@ -424,17 +403,25 @@ export function TagSelector({
             return (
               <div
                 key={group.kind + group.label}
-                style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `${GROUP_LABEL_WIDTH}px minmax(0, 1fr)`,
+                  columnGap: 12,
+                  alignItems: 'start',
+                  padding: '8px 0',
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                }}
               >
                 {/* Group header */}
                 <UnstyledButton
                   onClick={() => toggleGroup(group.kind)}
+                  aria-expanded={!groupCollapsed}
                   style={{
-                    width: '100%',
-                    padding: '6px 12px',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: 4,
+                    paddingTop: 3,
                   }}
                 >
                   <Group gap={6} wrap="nowrap">
@@ -445,11 +432,11 @@ export function TagSelector({
                         transition: 'transform 150ms',
                       }}
                     />
-                    <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                    <Text size="xs" fw={500} c="dimmed">
                       {group.label}
                     </Text>
-                    <Text size="xs" c="dimmed" fw={400}>
-                      ({group.tags.length})
+                    <Text size="xs" c="dimmed" ff="monospace">
+                      {group.tags.length}
                     </Text>
                   </Group>
                   <Group gap={4} wrap="nowrap">
@@ -493,7 +480,7 @@ export function TagSelector({
 
                 {/* Group tags */}
                 <Collapse expanded={!groupCollapsed}>
-                  <Group gap={6} px="sm" pb="xs" wrap="wrap">
+                  <Group gap={6} wrap="wrap">
                     {group.tags.map((tag) => {
                       const state = stateOf(tag);
                       const detail = tags.details?.[tag];
@@ -524,11 +511,17 @@ export function TagSelector({
                           maw={420}
                         >
                           <Badge
-                            size="sm"
-                            variant={state === 'off' ? 'outline' : 'filled'}
-                            color={
-                              state === 'include' ? 'blue' : state === 'exclude' ? 'red' : color
+                            size="md"
+                            radius="sm"
+                            fw={400}
+                            variant={
+                              state === 'off'
+                                ? 'default'
+                                : state === 'include'
+                                  ? 'light'
+                                  : 'outline'
                             }
+                            color={state === 'exclude' ? 'red' : undefined}
                             style={{
                               cursor: 'pointer',
                               // Strike-through, not a prefix character: an excluded
@@ -555,10 +548,12 @@ export function TagSelector({
                               }
                             }}
                           >
-                            {tag}
-                            {detail && detail.count > 1 && group.kind !== 'case-id'
-                              ? ` (${detail.count})`
-                              : ''}
+                            {tag.replace(/^@/, '')}
+                            {detail && detail.count > 1 && group.kind !== 'case-id' && (
+                              <Text span ff="monospace" fz={10} c="dimmed" ml={6}>
+                                {detail.count}
+                              </Text>
+                            )}
                           </Badge>
                         </Tooltip>
                       );

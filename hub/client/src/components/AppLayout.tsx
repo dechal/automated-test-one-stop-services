@@ -170,7 +170,6 @@ export function AppLayout() {
           label={<Center>{item.icon}</Center>}
           active={active}
           onClick={() => navigateTo(item.path)}
-          variant="filled"
           px={0}
         />
       );
@@ -211,7 +210,6 @@ export function AppLayout() {
           leftSection={item.icon}
           active={active}
           onClick={() => navigateTo(item.path)}
-          variant="filled"
           rightSection={
             status ? (
               <Tooltip label={status.text} withArrow>

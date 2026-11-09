@@ -440,7 +440,7 @@ function ProjectTrendCard({
 function MetricSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb={6}>
+      <Text size="xs" fw={600} c="dimmed" mb={6}>
         {title}
       </Text>
       <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="xs">

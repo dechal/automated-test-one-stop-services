@@ -1,7 +1,8 @@
 import {
-  Badge,
+  Box,
   Button,
   CloseButton,
+  Grid,
   Group,
   Loader,
   Paper,
@@ -23,13 +24,14 @@ import { qDoctor, qProjects, qRunsHistory } from '~/api/queries.js';
 import { DoctorPanel } from '~/components/DoctorPanel.js';
 import { NeedsAttentionWidget } from '~/components/NeedsAttentionWidget.js';
 import { PageHeader } from '~/components/PageHeader.js';
+import { PassScoreCell } from '~/components/PassScoreCell.js';
+import { RunStatusBadge } from '~/components/RunStatusBadge.js';
 
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { useNavigationStore } from '~/stores/navigation.js';
 import { formatRelative } from '~/utils/datetime.js';
-import { runOutcome } from '~/utils/run-status.js';
 import { toolLabel } from '~/utils/tool-label.js';
 
 /**
@@ -47,6 +49,9 @@ const TopProjectsBars = lazy(() =>
 const RunHeatmap = lazy(() =>
   import('~/components/RunHeatmap.js').then((m) => ({ default: m.RunHeatmap })),
 );
+
+const RECENT_STATUS_WIDTH = 96;
+const RECENT_TIME_WIDTH = 88;
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -202,157 +207,172 @@ export function DashboardPage() {
               height of the scrolling run list and sat ~60% empty. Letting each
               card end where its content ends removes that dead space without
               taking anything off the page. */}
-          <SimpleGrid
-            cols={{ base: 1, md: 3 }}
-            spacing="md"
-            style={{ alignItems: 'start', height: '100%' }}
-          >
-            {/* Recent Runs */}
-            <Paper p="md" withBorder h="100%">
-              <Group justify="space-between" mb="sm">
-                <Title order={2} size="h5">
-                  {t('dashboard.recentRuns')}
-                </Title>
-                {recentRuns.length > 0 && (
-                  <Button size="compact-xs" variant="subtle" onClick={() => onNavigate('history')}>
-                    {t('dashboard.viewAll')}
-                  </Button>
-                )}
-              </Group>
-
-              {history.isLoading && (
-                <Group gap="xs">
-                  <Loader size="xs" />
-                  <Text c="dimmed" size="sm">
-                    {t('common.loading')}
-                  </Text>
+          <Grid gap="md" align="flex-start">
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              {/* Recent Runs */}
+              <Paper p="md" withBorder>
+                <Group justify="space-between" mb="sm">
+                  <Title order={2} size="h5">
+                    {t('dashboard.recentRuns')}
+                  </Title>
+                  {recentRuns.length > 0 && (
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      onClick={() => onNavigate('history')}
+                    >
+                      {t('dashboard.viewAll')}
+                    </Button>
+                  )}
                 </Group>
-              )}
-              {!history.isLoading && recentRuns.length === 0 && (
-                <Text size="sm" c="dimmed">
-                  {t('dashboard.noRuns')}
-                </Text>
-              )}
-              {recentRuns.length > 0 && (
-                <Text size="xs" c="dimmed" mb={6}>
-                  {t('dashboard.recentRunHint')}
-                </Text>
-              )}
-              {recentRuns.length > 0 && (
-                // Autosize + `mah`, not a fixed `h`: a fixed height padded the
-                // card out to 35vh even when the list was shorter, which is where
-                // the empty space under these cards came from. The cap still stops
-                // a long list from pushing the trend chart off-screen.
-                <ScrollArea.Autosize mah="35vh">
-                  <Stack gap={6}>
-                    {recentRuns.map((run) => (
-                      <Tooltip
-                        key={run.id}
-                        label={t('dashboard.runAgain')}
-                        position="left"
-                        withArrow
-                        openDelay={500}
-                      >
-                        <UnstyledButton
-                          onClick={() => rerun(run.request)}
-                          aria-label={`${t('dashboard.runAgain')} · ${run.request.project}`}
-                          data-run-row
-                          style={{
-                            display: 'block',
-                            borderRadius: 6,
-                            background: 'var(--mantine-color-default-hover)',
-                          }}
+
+                {history.isLoading && (
+                  <Group gap="xs">
+                    <Loader size="xs" />
+                    <Text c="dimmed" size="sm">
+                      {t('common.loading')}
+                    </Text>
+                  </Group>
+                )}
+                {!history.isLoading && recentRuns.length === 0 && (
+                  <Text size="sm" c="dimmed">
+                    {t('dashboard.noRuns')}
+                  </Text>
+                )}
+                {recentRuns.length > 0 && (
+                  <Text size="xs" c="dimmed" mb={6}>
+                    {t('dashboard.recentRunHint')}
+                  </Text>
+                )}
+                {recentRuns.length > 0 && (
+                  // Autosize + `mah`, not a fixed `h`: a fixed height padded the
+                  // card out to 35vh even when the list was shorter, which is where
+                  // the empty space under these cards came from. The cap still stops
+                  // a long list from pushing the trend chart off-screen.
+                  <ScrollArea.Autosize mah="35vh">
+                    <Stack gap={6}>
+                      {recentRuns.map((run) => (
+                        <Tooltip
+                          key={run.id}
+                          label={t('dashboard.runAgain')}
+                          position="left"
+                          withArrow
+                          openDelay={500}
                         >
-                          <Group justify="space-between" px="sm" py={6} wrap="nowrap">
-                            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                              {/* Tinted, not filled: eight solid red pills down a
+                          <UnstyledButton
+                            onClick={() => rerun(run.request)}
+                            aria-label={`${t('dashboard.runAgain')} · ${run.request.project}`}
+                            data-run-row
+                            style={{
+                              display: 'block',
+                              borderRadius: 6,
+                              background: 'var(--mantine-color-default-hover)',
+                            }}
+                          >
+                            <Group justify="space-between" px="sm" py={6} wrap="nowrap">
+                              <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                                {/* Tinted, not filled: eight solid red pills down a
                                   short list read as one alarming block rather
                                   than eight separate outcomes.
                                   Same `runOutcome` vocabulary as Reports and
                                   History — showing `FAILED` here while those
                                   pages said "tests failed" gave one app two names
                                   for one thing, which is worse than either. */}
-                              <Badge size="xs" color={runOutcome(run.status, run.summary).color}>
-                                {t(runOutcome(run.status, run.summary).labelKey)}
-                              </Badge>
-                              <Text size="xs" fw={500} truncate>
-                                {run.request.project}
-                              </Text>
-                              {/* Tool is context; it does not need a chip of its own. */}
-                              <Text size="xs" c="dimmed">
-                                {toolLabel(run.request.tool, toolsQuery.data ?? [])}
-                              </Text>
+                                <Box w={RECENT_STATUS_WIDTH} style={{ flexShrink: 0 }}>
+                                  <RunStatusBadge
+                                    status={run.status}
+                                    summary={run.summary}
+                                    size="xs"
+                                  />
+                                </Box>
+                                <Text size="xs" fw={500} truncate>
+                                  {run.request.project}
+                                </Text>
+                                {/* Tool is context; it does not need a chip of its own. */}
+                                <Text size="xs" c="dimmed">
+                                  {toolLabel(run.request.tool, toolsQuery.data ?? [])}
+                                </Text>
+                              </Group>
+                              <Group gap={16} wrap="nowrap" style={{ flexShrink: 0 }}>
+                                <PassScoreCell summary={run.summary} severity={run.severity} />
+                                <Text size="xs" c="dimmed" w={RECENT_TIME_WIDTH} ta="right">
+                                  {formatRelative(run.endedAt)}
+                                </Text>
+                                <TbPlayerPlay
+                                  size={14}
+                                  color="var(--mantine-color-dimmed)"
+                                  aria-hidden
+                                />
+                              </Group>
                             </Group>
-                            <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-                              <Text size="xs" c="dimmed">
-                                {formatRelative(run.endedAt)}
-                              </Text>
-                              <TbPlayerPlay
-                                size={14}
-                                color="var(--mantine-color-green-6)"
-                                aria-hidden
-                              />
-                            </Group>
+                          </UnstyledButton>
+                        </Tooltip>
+                      ))}
+                    </Stack>
+                  </ScrollArea.Autosize>
+                )}
+              </Paper>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Stack gap="md">
+                {/* Project overview */}
+                <Paper p="md" withBorder>
+                  <Group justify="space-between" mb="sm">
+                    <Title order={2} size="h5">
+                      {t('dashboard.projectsOverview')}
+                    </Title>
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      onClick={() => onNavigate('projects')}
+                    >
+                      {t('dashboard.manage')}
+                    </Button>
+                  </Group>
+                  {projects.isLoading && (
+                    <Group gap="xs">
+                      <Loader size="xs" />
+                      <Text c="dimmed" size="sm">
+                        {t('common.loading')}
+                      </Text>
+                    </Group>
+                  )}
+                  {projects.data && (
+                    // One number per tool used to get a tall centred card each, so
+                    // three values filled the whole column and still read as three
+                    // separate widgets. As rows they scan top-to-bottom in one pass
+                    // and sit at the same density as the run list beside them.
+                    <ScrollArea.Autosize mah="35vh">
+                      <Stack gap={2}>
+                        {enabledTools.map((tool) => (
+                          <Group
+                            key={tool.id}
+                            justify="space-between"
+                            wrap="nowrap"
+                            px="xs"
+                            py={6}
+                            style={{
+                              borderRadius: 6,
+                              background: 'var(--mantine-color-default-hover)',
+                            }}
+                          >
+                            <Text size="xs" truncate>
+                              {tool.title}
+                            </Text>
+                            <Text size="sm" fw={500} ff="monospace" style={{ flexShrink: 0 }}>
+                              {projects.data?.filter((p) => p.tool === tool.id).length ?? 0}
+                            </Text>
                           </Group>
-                        </UnstyledButton>
-                      </Tooltip>
-                    ))}
-                  </Stack>
-                </ScrollArea.Autosize>
-              )}
-            </Paper>
-            {/* Project overview */}
-            <Paper p="md" withBorder h="100%">
-              <Group justify="space-between" mb="sm">
-                <Title order={2} size="h5">
-                  {t('dashboard.projectsOverview')}
-                </Title>
-                <Button size="compact-xs" variant="subtle" onClick={() => onNavigate('projects')}>
-                  {t('dashboard.manage')}
-                </Button>
-              </Group>
-              {projects.isLoading && (
-                <Group gap="xs">
-                  <Loader size="xs" />
-                  <Text c="dimmed" size="sm">
-                    {t('common.loading')}
-                  </Text>
-                </Group>
-              )}
-              {projects.data && (
-                // One number per tool used to get a tall centred card each, so
-                // three values filled the whole column and still read as three
-                // separate widgets. As rows they scan top-to-bottom in one pass
-                // and sit at the same density as the run list beside them.
-                <ScrollArea.Autosize mah="35vh">
-                  <Stack gap={2}>
-                    {enabledTools.map((tool) => (
-                      <Group
-                        key={tool.id}
-                        justify="space-between"
-                        wrap="nowrap"
-                        px="xs"
-                        py={6}
-                        style={{
-                          borderRadius: 6,
-                          background: 'var(--mantine-color-default-hover)',
-                        }}
-                      >
-                        <Text size="xs" truncate>
-                          {tool.title}
-                        </Text>
-                        <Text size="sm" fw={700} style={{ flexShrink: 0 }}>
-                          {projects.data?.filter((p) => p.tool === tool.id).length ?? 0}
-                        </Text>
-                      </Group>
-                    ))}
-                  </Stack>
-                </ScrollArea.Autosize>
-              )}
-            </Paper>
-            {/* Needs Attention */}
-            <NeedsAttentionWidget onNavigate={onNavigate} />
-          </SimpleGrid>
+                        ))}
+                      </Stack>
+                    </ScrollArea.Autosize>
+                  )}
+                </Paper>
+                {/* Needs Attention */}
+                <NeedsAttentionWidget onNavigate={onNavigate} />
+              </Stack>
+            </Grid.Col>
+          </Grid>
 
           {/* Test Trend Chart */}
           <Paper p="md" withBorder>

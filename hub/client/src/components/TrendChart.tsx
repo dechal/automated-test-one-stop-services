@@ -1,5 +1,5 @@
 import type { RunRecord } from '@hub/shared';
-import { AreaChart } from '@mantine/charts';
+import { BarChart } from '@mantine/charts';
 import { Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -72,18 +72,22 @@ export function TrendChart() {
   }
 
   return (
-    <AreaChart
+    <BarChart
       h="28vh"
       data={data}
       dataKey="date"
       type="stacked"
       withLegend
-      withDots={false}
-      tickLine="x"
-      gridAxis="xy"
+      legendProps={{ verticalAlign: 'top', align: 'right' }}
+      tickLine="none"
+      gridAxis="y"
+      strokeDasharray="0"
+      maxBarWidth={24}
+      barProps={{ radius: 2 }}
+      textColor="dimmed"
       series={[
-        { name: 'passed', label: t('status.allPassed'), color: 'green.6' },
-        { name: 'failed', label: t('status.testsFailed'), color: 'red.6' },
+        { name: 'passed', label: t('status.allPassed'), color: 'green.8' },
+        { name: 'failed', label: t('status.testsFailed'), color: 'red.7' },
       ]}
     />
   );

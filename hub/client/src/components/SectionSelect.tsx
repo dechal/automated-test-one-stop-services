@@ -115,7 +115,7 @@ export function SectionSelect({
                 <UnstyledButton w="100%" px="sm" py={4} onClick={() => toggleGroup(g.name)}>
                   <Group gap={6} wrap="nowrap">
                     {collapsedGroup ? <TbChevronRight size={14} /> : <TbChevronDown size={14} />}
-                    <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                    <Text size="xs" fw={600} c="dimmed">
                       {g.name}
                     </Text>
                     <Text size="xs" c="dimmed">

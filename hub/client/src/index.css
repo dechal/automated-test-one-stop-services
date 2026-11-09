@@ -63,3 +63,12 @@
 [data-mantine-color-scheme='dark'] .mantine-Card-root {
   --paper-bg: var(--mantine-color-dark-6);
 }
+
+.bm-row {
+  border-radius: var(--mantine-radius-sm);
+  transition: background-color 150ms ease-out;
+}
+.bm-row:hover,
+.bm-row:focus-within {
+  background-color: var(--mantine-color-default-hover);
+}

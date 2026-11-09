@@ -59,7 +59,7 @@ export function ReportsFilterPanel({
     <Paper p="md" withBorder mah="40vh" style={{ flexShrink: 0, overflowY: 'auto' }}>
       <Stack gap="sm">
         <Group justify="space-between">
-          <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+          <Text size="xs" fw={600} c="dimmed">
             {t('reports.advancedSearch')}
           </Text>
           <Group gap="sm">

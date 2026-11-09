@@ -30,6 +30,7 @@ import { confirmDialog } from '~/components/confirmDialog.js';
 import { EnvDrawer } from '~/components/env-profiles/EnvDrawer.js';
 import { RunActionFooter } from '~/components/run-session/RunActionFooter.js';
 import { RunGatingAlerts } from '~/components/run-session/RunGatingAlerts.js';
+import { RunLastRun } from '~/components/run-session/RunLastRun.js';
 import { RunMoreOptions } from '~/components/run-session/RunMoreOptions.js';
 import { RunResultBar } from '~/components/run-session/RunResultBar.js';
 import { RunTargetFields } from '~/components/run-session/RunTargetFields.js';
@@ -57,10 +58,11 @@ import { recordingTerminal, useRunSessions, useSessionField } from '~/stores/nav
 import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
 import { mergeExtraArgs, parseRunArgs, SUPPORTS_RUN_FLAGS } from '~/utils/run-flags.js';
-import { buildTagQuery, parseTagQuery } from '~/utils/tag-selection.js';
+import { buildTagQuery, matchTests, parseTagQuery } from '~/utils/tag-selection.js';
 import { enabledTools, toolLabel } from '~/utils/tool-label.js';
 
 const TERMINAL_RESET = '\x1b[H\x1b[2J\x1b[3J';
+const DEFAULT_NAME_TAGS = 3;
 
 export interface SessionRef {
   cancel: () => void;
@@ -179,8 +181,6 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const activeRunIdRef = useRef<string | null>(activeRunId);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const moreOpen = prefs.runMoreOpen;
-  const toggleMore = () => prefs.setRunMoreOpen(!prefs.runMoreOpen);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [bookmarkName, setBookmarkName] = useState('');
   // Width while a drag is in flight; `null` means "use the saved percent". The
@@ -311,6 +311,10 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
 
   // Persist last-used type and project (for bookmark/reconnect convenience only)
   useEffect(() => {
+    if (tool) prefs.setLastTool(tool);
+  }, [tool]);
+
+  useEffect(() => {
     if (tool && type) prefs.setLastType(tool, type);
   }, [tool, type]);
 
@@ -385,6 +389,36 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   const envProfilesQ = useQuery(qEnvProfilesByProject(tool, effectiveType, project));
   const envDefaultQ = useQuery(qEnvDefault(tool, effectiveType, project));
   const envOptions = buildEnvOptions(envProfilesQ.data, t('run.envCurrent'));
+
+  const testCount = useMemo(() => {
+    const tests = tags.data?.tests;
+    if (!supportsTags || !tests || tests.length === 0) return null;
+    const key = (x: { id: string; title: string }) => `${x.id}\u0001${x.title}`;
+    const matched = matchTests(tests, selectedTags, excludedTags);
+    return { matched: new Set(matched.map(key)).size, total: new Set(tests.map(key)).size };
+  }, [tags.data, supportsTags, selectedTags, excludedTags]);
+
+  const envName =
+    envProfileId !== ENV_CURRENT
+      ? (envOptions.find((o) => o.value === envProfileId)?.label ?? '')
+      : '';
+  const runTarget = envName ? `${project} · ${envName}` : project;
+  const runLabel = !project
+    ? t('run.runPlain')
+    : testCount
+      ? t('run.runTests')
+          .replace('{count}', testCount.matched.toLocaleString())
+          .replace('{target}', runTarget)
+      : t('run.runOn').replace('{target}', runTarget);
+
+  const tagSummary = [
+    selectedTags.map((x) => x.replace(/^@/, '')).join(', '),
+    excludedTags.length > 0
+      ? `${t('bookmark.not')} ${excludedTags.map((x) => x.replace(/^@/, '')).join(', ')}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   // Pre-select the project's default profile once the list + default resolve.
   // Parallel to the last-used-project effect; falls back to __current__.
@@ -475,6 +509,8 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       const lastProj = prefs.lastProject[`${tool}/${effectiveType}`];
       if (lastProj && projectsQ.data.includes(lastProj)) {
         setProject(lastProj);
+      } else if (projectsQ.data.length === 1) {
+        setProject(projectsQ.data[0] ?? '');
       }
     }
   }, [projectsQ.data, project, tool, effectiveType]);
@@ -536,9 +572,51 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   /** Prefill for the save-bookmark modal, built from the run's own axes
    *  (project, section-or-type, tag count) so accepting it is one keypress. */
   function defaultBookmarkName(): string {
-    const axes = [project, sectionAxis ? section : effectiveType].filter(Boolean).join(' · ');
-    return selectedTags.length > 0 ? `${axes} · ${selectedTags.length} ${t('run.tags')}` : axes;
+    const shown = selectedTags.slice(0, DEFAULT_NAME_TAGS).map((x) => x.replace(/^@/, ''));
+    const tagPart =
+      selectedTags.length > DEFAULT_NAME_TAGS
+        ? `${shown.join(', ')} +${selectedTags.length - DEFAULT_NAME_TAGS}`
+        : shown.join(', ');
+    return [project, tagPart || (sectionAxis ? section : effectiveType)]
+      .filter(Boolean)
+      .join(' · ');
   }
+
+  const bookmarkSummary = [
+    {
+      label: t('bookmark.sumProject'),
+      value: [
+        project,
+        toolLabel(tool, toolsQuery.data ?? []),
+        sectionAxis ? section : effectiveType,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    },
+    {
+      label: t('bookmark.sumTests'),
+      value: [
+        testCount
+          ? `${testCount.matched.toLocaleString()} / ${testCount.total.toLocaleString()}`
+          : '',
+        tagSummary || t('reports.allTests'),
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    },
+    {
+      label: t('bookmark.sumRun'),
+      value: [
+        effectiveMode,
+        hasDisplay ? headless : '',
+        envName,
+        noTrack ? 'no-track' : '',
+        silent ? 'silent' : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    },
+  ];
 
   function handleSaveBookmark() {
     saveBookmark.reset();
@@ -764,8 +842,9 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
         style={{ flexShrink: 0, minHeight: 0 }}
       >
         <Paper
-          p="xs"
-          withBorder
+          p={formCollapsed ? 'xs' : 0}
+          withBorder={formCollapsed}
+          bg={formCollapsed ? undefined : 'transparent'}
           style={{
             opacity: isRunning ? 0.85 : 1,
             // Natural height in BOTH states, shrinking — and scrolling inside
@@ -781,8 +860,8 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--mantine-spacing-xs)',
-            overflow: formCollapsed ? 'auto' : 'hidden',
+            gap: 'var(--mantine-spacing-sm)',
+            overflow: 'auto',
             // A wheel that reaches the end of the collapsed card must not chain
             // to the sessions wrapper and jump the page.
             overscrollBehavior: 'contain',
@@ -800,7 +879,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             </Group>
           )}
           {!formCollapsed && (
-            <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
+            <Stack gap="sm" style={{ flex: 1, minHeight: 0 }}>
               <RunTargetFields
                 isRunning={isRunning}
                 collapseToggle={collapseToggle}
@@ -836,8 +915,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
               />
 
               <RunMoreOptions
-                moreOpen={moreOpen}
-                toggleMore={toggleMore}
+                step={supportsTags ? 3 : 2}
                 isRunning={isRunning}
                 advancedMode={advancedMode}
                 optionFieldCount={optionFieldCount}
@@ -893,6 +971,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           isMobile={isMobile}
           appiumRunning={appiumRunning}
           handleRun={handleRun}
+          runLabel={runLabel}
           runPending={runMutation.isPending}
           handleCancel={handleCancel}
           saveBookmarkReason={saveBookmarkReason}
@@ -973,6 +1052,9 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             setSearchTerm={setSearchTerm}
             term={term}
           />
+          {runStatus === 'idle' && (
+            <RunLastRun tool={tool} type={effectiveType} project={project} />
+          )}
           {/* `minWidth: 0` lets the box shrink below the grid xterm last fitted;
               without it a flex child floors at its content width and the rows
               push past the card instead of triggering a refit. */}
@@ -1008,6 +1090,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
         setBookmarkName={setBookmarkName}
         loading={saveBookmark.isPending}
         error={saveBookmark.error?.message ?? null}
+        summary={bookmarkSummary}
       />
 
       <EnvDrawer

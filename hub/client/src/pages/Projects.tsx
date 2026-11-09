@@ -448,7 +448,7 @@ export function ProjectsPage() {
                   ) : (
                     [...typeMap.entries()].map(([type, projs]) => (
                       <Stack gap={4} key={type} mb="xs">
-                        <Text size="xs" c="dimmed" fw={600} tt="uppercase" px={4}>
+                        <Text size="xs" c="dimmed" fw={600} px={4}>
                           {type}
                         </Text>
                         <Stack gap={4}>

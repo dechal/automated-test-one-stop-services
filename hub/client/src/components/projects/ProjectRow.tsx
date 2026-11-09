@@ -1,9 +1,20 @@
-import { ActionIcon, Badge, Button, Group, Indicator, Paper, Text, Tooltip } from '@mantine/core';
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Group,
+  Indicator,
+  Menu,
+  Paper,
+  Text,
+  Tooltip,
+} from '@mantine/core';
 import {
   TbAlertTriangle,
   TbBrandGit,
   TbCircleCheck,
   TbCircleX,
+  TbDots,
   TbDownload,
   TbFolder,
   TbPackage,
@@ -103,19 +114,28 @@ export function ProjectRow({
           )}
           {isGit && !gitRemoteUrl && <TbBrandGit size={14} color="var(--mantine-color-dimmed)" />}
           {status === 'no-env' && (
-            <Badge size="xs" color="red" leftSection={<TbCircleX size={10} />}>
-              {t('projectRow.noEnv')}
-            </Badge>
+            <Group gap={4} wrap="nowrap" c="red.4">
+              <TbCircleX size={14} />
+              <Text size="xs" c="red.4" style={{ whiteSpace: 'nowrap' }}>
+                {t('projectRow.noEnv')}
+              </Text>
+            </Group>
           )}
           {status === 'missing' && (
-            <Badge size="xs" color="yellow" leftSection={<TbAlertTriangle size={10} />}>
-              {t('projectRow.envMissing')}
-            </Badge>
+            <Group gap={4} wrap="nowrap" c="yellow.4">
+              <TbAlertTriangle size={14} />
+              <Text size="xs" c="yellow.4" style={{ whiteSpace: 'nowrap' }}>
+                {t('projectRow.envMissing')}
+              </Text>
+            </Group>
           )}
           {status === 'ready' && (
-            <Badge size="xs" color="green" leftSection={<TbCircleCheck size={10} />}>
-              {t('projectRow.ready')}
-            </Badge>
+            <Group gap={4} wrap="nowrap" c="dimmed">
+              <TbCircleCheck size={14} />
+              <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                {t('projectRow.ready')}
+              </Text>
+            </Group>
           )}
           {lastRun && (
             <Tooltip label={`${t('projectRow.lastRun')} ${formatAbsolute(lastRun.endedAt)}`}>
@@ -125,12 +145,13 @@ export function ProjectRow({
             </Tooltip>
           )}
         </Group>
-        <Group gap={4} wrap="nowrap">
+        <Group gap={8} wrap="nowrap">
           {isGit && onPull && (
-            <Indicator color="red" size={12} offset={4} processing withBorder disabled={!hasUpdate}>
+            <Indicator color="red" size={8} offset={4} withBorder disabled={!hasUpdate}>
               <Button
                 size="compact-xs"
                 variant={hasUpdate ? 'light' : 'subtle'}
+                color={hasUpdate ? undefined : 'gray'}
                 onClick={onPull}
                 loading={isPulling}
                 leftSection={<TbDownload size={12} />}
@@ -138,19 +159,6 @@ export function ProjectRow({
                 {t('projectRow.pull')}
               </Button>
             </Indicator>
-          )}
-          {projectPath && (
-            <Tooltip label={t('projectRow.reveal')} withArrow>
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="gray"
-                onClick={handleReveal}
-                aria-label={t('projectRow.reveal')}
-              >
-                <TbFolder size={14} />
-              </ActionIcon>
-            </Tooltip>
           )}
           <Button
             size="compact-xs"
@@ -160,44 +168,44 @@ export function ProjectRow({
           >
             .env
           </Button>
-          {onMakeStandalone && (
-            <Tooltip label={t('projectRow.makeStandalone')} withArrow>
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="gray"
-                onClick={onMakeStandalone}
-                aria-label={t('projectRow.makeStandalone')}
-              >
-                <TbPackageExport size={14} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-          {onExportBundle && (
-            <Tooltip label={t('projectRow.exportBundle')} withArrow>
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="gray"
-                onClick={onExportBundle}
-                aria-label={t('projectRow.exportBundle')}
-              >
-                <TbPackage size={14} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-          {onRemove && (
-            <Tooltip label={t('projectRow.remove')} withArrow>
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="red"
-                onClick={onRemove}
-                aria-label={t('projectRow.remove')}
-              >
-                <TbTrash size={14} />
-              </ActionIcon>
-            </Tooltip>
+          {(projectPath || onMakeStandalone || onExportBundle || onRemove) && (
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="gray"
+                  aria-label={`${t('projectRow.moreActions')} ${name}`}
+                >
+                  <TbDots size={16} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {projectPath && (
+                  <Menu.Item leftSection={<TbFolder size={14} />} onClick={handleReveal}>
+                    {t('projectRow.reveal')}
+                  </Menu.Item>
+                )}
+                {onMakeStandalone && (
+                  <Menu.Item leftSection={<TbPackageExport size={14} />} onClick={onMakeStandalone}>
+                    {t('projectRow.makeStandalone')}
+                  </Menu.Item>
+                )}
+                {onExportBundle && (
+                  <Menu.Item leftSection={<TbPackage size={14} />} onClick={onExportBundle}>
+                    {t('projectRow.exportBundle')}
+                  </Menu.Item>
+                )}
+                {onRemove && (
+                  <>
+                    <Menu.Divider />
+                    <Menu.Item color="red" leftSection={<TbTrash size={14} />} onClick={onRemove}>
+                      {t('projectRow.remove')}
+                    </Menu.Item>
+                  </>
+                )}
+              </Menu.Dropdown>
+            </Menu>
           )}
         </Group>
       </Group>

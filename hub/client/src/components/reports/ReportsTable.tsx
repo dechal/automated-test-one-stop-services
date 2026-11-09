@@ -65,7 +65,7 @@ export function ReportsTable({
           // +60px over the previous 1100/820: lock and delete are their own
           // icons again, so the Actions column needs the room rather than
           // squeezing the Tag and Timestamp columns.
-          miw={advancedMode ? 1430 : 1150}
+          miw={advancedMode ? 1430 : 1080}
         >
           <Table.Thead>
             <Table.Tr>

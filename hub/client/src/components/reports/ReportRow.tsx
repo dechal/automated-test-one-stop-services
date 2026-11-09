@@ -105,7 +105,7 @@ export function ReportRow({
       {sharedProject === null && (
         <Table.Td>
           <Tooltip label={r.project} withArrow>
-            <Text size="xs" fw={500} truncate maw={150}>
+            <Text size="xs" fw={500} truncate maw={130}>
               {r.project}
             </Text>
           </Tooltip>
@@ -124,7 +124,7 @@ export function ReportRow({
         <CaseCountCell summary={r.summary} />
       </Table.Td>
       <Table.Td>
-        <PassScoreCell summary={r.summary} severity={r.severity} />
+        <PassScoreCell summary={r.summary} severity={r.severity} showCount={false} />
       </Table.Td>
       <Table.Td>
         {r.durationMs !== undefined ? (
@@ -142,7 +142,7 @@ export function ReportRow({
       <Table.Td>
         {r.runTag ? (
           <Tooltip label={r.runTag} withArrow>
-            <Group gap={4} wrap="nowrap" maw={150}>
+            <Group gap={4} wrap="nowrap" maw={110}>
               {/* Tags are a filter record, not a status. As outlined
                   blue chips they out-shouted the pass rate — the
                   one number this table exists to show.
@@ -208,7 +208,7 @@ export function ReportRow({
       </Table.Td>
       <Table.Td>
         <Tooltip label={formatAbsolute(r.timestamp)} withArrow>
-          <Text size="xs" c="dimmed">
+          <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
             {formatRelative(r.timestamp)}
           </Text>
         </Tooltip>
@@ -217,6 +217,7 @@ export function ReportRow({
         <Group gap="xs" wrap="nowrap">
           <Button
             size="compact-xs"
+            variant="default"
             leftSection={<TbExternalLink size={12} />}
             onClick={async () => {
               // Ask the server to open the report with the OS

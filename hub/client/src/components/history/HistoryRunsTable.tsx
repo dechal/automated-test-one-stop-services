@@ -58,8 +58,9 @@ export function HistoryRunsTable({
           striped
           highlightOnHover
           verticalSpacing="xs"
+          horizontalSpacing="xs"
           stickyHeader
-          miw={advancedMode ? 1300 : 1160}
+          miw={advancedMode ? 1300 : 1040}
         >
           <Table.Thead>
             <Table.Tr>
@@ -97,7 +98,7 @@ export function HistoryRunsTable({
               <Table.Th>{t('table.cases')}</Table.Th>
               <Table.Th>{t('table.passScore')}</Table.Th>
               <Table.Th>{t('table.tag')}</Table.Th>
-              <Table.Th>{t('table.mode')}</Table.Th>
+              {advancedMode && <Table.Th>{t('table.mode')}</Table.Th>}
               <Table.Th>{t('table.trigger')}</Table.Th>
               <Table.Th>{t('table.environment')}</Table.Th>
               <Table.Th>{t('table.duration')}</Table.Th>

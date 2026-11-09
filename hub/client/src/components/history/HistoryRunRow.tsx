@@ -1,17 +1,7 @@
 import type { RunRecord, ToolView } from '@hub/shared';
 import { parseTagExpr } from '@hub/shared';
-import {
-  ActionIcon,
-  Badge,
-  Button,
-  Checkbox,
-  Group,
-  Menu,
-  Table,
-  Text,
-  Tooltip,
-} from '@mantine/core';
-import { TbCopy, TbDots, TbPlayerPlay, TbRefreshAlert, TbTerminal } from 'react-icons/tb';
+import { ActionIcon, Button, Checkbox, Group, Menu, Table, Text, Tooltip } from '@mantine/core';
+import { TbCopy, TbDots, TbPlayerPlay, TbRefreshAlert } from 'react-icons/tb';
 import { PassScoreCell } from '~/components/PassScoreCell.js';
 import { RunStatusBadge } from '~/components/RunStatusBadge.js';
 import { useT } from '~/i18n/index.js';
@@ -78,7 +68,7 @@ export function HistoryRunRow({
       {sharedProject === null && (
         <Table.Td>
           <Tooltip label={`${r.request.tool}/${r.request.type}/${r.request.project}`}>
-            <Text size="xs" fw={500} truncate maw={160}>
+            <Text size="xs" fw={500} truncate maw={130}>
               {r.request.project}
             </Text>
           </Tooltip>
@@ -112,7 +102,7 @@ export function HistoryRunRow({
         )}
       </Table.Td>
       <Table.Td>
-        <PassScoreCell summary={r.summary} severity={r.severity} />
+        <PassScoreCell summary={r.summary} severity={r.severity} showCount={false} />
       </Table.Td>
       <Table.Td>
         {r.request.tag ? (
@@ -121,10 +111,10 @@ export function HistoryRunRow({
                 chips made these rows twice the height of their
                 neighbours and the eye lost the row rhythm. The
                 tooltip still carries the full expression. */}
-            <Group gap={4} wrap="nowrap" maw={130}>
-              <Badge size="xs" variant="outline" color="blue" style={{ minWidth: 0 }}>
+            <Group gap={4} wrap="nowrap" maw={100}>
+              <Text size="xs" c="dimmed" ff="monospace" truncate>
                 {(parseTagExpr(r.request.tag)[0] ?? '').replace(/^@/, '')}
-              </Badge>
+              </Text>
               {parseTagExpr(r.request.tag).length > 1 && (
                 <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
                   +{parseTagExpr(r.request.tag).length - 1}
@@ -138,18 +128,25 @@ export function HistoryRunRow({
           </Text>
         )}
       </Table.Td>
-      <Table.Td>
-        {/* Docker is the exception worth marking, local is the
+      {advancedMode && (
+        <Table.Td>
+          {/* Docker is the exception worth marking, local is the
             norm — so only the exception gets any colour. */}
-        <Tooltip label={r.request.mode} withArrow>
-          <Text size="xs" truncate maw={80} c={r.request.mode === 'docker' ? 'violet.4' : 'dimmed'}>
-            {r.request.mode}
-          </Text>
-        </Tooltip>
-      </Table.Td>
+          <Tooltip label={r.request.mode} withArrow>
+            <Text
+              size="xs"
+              truncate
+              maw={80}
+              c={r.request.mode === 'docker' ? 'violet.4' : 'dimmed'}
+            >
+              {r.request.mode}
+            </Text>
+          </Tooltip>
+        </Table.Td>
+      )}
       <Table.Td>
         <Tooltip label={t(`trigger.${r.triggeredBy ?? 'manual'}`)} withArrow>
-          <Text size="xs" c="dimmed" truncate maw={90}>
+          <Text size="xs" c="dimmed" truncate maw={72}>
             {t(`trigger.${r.triggeredBy ?? 'manual'}`)}
           </Text>
         </Tooltip>
@@ -157,7 +154,7 @@ export function HistoryRunRow({
       <Table.Td>
         {r.envProfileName || r.environment ? (
           <Tooltip label={r.environment ?? '—'} withArrow>
-            <Text size="xs" c="dimmed" truncate maw={100}>
+            <Text size="xs" c="dimmed" truncate maw={80}>
               {r.envProfileName ?? r.environment}
             </Text>
           </Tooltip>
@@ -183,7 +180,7 @@ export function HistoryRunRow({
       </Table.Td>
       <Table.Td>
         <Tooltip label={formatAbsolute(r.startedAt)}>
-          <Text size="xs" c="dimmed">
+          <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
             {formatRelative(r.startedAt)}
           </Text>
         </Tooltip>
@@ -241,12 +238,7 @@ export function HistoryRunRow({
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          <Button
-            size="compact-xs"
-            variant="light"
-            leftSection={<TbTerminal size={12} />}
-            onClick={() => handleViewLog(r)}
-          >
+          <Button size="compact-xs" variant="default" onClick={() => handleViewLog(r)}>
             {t('history.details')}
           </Button>
         </Group>

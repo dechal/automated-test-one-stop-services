@@ -12,9 +12,10 @@ import {
   Badge,
   Button,
   Checkbox,
+  Code,
   Group,
+  Input,
   Modal,
-  Paper,
   ScrollArea,
   SegmentedControl,
   Select,
@@ -26,12 +27,14 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { TbSettings } from 'react-icons/tb';
+import { useEffect, useMemo, useState } from 'react';
+import { TbCalendarTime, TbClock, TbDeviceFloppy, TbSettings } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
 import { BookmarkLoadModal } from '~/components/BookmarkPanel.js';
 import { EnvProfileManager } from '~/components/env-profiles/EnvProfileManager.js';
+import { RunStep } from '~/components/run-session/RunStep.js';
+import { TagScopeControl } from '~/components/run-session/TagScopeControl.js';
 import { SectionSelect } from '~/components/SectionSelect.js';
 import { TagSelector } from '~/components/TagSelector.js';
 import { toast } from '~/components/Toast.js';
@@ -41,13 +44,19 @@ import {
   useProjectTags,
   useProjectTypes,
 } from '~/hooks/useProjectQueries.js';
+import { useTagScope } from '~/hooks/useTagScope.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useI18nStore, useT } from '~/i18n/index.js';
 import { DEFAULT_TOOL, usePreferences } from '~/stores/hub.js';
 import { formatNextRun, humanizeCron } from '~/utils/cron.js';
 import { buildEnvOptions, ENV_CURRENT, resolveDefaultEnv } from '~/utils/env-options.js';
 import { buildPerfTypeData } from '~/utils/perf-type-options.js';
-import { buildTagQuery, parseTagQuery, type TagSelection } from '~/utils/tag-selection.js';
+import {
+  buildTagQuery,
+  matchTests,
+  parseTagQuery,
+  type TagSelection,
+} from '~/utils/tag-selection.js';
 import { firstEnabledTool, toolSelectData } from '~/utils/tool-label.js';
 import { fromConfigSilent, toConfigSilent } from './schedule-silent.js';
 
@@ -59,6 +68,9 @@ import { fromConfigSilent, toConfigSilent } from './schedule-silent.js';
 function parseTagExpression(tool: string, tag: string | undefined): TagSelection {
   return parseTagQuery(tool, tag);
 }
+
+const MODAL_WIDTH = 1180;
+const MODAL_NAME_WIDTH = 320;
 
 export interface ScheduleFormProps {
   /** When `mode === 'edit'`, a non-null schedule is required. */
@@ -361,126 +373,164 @@ export function ScheduleForm({
     onError: (err) => toast.error((err as Error).message),
   });
 
+  const { byTag, scope, setScope } = useTagScope({
+    selectedTags,
+    excludedTags,
+    setSelectedTags,
+    setExcludedTags,
+  });
+
+  const matchedCount = useMemo(() => {
+    const tests = tags.data?.tests;
+    if (sectionAxis || !tests || tests.length === 0) return null;
+    const key = (x: { id: string; title: string }) => `${x.id}\u0001${x.title}`;
+    return new Set(matchTests(tests, selectedTags, excludedTags).map(key)).size;
+  }, [tags.data, sectionAxis, selectedTags, excludedTags]);
+
+  const submitBase = isEdit ? t('schedule.saveSchedule') : t('schedule.createSchedule');
+  const submitLabel =
+    kind === 'tool' && matchedCount !== null && cronHuman && !cronInvalid
+      ? `${submitBase} · ${t('schedule.saveSummary')
+          .replace('{count}', matchedCount.toLocaleString())
+          .replace('{when}', cronHuman)}`
+      : submitBase;
+
+  const presetChips = (
+    <Group gap={6} wrap="wrap">
+      {cronPresets.map((p) => (
+        <Badge
+          key={p.value}
+          size="md"
+          radius="sm"
+          fw={400}
+          variant={cronExpr === p.value ? 'light' : 'default'}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          tabIndex={0}
+          aria-pressed={cronExpr === p.value}
+          onClick={() => setCronExpr(p.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setCronExpr(p.value);
+            }
+          }}
+        >
+          {p.label}
+        </Badge>
+      ))}
+    </Group>
+  );
+
   return (
     <Modal
       opened={isOpen}
       onClose={handleClose}
-      title={isEdit ? t('schedule.editTitle') : t('schedules.newSchedule')}
-      size="lg"
+      title={
+        <Group gap={12}>
+          <TbCalendarTime size={18} color="var(--mantine-color-dimmed)" />
+          <Text fw={500}>{isEdit ? t('schedule.editTitle') : t('schedules.newSchedule')}</Text>
+          {isEdit && name && (
+            <Text size="xs" c="dimmed" ff="monospace" truncate maw={MODAL_NAME_WIDTH}>
+              {name}
+            </Text>
+          )}
+        </Group>
+      }
+      size={MODAL_WIDTH}
       centered
       scrollAreaComponent={ScrollArea.Autosize}
     >
-      <Stack gap="sm">
-        <TextInput
-          label={t('webhook.name')}
-          value={name}
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder={t('schedule.namePlaceholder')}
-        />
-
-        <Stack gap={4}>
-          {/* The cron IS the schedule, so it is always editable. Hiding it behind
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        <Stack gap="md">
+          <RunStep step={1} title={t('schedule.stepWhen')}>
+            <SimpleGrid cols={2} spacing="sm">
+              <TextInput
+                label={t('webhook.name')}
+                size="xs"
+                value={name}
+                onChange={(e) => setName(e.currentTarget.value)}
+                placeholder={t('schedule.namePlaceholder')}
+              />
+              {/* The cron IS the schedule, so it is always editable. Hiding it behind
               advanced mode meant a schedule whose cron matched no preset below
               could be read (via cronDescription) but never changed — the presets
               cannot express an arbitrary expression. */}
-          <TextInput
-            label={t('schedule.cronExpr')}
-            value={cronExpr}
-            onChange={(e) => setCronExpr(e.currentTarget.value)}
-            placeholder="0 8 * * *"
-            styles={{ input: { fontFamily: 'monospace' } }}
-            description={cronDescription}
-            error={cronInvalid ? t('schedule.invalidCron') : undefined}
-          />
-          <Text size="xs" c="dimmed">
-            {t('schedule.cronPresetHint')}
-          </Text>
-          <Group gap={4} wrap="wrap">
-            {cronPresets.map((p) => (
-              <Badge
-                key={p.value}
-                size="sm"
-                variant={cronExpr === p.value ? 'filled' : 'outline'}
-                color={cronExpr === p.value ? 'blue' : 'gray'}
-                style={{ cursor: 'pointer' }}
-                role="button"
-                tabIndex={0}
-                aria-pressed={cronExpr === p.value}
-                onClick={() => setCronExpr(p.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setCronExpr(p.value);
-                  }
-                }}
-              >
-                {p.label}
-              </Badge>
-            ))}
-          </Group>
-        </Stack>
-
-        {/* Kind picker: only shown in advanced mode. Normal mode creates tool
-            schedules only and never sees the custom path. */}
-        {advancedMode && (
-          <SegmentedControl
-            fullWidth
-            size="xs"
-            value={kind}
-            onChange={(v) => setKind(v === 'custom' ? 'custom' : 'tool')}
-            disabled={isEdit}
-            data={[
-              { value: 'tool', label: t('schedules.kindTools') },
-              { value: 'custom', label: t('schedules.kindCustom') },
-            ]}
-          />
-        )}
-
-        {kind === 'custom' && (
-          <Paper withBorder p="sm" mt="xs">
-            <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb="sm">
-              {t('schedule.customCommand')}
-            </Text>
-            <Stack gap="sm">
               <TextInput
-                label={t('schedule.customScript')}
-                description={t('schedule.customScriptHint')}
+                label={t('schedule.cronExpr')}
                 size="xs"
-                value={script}
-                onChange={(e) => setScript(e.currentTarget.value)}
-                placeholder="node scripts/seed.mjs"
-                styles={{ input: { fontFamily: 'monospace' } }}
-                error={script.trim().length === 0 ? t('schedule.customScriptRequired') : undefined}
+                value={cronExpr}
+                onChange={(e) => setCronExpr(e.currentTarget.value)}
+                placeholder="0 8 * * *"
+                styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
+                error={cronInvalid ? t('schedule.invalidCron') : undefined}
               />
-              <SimpleGrid cols={2} spacing="xs">
-                <TextInput
-                  label={t('schedule.customArgs')}
-                  size="xs"
-                  value={args}
-                  onChange={(e) => setArgs(e.currentTarget.value)}
-                  placeholder="--rows 100"
-                  styles={{ input: { fontFamily: 'monospace' } }}
-                />
-                <TextInput
-                  label={t('schedule.customCwd')}
-                  description={t('schedule.customCwdHint')}
-                  size="xs"
-                  value={cwd}
-                  onChange={(e) => setCwd(e.currentTarget.value)}
-                  placeholder="tools/k6"
-                  styles={{ input: { fontFamily: 'monospace' } }}
-                />
-              </SimpleGrid>
-            </Stack>
-          </Paper>
-        )}
+            </SimpleGrid>
+            {presetChips}
+            {cronDescription && (
+              <Group gap={8} wrap="nowrap">
+                <TbClock size={14} color="var(--mantine-color-dimmed)" />
+                <Text size="xs" c="dimmed">
+                  {cronDescription}
+                </Text>
+              </Group>
+            )}
+          </RunStep>
 
-        <Paper withBorder p="sm" mt="xs">
-          <Text size="xs" fw={600} c="dimmed" tt="uppercase" mb="sm">
-            {kind === 'custom' ? t('schedule.runLabelConfig') : t('schedule.runConfig')}
-          </Text>
-          <Stack gap="sm">
-            <SimpleGrid cols={2} spacing="xs">
+          <RunStep
+            step={2}
+            title={kind === 'custom' ? t('schedule.runLabelConfig') : t('run.stepTarget')}
+            action={
+              advancedMode ? (
+                <SegmentedControl
+                  size="xs"
+                  value={kind}
+                  onChange={(v) => setKind(v === 'custom' ? 'custom' : 'tool')}
+                  disabled={isEdit}
+                  data={[
+                    { value: 'tool', label: t('schedules.kindTools') },
+                    { value: 'custom', label: t('schedules.kindCustom') },
+                  ]}
+                />
+              ) : undefined
+            }
+          >
+            {kind === 'custom' && (
+              <Stack gap="sm">
+                <TextInput
+                  label={t('schedule.customScript')}
+                  description={t('schedule.customScriptHint')}
+                  size="xs"
+                  value={script}
+                  onChange={(e) => setScript(e.currentTarget.value)}
+                  placeholder="node scripts/seed.mjs"
+                  styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
+                  error={
+                    script.trim().length === 0 ? t('schedule.customScriptRequired') : undefined
+                  }
+                />
+                <SimpleGrid cols={2} spacing="sm">
+                  <TextInput
+                    label={t('schedule.customArgs')}
+                    size="xs"
+                    value={args}
+                    onChange={(e) => setArgs(e.currentTarget.value)}
+                    placeholder="--rows 100"
+                    styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
+                  />
+                  <TextInput
+                    label={t('schedule.customCwd')}
+                    description={t('schedule.customCwdHint')}
+                    size="xs"
+                    value={cwd}
+                    onChange={(e) => setCwd(e.currentTarget.value)}
+                    placeholder="tools/k6"
+                    styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
+                  />
+                </SimpleGrid>
+              </Stack>
+            )}
+            <SimpleGrid cols={2} spacing="sm">
               <Select
                 label={t('run.tool')}
                 size="xs"
@@ -495,37 +545,6 @@ export function ScheduleForm({
                 data={toolOptions}
                 allowDeselect={false}
               />
-              <Select
-                label={t('run.mode')}
-                size="xs"
-                value={runMode}
-                onChange={(v) => v && setRunMode(v as RunMode)}
-                data={modeOptions}
-                allowDeselect={false}
-              />
-            </SimpleGrid>
-
-            {kind === 'tool' && (
-              <BookmarkLoadModal
-                getConfig={() => ({
-                  tool,
-                  type: effectiveType,
-                  project,
-                  mode: runMode,
-                  tag: tagExpr,
-                  headless: !sectionAxis && hasDisplay ? headless : undefined,
-                  extraArgs: extraArgs || undefined,
-                  noTrack: noTrack || undefined,
-                  silent: toConfigSilent(silent),
-                  discardReport: discardReport && !silent ? true : undefined,
-                  section: sectionAxis ? section || undefined : undefined,
-                  performanceType: sectionAxis ? perfType : undefined,
-                })}
-                onLoad={(config) => applyBookmarkConfig(config)}
-              />
-            )}
-
-            <SimpleGrid cols={projectsCfg.typeAxis ? 2 : 1} spacing="xs">
               {projectsCfg.typeAxis && (
                 <Select
                   label={t('run.type')}
@@ -553,10 +572,7 @@ export function ScheduleForm({
                 data={projectsQ.data ?? []}
                 searchable
               />
-            </SimpleGrid>
-
-            {kind === 'tool' && project && (
-              <Group gap="xs" align="flex-end" wrap="nowrap">
+              {kind === 'tool' && (
                 <Select
                   label={t('run.environment')}
                   size="xs"
@@ -565,30 +581,129 @@ export function ScheduleForm({
                   data={envOptions}
                   allowDeselect={false}
                   searchable
-                  style={{ flex: 1 }}
+                  disabled={!project}
+                  rightSectionPointerEvents="auto"
+                  rightSectionWidth={34}
+                  rightSection={
+                    <Tooltip label={t('run.manageEnv')} withArrow>
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        color="gray"
+                        disabled={!project}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEnvManager();
+                        }}
+                        aria-label={t('run.manageEnv')}
+                      >
+                        <TbSettings size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  }
                 />
-                <Tooltip label={t('run.manageEnv')} withArrow>
-                  <ActionIcon
-                    size="lg"
-                    variant="default"
-                    onClick={openEnvManager}
-                    aria-label={t('run.manageEnv')}
-                    style={{ flex: 'none' }}
-                  >
-                    <TbSettings size={18} />
-                  </ActionIcon>
-                </Tooltip>
+              )}
+            </SimpleGrid>
+            {kind === 'tool' && (
+              <Group>
+                <BookmarkLoadModal
+                  getConfig={() => ({
+                    tool,
+                    type: effectiveType,
+                    project,
+                    mode: runMode,
+                    tag: tagExpr,
+                    headless: !sectionAxis && hasDisplay ? headless : undefined,
+                    extraArgs: extraArgs || undefined,
+                    noTrack: noTrack || undefined,
+                    silent: toConfigSilent(silent),
+                    discardReport: discardReport && !silent ? true : undefined,
+                    section: sectionAxis ? section || undefined : undefined,
+                    performanceType: sectionAxis ? perfType : undefined,
+                  })}
+                  onLoad={(config) => applyBookmarkConfig(config)}
+                />
               </Group>
             )}
+          </RunStep>
 
-            {sectionAxis && project && (
-              <SimpleGrid cols={2} spacing="xs">
+          <RunStep step={4} title={t('run.stepHow')}>
+            <SimpleGrid cols={2} spacing="sm">
+              <Input.Wrapper label={t('run.mode')} size="xs">
+                <SegmentedControl
+                  fullWidth
+                  size="xs"
+                  value={runMode}
+                  onChange={(v) => setRunMode(v as RunMode)}
+                  data={modeOptions}
+                />
+              </Input.Wrapper>
+              {!sectionAxis && hasDisplay && (
+                <Input.Wrapper label={t('run.display')} size="xs">
+                  <SegmentedControl
+                    fullWidth
+                    size="xs"
+                    value={headless}
+                    onChange={(v) => setHeadless(v as HeadlessMode)}
+                    data={headlessOptions}
+                  />
+                </Input.Wrapper>
+              )}
+              {!sectionAxis && advancedMode && (
+                <TextInput
+                  label={t('run.extraArgs')}
+                  size="xs"
+                  value={extraArgs}
+                  onChange={(e) => setExtraArgs(e.currentTarget.value)}
+                  placeholder="--workers=4"
+                  styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)' } }}
+                />
+              )}
+            </SimpleGrid>
+            <Group gap="lg" wrap="wrap">
+              <Checkbox
+                size="xs"
+                label={t('run.skipUsageLogging')}
+                checked={noTrack}
+                onChange={(e) => setNoTrack(e.currentTarget.checked)}
+              />
+              <Checkbox
+                size="xs"
+                label={t('run.silentMode')}
+                checked={silent}
+                onChange={(e) => setSilent(e.currentTarget.checked)}
+              />
+              {/* The main reason this exists: a schedule that repeats daily would
+                otherwise grow outputs/ forever. Silent already discards more. */}
+              <Tooltip label={t('run.discardReportHint')} withArrow multiline w={280}>
+                <Checkbox
+                  size="xs"
+                  label={t('run.discardReport')}
+                  disabled={silent}
+                  checked={discardReport && !silent}
+                  onChange={(e) => setDiscardReport(e.currentTarget.checked)}
+                />
+              </Tooltip>
+            </Group>
+          </RunStep>
+        </Stack>
+
+        <Stack gap="md" style={{ minHeight: 0 }}>
+          <RunStep
+            step={3}
+            title={t('run.stepTests')}
+            hint={!sectionAxis && byTag && project ? t('run.tagCycleHint') : undefined}
+            fill={!sectionAxis && byTag && !!project}
+          >
+            {sectionAxis ? (
+              <SimpleGrid cols={2} spacing="sm">
                 <SectionSelect
                   label={t('run.section')}
                   value={section}
                   onChange={setSection}
                   placeholder={t('common.all')}
                   sections={sectionsQ.data ?? []}
+                  disabled={!project}
                 />
                 <Select
                   label={t('run.perfType')}
@@ -599,110 +714,82 @@ export function ScheduleForm({
                   allowDeselect={false}
                 />
               </SimpleGrid>
-            )}
-
-            {!sectionAxis && project && (
-              <TagSelector
-                tags={tags.data}
-                isLoading={tags.isLoading}
-                selectedTags={selectedTags}
-                onChange={setSelectedTags}
-                excludedTags={excludedTags}
-                onExcludeChange={setExcludedTags}
-              />
-            )}
-
-            {!sectionAxis && (hasDisplay || advancedMode) && (
-              <SimpleGrid cols={hasDisplay && advancedMode ? 2 : 1} spacing="xs">
-                {hasDisplay && (
-                  <Select
-                    label={t('run.display')}
-                    size="xs"
-                    value={headless}
-                    onChange={(v) => v && setHeadless(v as HeadlessMode)}
-                    data={headlessOptions}
-                    allowDeselect={false}
+            ) : (
+              <>
+                <TagScopeControl
+                  value={scope}
+                  onChange={setScope}
+                  totalTests={tags.data?.tests?.length ?? 0}
+                  disabled={!project}
+                />
+                {byTag && project && (
+                  <TagSelector
+                    tags={tags.data}
+                    isLoading={tags.isLoading}
+                    selectedTags={selectedTags}
+                    onChange={setSelectedTags}
+                    excludedTags={excludedTags}
+                    onExcludeChange={setExcludedTags}
+                    matchPanelAt="bottom"
+                    fill
                   />
                 )}
-                {advancedMode && (
-                  <TextInput
-                    label={t('run.extraArgs')}
-                    size="xs"
-                    value={extraArgs}
-                    onChange={(e) => setExtraArgs(e.currentTarget.value)}
-                    placeholder="--workers=4"
-                  />
+                {advancedMode && selectedTags.length > 0 && (
+                  <Text size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>
+                    {t('schedule.tagExpr')} <Code>{tagExpr}</Code>
+                  </Text>
                 )}
-              </SimpleGrid>
+              </>
             )}
+          </RunStep>
+        </Stack>
+      </SimpleGrid>
 
-            <Checkbox
-              size="xs"
-              label={t('run.skipUsageLogging')}
-              checked={noTrack}
-              onChange={(e) => setNoTrack(e.currentTarget.checked)}
-            />
+      {mutation.isError && (
+        <Text size="sm" c="red" mt="sm">
+          {(mutation.error as Error).message}
+        </Text>
+      )}
 
-            <Checkbox
-              size="xs"
-              label={t('run.silentMode')}
-              checked={silent}
-              onChange={(e) => setSilent(e.currentTarget.checked)}
-            />
+      <Group
+        justify="space-between"
+        gap="xs"
+        mt="md"
+        pt="md"
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          background: 'var(--mantine-color-body)',
+          borderTop: '1px solid var(--mantine-color-default-border)',
+        }}
+      >
+        <Button variant="subtle" color="gray" onClick={handleClose} size="sm">
+          {t('common.cancel')}
+        </Button>
+        <Button
+          color="green.8"
+          onClick={() => mutation.mutate()}
+          disabled={!name || !project || !cronExpr}
+          loading={mutation.isPending}
+          size="sm"
+          leftSection={<TbDeviceFloppy size={16} />}
+        >
+          {submitLabel}
+        </Button>
+      </Group>
 
-            {/* The main reason this exists: a schedule that repeats daily would
-                otherwise grow outputs/ forever. Silent already discards more. */}
-            <Tooltip label={t('run.discardReportHint')} withArrow multiline w={280}>
-              <Checkbox
-                size="xs"
-                label={t('run.discardReport')}
-                disabled={silent}
-                checked={discardReport && !silent}
-                onChange={(e) => setDiscardReport(e.currentTarget.checked)}
-              />
-            </Tooltip>
-          </Stack>
-        </Paper>
-
-        {advancedMode && selectedTags.length > 0 && (
-          <Text size="xs" c="dimmed">
-            {t('schedule.tagExpr')} <code>{tagExpr}</code>
-          </Text>
-        )}
-
-        {mutation.isError && (
-          <Text size="sm" c="red">
-            {(mutation.error as Error).message}
-          </Text>
-        )}
-
-        <Group justify="flex-end" gap="xs" mt="xs">
-          <Button variant="subtle" color="gray" onClick={handleClose} size="xs">
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={!name || !project || !cronExpr}
-            loading={mutation.isPending}
-            size="xs"
-          >
-            {isEdit ? t('schedule.saveSchedule') : t('schedule.createSchedule')}
-          </Button>
-        </Group>
-
-        {kind === 'tool' && project && (
-          <Modal
-            opened={envManagerOpen}
-            onClose={closeEnvManager}
-            title={t('envProfiles.title')}
-            size="lg"
-            centered
-            scrollAreaComponent={ScrollArea.Autosize}
-          >
-            <EnvProfileManager tool={tool} type={effectiveType} project={project} />
-          </Modal>
-        )}
-      </Stack>
+      {kind === 'tool' && project && (
+        <Modal
+          opened={envManagerOpen}
+          onClose={closeEnvManager}
+          title={t('envProfiles.title')}
+          size="lg"
+          centered
+          scrollAreaComponent={ScrollArea.Autosize}
+        >
+          <EnvProfileManager tool={tool} type={effectiveType} project={project} />
+        </Modal>
+      )}
     </Modal>
   );
 }
