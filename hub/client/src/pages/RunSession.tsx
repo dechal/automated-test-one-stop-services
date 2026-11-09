@@ -360,9 +360,11 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // type keeps the Select (older manifests behave exactly as before).
   const display = toolView?.projects.display;
   const hasDisplay = display?.[effectiveType] !== false;
+  const supportsDocker = toolView?.capabilities.supportsDocker ?? true;
+  const runMode: RunMode = supportsDocker ? effectiveMode : 'local';
   /** Fields actually rendered in the options row — drives its column count. */
   const optionFieldCount =
-    (advancedMode ? 1 : 0) +
+    (advancedMode && supportsDocker ? 1 : 0) +
     (!sectionAxis && hasDisplay ? 1 : 0) +
     (!sectionAxis && supportsRunFlags ? 2 : 0);
 
@@ -554,7 +556,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       tool,
       type: effectiveType,
       project,
-      mode: effectiveMode,
+      mode: runMode,
       tag: buildTagQuery(tool, selectedTags, excludedTags),
       headless: !sectionAxis && hasDisplay ? headless : undefined,
       extraArgs: effectiveExtraArgs,
@@ -607,7 +609,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     {
       label: t('bookmark.sumRun'),
       value: [
-        effectiveMode,
+        runMode,
         hasDisplay ? headless : '',
         envName,
         noTrack ? 'no-track' : '',
@@ -647,7 +649,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       tool,
       type: effectiveType,
       project,
-      mode: effectiveMode,
+      mode: runMode,
       tag: tagExpr,
       headless: !sectionAxis && hasDisplay ? headless : undefined,
       extraArgs: effectiveExtraArgs,
@@ -919,6 +921,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                 isRunning={isRunning}
                 advancedMode={advancedMode}
                 optionFieldCount={optionFieldCount}
+                supportsDocker={supportsDocker}
                 dockerRunning={config.data?.dockerRunning}
                 forceTrack={config.data?.forceTrack}
                 sectionAxis={sectionAxis}

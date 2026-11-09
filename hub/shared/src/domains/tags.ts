@@ -446,4 +446,5 @@ export interface TagsResponse {
   all: string[];
   details?: Record<string, TagDetail>;
   tests?: TestSummary[];
+  scanError?: string;
 }

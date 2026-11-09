@@ -1,8 +1,10 @@
 import { TAG_KIND_ORDER, type TagGroup, type TagsResponse, type TestSummary } from '@hub/shared';
 import {
   ActionIcon,
+  Alert,
   Badge,
   Button,
+  Code,
   Collapse,
   Group,
   Paper,
@@ -15,7 +17,14 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { type ReactNode, useMemo, useState } from 'react';
-import { TbChevronDown, TbChevronRight, TbListCheck, TbSearch, TbX } from 'react-icons/tb';
+import {
+  TbAlertTriangle,
+  TbChevronDown,
+  TbChevronRight,
+  TbListCheck,
+  TbSearch,
+  TbX,
+} from 'react-icons/tb';
 import { GridSkeleton } from '~/components/Skeletons.js';
 import { useCollapsedGroups } from '~/hooks/useCollapsedGroups.js';
 import { useT } from '~/i18n/index.js';
@@ -236,6 +245,24 @@ export function TagSelector({
         <Skeleton height={32} radius="sm" aria-hidden />
         <GridSkeleton count={8} cols={{ base: 4, sm: 6, md: 8 }} height={24} />
       </Stack>
+    );
+  }
+
+  if (tags?.scanError && tags.all.length === 0) {
+    return (
+      <Alert
+        color="red"
+        variant="light"
+        icon={<TbAlertTriangle />}
+        title={t('tagSelector.scanFailed')}
+      >
+        <Stack gap={6}>
+          <Text size="sm">{t('tagSelector.scanFailedHint')}</Text>
+          <Code block style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {tags.scanError}
+          </Code>
+        </Stack>
+      </Alert>
     );
   }
 

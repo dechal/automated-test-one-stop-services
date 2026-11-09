@@ -23,7 +23,24 @@ interface ReporterPayload {
  */
 export type ProjectTagsResult =
   | { ok: true; tags: Set<string>; tests?: TestSummary[] }
-  | { ok: false };
+  | { ok: false; error?: string };
+
+const SCAN_ERROR_MAX_LINES = 4;
+const SCAN_ERROR_MAX_CHARS = 600;
+const SCAN_ERROR_LINE_RE =
+  /^(E\s+\S.*|ERROR\b.*|Error while loading plugin.*|\S*(Error|Exception):\s.*|.*\bnot found\b.*)$/;
+
+export function summarizeScanFailure(output: string): string | undefined {
+  const lines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('!!!'));
+  if (lines.length === 0) return undefined;
+  const matched = [...new Set(lines.filter((line) => SCAN_ERROR_LINE_RE.test(line)))];
+  const picked = matched.length > 0 ? matched.slice(0, SCAN_ERROR_MAX_LINES) : lines.slice(-1);
+  const text = picked.map((line) => line.replace(/^E\s+/, '')).join('\n');
+  return text.length > SCAN_ERROR_MAX_CHARS ? `${text.slice(0, SCAN_ERROR_MAX_CHARS)}…` : text;
+}
 
 function parseReporterPayload(output: string): ReporterPayload | null {
   const begin = output.indexOf('__TAG_DATA_BEGIN__');
@@ -220,9 +237,10 @@ async function scanProjectTags(
     if (fallbackTags.length > 0) {
       return { ok: true, tags: new Set(fallbackTags) };
     }
-    return { ok: false };
-  } catch {
-    return { ok: false };
+    if (payload) return { ok: false };
+    return { ok: false, error: summarizeScanFailure(output) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

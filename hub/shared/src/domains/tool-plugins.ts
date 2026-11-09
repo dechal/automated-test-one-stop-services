@@ -46,6 +46,7 @@ export interface ToolCapabilitiesView {
   readonly resultGlob: string;
   readonly runVars: readonly string[];
   readonly supportsHeadless: boolean;
+  readonly supportsDocker: boolean;
 }
 
 /** Shape for the marketplace registry entries (GET /api/tool-registry). */

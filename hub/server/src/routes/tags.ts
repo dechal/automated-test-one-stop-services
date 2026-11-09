@@ -125,7 +125,10 @@ export async function tagRoutes(app: FastifyInstance): Promise<void> {
       // A failed/empty scan maps to the SAME empty response an empty scan
       // produced before this refactor — only the bookmark callers act on the
       // `ok: false` signal, so `/api/tags` behaviour is unchanged.
-      if (!result.ok) return buildResponse(tool, type, project, null, []);
+      if (!result.ok) {
+        const empty = buildResponse(tool, type, project, null, []);
+        return result.error ? { ...empty, scanError: result.error } : empty;
+      }
 
       // The sentinel path carries per-test data (`tests`); the fallback paths
       // carry only a flat tag set. Reconstruct the inputs `buildResponse` wants.

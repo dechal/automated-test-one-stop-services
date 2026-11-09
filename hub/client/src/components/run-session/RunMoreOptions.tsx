@@ -18,6 +18,7 @@ export interface RunMoreOptionsProps {
   isRunning: boolean;
   advancedMode: boolean;
   optionFieldCount: number;
+  supportsDocker: boolean;
   dockerRunning: boolean | undefined;
   forceTrack: boolean | undefined;
   sectionAxis: boolean;
@@ -49,6 +50,7 @@ export function RunMoreOptions({
   isRunning,
   advancedMode,
   optionFieldCount,
+  supportsDocker,
   dockerRunning,
   forceTrack,
   sectionAxis,
@@ -85,7 +87,7 @@ export function RunMoreOptions({
                 setup, so basic mode neither shows it nor uses it —
                 `effectiveMode` pins the run to local. A visible-but-ignored
                 select would be the worse half-measure. */}
-        {advancedMode && (
+        {advancedMode && supportsDocker && (
           <Input.Wrapper label={t('run.mode')} size="xs">
             <SegmentedControl
               fullWidth

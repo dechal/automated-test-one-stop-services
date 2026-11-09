@@ -305,7 +305,10 @@ export async function listToolViews(): Promise<readonly ToolView[]> {
         display: manifest.projects.display ?? {},
         sectionAxis: manifest.projects.sectionAxis,
       },
-      capabilities: toCapabilitiesView(mod.resolveCapabilities(manifest)),
+      capabilities: {
+        ...toCapabilitiesView(mod.resolveCapabilities(manifest)),
+        supportsDocker: manifest.compose !== undefined,
+      },
       supportsStandalone: exportModule.isStandaloneSupported(manifest.id),
       supportsBundle: exportModule.isBundleSupported(manifest.id),
       ...detectOrigin(manifest.id),
@@ -319,9 +322,12 @@ const BROKEN_TOOL_CAPABILITIES: ToolCapabilitiesView = {
   resultGlob: '**/*.html',
   runVars: [],
   supportsHeadless: false,
+  supportsDocker: false,
 };
 
-function toCapabilitiesView(resolved: ResolvedCapabilities): ToolCapabilitiesView {
+function toCapabilitiesView(
+  resolved: ResolvedCapabilities,
+): Omit<ToolCapabilitiesView, 'supportsDocker'> {
   return {
     tagsStrategy: resolved.tags.strategy as ToolCapabilitiesView['tagsStrategy'],
     reportKind: resolved.reports.kind,

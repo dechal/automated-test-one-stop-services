@@ -19,7 +19,7 @@ export async function buildTaskCommand(req: RunRequest): Promise<string> {
     throw new Error(`Unknown or disabled tool: ${req.tool}`);
   }
   const command = mod.buildRunCommandFromInput(manifest, {
-    mode: req.mode,
+    mode: manifest.compose === undefined ? 'local' : req.mode,
     type: req.type,
     project: req.project,
     tag: req.tag,

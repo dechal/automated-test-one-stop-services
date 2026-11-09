@@ -718,6 +718,8 @@ export const th: Record<TranslationKey, string> = {
 
   // Tag selector
   'tagSelector.noTags': 'ไม่พบแท็กสำหรับโปรเจกต์นี้',
+  'tagSelector.scanFailed': 'อ่านรายการเทสต์ของโปรเจกต์นี้ไม่ได้',
+  'tagSelector.scanFailedHint': 'โหลดรายการเทสต์ไม่สำเร็จ แท็กจึงไม่ขึ้น แก้ error ด้านล่างก่อน แล้วเปิดหน้านี้ใหม่',
   'tagSelector.noMatch': 'ไม่มีเทสที่ตรงกับการเลือกนี้',
   'tagSelector.willRun': 'จะรัน',
   'tagSelector.testsWord': 'เทส',

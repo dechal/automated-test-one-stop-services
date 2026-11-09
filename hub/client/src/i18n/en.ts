@@ -731,6 +731,9 @@ export const en = {
 
   // Tag selector
   'tagSelector.noTags': 'No tags found for this project.',
+  'tagSelector.scanFailed': "Couldn't read this project's tests",
+  'tagSelector.scanFailedHint':
+    'The test list failed to load, so no tags can show. Fix the error below, then reopen this page.',
   'tagSelector.noMatch': 'No tests match this selection',
   'tagSelector.willRun': 'Will run',
   'tagSelector.testsWord': 'tests',

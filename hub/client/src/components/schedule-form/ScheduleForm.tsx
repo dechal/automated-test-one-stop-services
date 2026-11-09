@@ -278,6 +278,8 @@ export function ScheduleForm({
   // Display (headless/headed) only applies to browser-driving project types; a
   // manifest `display` map marks each type, a missing key keeps the Select.
   const hasDisplay = projectsCfg.display?.[effectiveType] !== false;
+  const supportsDocker = selectedView?.capabilities.supportsDocker ?? true;
+  const effectiveRunMode: RunMode = supportsDocker ? runMode : 'local';
   const projectsQ = useProjectList(tool, effectiveType);
   const sectionsQ = useProjectSections(project, sectionAxis, tool);
   // Project .env drives the live VU counts in the perf-type labels (PEAK_VUS →
@@ -336,7 +338,7 @@ export function ScheduleForm({
         tool,
         type: effectiveType,
         project,
-        mode: runMode,
+        mode: effectiveRunMode,
         tag: tagExpr,
         headless: !sectionAxis && hasDisplay ? headless : undefined,
         // Sent even while the field is hidden: a saved schedule's flags must
@@ -611,7 +613,7 @@ export function ScheduleForm({
                     tool,
                     type: effectiveType,
                     project,
-                    mode: runMode,
+                    mode: effectiveRunMode,
                     tag: tagExpr,
                     headless: !sectionAxis && hasDisplay ? headless : undefined,
                     extraArgs: extraArgs || undefined,
@@ -629,15 +631,17 @@ export function ScheduleForm({
 
           <RunStep step={4} title={t('run.stepHow')}>
             <SimpleGrid cols={2} spacing="sm">
-              <Input.Wrapper label={t('run.mode')} size="xs">
-                <SegmentedControl
-                  fullWidth
-                  size="xs"
-                  value={runMode}
-                  onChange={(v) => setRunMode(v as RunMode)}
-                  data={modeOptions}
-                />
-              </Input.Wrapper>
+              {supportsDocker && (
+                <Input.Wrapper label={t('run.mode')} size="xs">
+                  <SegmentedControl
+                    fullWidth
+                    size="xs"
+                    value={runMode}
+                    onChange={(v) => setRunMode(v as RunMode)}
+                    data={modeOptions}
+                  />
+                </Input.Wrapper>
+              )}
               {!sectionAxis && hasDisplay && (
                 <Input.Wrapper label={t('run.display')} size="xs">
                   <SegmentedControl
