@@ -393,6 +393,9 @@ export const en = {
   // Project removal (cascade)
   'projectRow.remove': 'Remove project',
   'projectRow.moreActions': 'More actions for',
+  'projects.removeTool': 'Tool',
+  'projects.removeFolder': 'Folder',
+  'projects.removeKept': 'Not affected · same name in another tool',
   'projects.removeTitle': 'Remove project',
   'projects.removeDesc':
     'This permanently deletes the project folder and everything associated with it: run history, schedules, bookmarks, project-scoped webhooks, env profiles, reports and artifacts.',

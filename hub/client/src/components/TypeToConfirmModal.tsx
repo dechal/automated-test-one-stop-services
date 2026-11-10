@@ -50,7 +50,9 @@ export function TypeToConfirmModal({
         <Alert color="red" variant="light" icon={<TbAlertTriangle size={16} />}>
           {t('confirmDelete.irreversible')}
         </Alert>
-        <Text size="sm">{description}</Text>
+        <Text size="sm" component="div">
+          {description}
+        </Text>
         <Text size="sm">
           {t('confirmDelete.typePrompt')} <Code>{expected}</Code>
         </Text>

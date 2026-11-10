@@ -31,6 +31,7 @@ import {
   type EnvModalEditingTarget,
 } from '~/components/projects/EnvModal.js';
 import { ProjectRow } from '~/components/projects/ProjectRow.js';
+import { RemoveProjectSummary } from '~/components/projects/RemoveProjectSummary.js';
 import { StandaloneModal } from '~/components/projects/StandaloneModal.js';
 import { ToolSection } from '~/components/projects/ToolSection.js';
 import { ToolSectionActions } from '~/components/projects/ToolSectionActions.js';
@@ -552,7 +553,15 @@ export function ProjectsPage() {
         opened={removeTarget !== null}
         onClose={() => setRemoveTarget(null)}
         title={t('projects.removeTitle')}
-        description={t('projects.removeDesc')}
+        description={
+          removeTarget ? (
+            <RemoveProjectSummary
+              target={removeTarget}
+              allProjects={projects.data ?? []}
+              tools={tools.data ?? []}
+            />
+          ) : null
+        }
         expected={
           removeTarget ? `${removeTarget.tool}/${removeTarget.type}/${removeTarget.name}` : ''
         }

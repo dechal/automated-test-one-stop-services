@@ -387,6 +387,9 @@ export const th: Record<TranslationKey, string> = {
   // Project removal (cascade)
   'projectRow.remove': 'ลบโปรเจกต์',
   'projectRow.moreActions': 'การทำงานอื่นของ',
+  'projects.removeTool': 'เครื่องมือ',
+  'projects.removeFolder': 'โฟลเดอร์',
+  'projects.removeKept': 'ไม่ถูกลบ · ชื่อเดียวกันในเครื่องมืออื่น',
   'projects.removeTitle': 'ลบโปรเจกต์',
   'projects.removeDesc':
     'การลบนี้จะลบโฟลเดอร์โปรเจกต์และทุกอย่างที่เกี่ยวข้องอย่างถาวร ได้แก่ ประวัติการรัน, ตารางเวลา, บุ๊กมาร์ก, webhook ที่ผูกกับโปรเจกต์, env profile, รายงาน และ artifact',
