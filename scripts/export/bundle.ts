@@ -34,6 +34,7 @@ import {
   getStandaloneStrategy,
   isNonEmptyDir,
   type LifecycleResult,
+  mirrorTree,
   readWorkspaceVersion,
   type StandaloneContext,
   type StandaloneError,
@@ -1017,8 +1018,10 @@ export async function exportProjectBundle(
   if ('code' in source) return source;
 
   let mode: 'fresh' | 'migrate' = 'fresh';
+  let previous: BundleKey | null = null;
   if (isNonEmptyDir(targetDir)) {
     const existing = readBundleKey(targetDir);
+    previous = existing;
     if (!existing) {
       return {
         code: 'TARGET_NOT_EMPTY',
@@ -1045,7 +1048,7 @@ export async function exportProjectBundle(
     written.push(...copyProjectFiles(standalone, source, targetDir, copyEnv));
 
     onStage?.('copy-resources');
-    copyTree(source.resourcesDir, path.join(targetDir, 'resources'));
+    mirrorTree(source.resourcesDir, path.join(targetDir, 'resources'));
     written.push('resources');
 
     onStage?.('rewrite');
@@ -1066,9 +1069,33 @@ export async function exportProjectBundle(
     const runtimes: Record<string, string> = {};
 
     onStage?.('fetch-runtimes');
-    fs.rmSync(path.join(targetDir, RUNTIME_DIR), { recursive: true, force: true });
+    const runtimeRoot = path.join(targetDir, RUNTIME_DIR);
+    const versions = new Map<RuntimeId, string>();
     for (const id of strategy.runtimes) {
-      const version = await resolveRuntimeVersion(id, workspaceRoot, exec);
+      versions.set(id, await resolveRuntimeVersion(id, workspaceRoot, exec));
+    }
+    const reusable = new Set<string>(
+      strategy.runtimes.filter(
+        (id) =>
+          previous?.platform === platform &&
+          previous.runtimes[id] === versions.get(id) &&
+          fs.existsSync(path.join(runtimeRoot, id, RUNTIMES[id].binRel)),
+      ),
+    );
+    if (fs.existsSync(runtimeRoot)) {
+      for (const name of fs.readdirSync(runtimeRoot)) {
+        if (!reusable.has(name)) {
+          fs.rmSync(path.join(runtimeRoot, name), { recursive: true, force: true });
+        }
+      }
+    }
+    for (const id of strategy.runtimes) {
+      const version = versions.get(id) ?? '';
+      if (reusable.has(id)) {
+        log(`runtime ${id} ${version} (kept)`);
+        runtimes[id] = version;
+        continue;
+      }
       log(`runtime ${id} ${version}`);
       const err = await vendorRuntime(RUNTIMES[id], {
         workspaceRoot,

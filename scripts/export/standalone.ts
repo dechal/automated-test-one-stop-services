@@ -123,6 +123,25 @@ export function copyTree(src: string, dest: string): void {
   });
 }
 
+export function mirrorTree(src: string, dest: string): void {
+  copyTree(src, dest);
+  pruneTree(src, dest);
+}
+
+function pruneTree(src: string, dest: string): void {
+  if (!fs.existsSync(dest) || !fs.lstatSync(dest).isDirectory()) return;
+  for (const name of fs.readdirSync(dest)) {
+    if (COPY_SKIP.has(name)) continue;
+    const from = path.join(src, name);
+    const to = path.join(dest, name);
+    if (!fs.existsSync(from)) {
+      fs.rmSync(to, { recursive: true, force: true });
+      continue;
+    }
+    if (fs.lstatSync(to).isDirectory() && fs.statSync(from).isDirectory()) pruneTree(from, to);
+  }
+}
+
 export function isNonEmptyDir(dir: string): boolean {
   if (!fs.existsSync(dir)) return false;
   try {
@@ -1193,8 +1212,12 @@ export function copyProjectFiles(
   const written: string[] = [];
   for (const entry of strategy.copyEntries) {
     const from = path.join(source.projectDir, entry);
-    if (!fs.existsSync(from)) continue;
-    copyTree(from, path.join(targetDir, entry));
+    const to = path.join(targetDir, entry);
+    if (!fs.existsSync(from)) {
+      fs.rmSync(to, { recursive: true, force: true });
+      continue;
+    }
+    mirrorTree(from, to);
     written.push(entry);
   }
   const tplFrom = path.join(source.projectDir, '.env.template');
@@ -1281,7 +1304,7 @@ export async function exportProjectStandalone(
     written.push(...copyProjectFiles(strategy, source, targetDir, mode === 'fresh'));
 
     onStage?.('copy-resources');
-    copyTree(source.resourcesDir, path.join(targetDir, 'resources'));
+    mirrorTree(source.resourcesDir, path.join(targetDir, 'resources'));
     written.push('resources');
 
     onStage?.('rewrite');

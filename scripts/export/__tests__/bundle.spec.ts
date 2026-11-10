@@ -240,6 +240,37 @@ describe('exportProjectBundle (k6)', () => {
     expect(fs.existsSync(path.join(target, 'runtime', 'stale.txt'))).toBe(false);
   });
 
+  it('re-export mirrors removed source files and keeps an unchanged runtime', async () => {
+    const target = path.join(root, 'update');
+    write('tools/k6/resources/src/utils/old-helper.ts', 'export {};\n');
+    expect('code' in (await exportProjectBundle(options(target)))).toBe(false);
+    expect(fs.existsSync(path.join(target, 'resources/src/utils/old-helper.ts'))).toBe(true);
+    const runtimeDirs = fs.readdirSync(path.join(target, 'runtime'));
+    for (const id of runtimeDirs) {
+      fs.writeFileSync(path.join(target, 'runtime', id, 'kept-marker.txt'), 'x');
+    }
+    fs.mkdirSync(path.join(target, 'automations', 'outputs'), { recursive: true });
+    fs.writeFileSync(path.join(target, 'automations', 'outputs', 'run.log'), 'mine');
+    fs.rmSync(path.join(projectDir, 'automations', 'specs', 'rest'), { recursive: true });
+    fs.rmSync(path.join(root, 'tools/k6/resources/src/utils/old-helper.ts'));
+
+    const res = await exportProjectBundle(options(target));
+    if ('code' in res) throw new Error(res.code);
+
+    expect(fs.existsSync(path.join(target, 'automations', 'specs', 'soap', 'e2e.spec.ts'))).toBe(
+      true,
+    );
+    expect(fs.existsSync(path.join(target, 'automations', 'specs', 'rest'))).toBe(false);
+    expect(fs.existsSync(path.join(target, 'resources/src/utils/old-helper.ts'))).toBe(false);
+    expect(fs.readFileSync(path.join(target, 'automations', 'outputs', 'run.log'), 'utf8')).toBe(
+      'mine',
+    );
+    expect(runtimeDirs.length).toBeGreaterThan(0);
+    for (const id of runtimeDirs) {
+      expect(fs.existsSync(path.join(target, 'runtime', id, 'kept-marker.txt'))).toBe(true);
+    }
+  });
+
   it('refuses a foreign folder, a standalone export and another tool bundle', async () => {
     const foreign = path.join(root, 'foreign');
     fs.mkdirSync(foreign);
