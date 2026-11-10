@@ -357,12 +357,7 @@
   "[env]": {
     "editor.defaultFormatter": "IronGeek.vscode-env"
   },
-  "[yaml]": {
-    "editor.defaultFormatter": "redhat.vscode-yaml",
-    "editor.tabSize": 2,
-    "editor.formatOnSave": false
-  },
-  "[dockercompose]": {
+  "[yaml][dockercompose]": {
     "editor.defaultFormatter": "redhat.vscode-yaml",
     "editor.tabSize": 2,
     "editor.formatOnSave": false
