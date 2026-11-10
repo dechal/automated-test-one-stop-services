@@ -62,6 +62,17 @@ class HistoryStore {
     this.cache = null; // invalidate memoized snapshot
   }
 
+  removeWhere(match: (record: RunRecord) => boolean): number {
+    const all = this.getAll();
+    const kept = all.filter((record) => !match(record));
+    const removed = all.length - kept.length;
+    if (removed > 0) {
+      getDb().writeCollection<RunRecord>('history', kept);
+      this.cache = null;
+    }
+    return removed;
+  }
+
   reconcileInterrupted(): RunRecord[] {
     const stale = this.getAll().filter((r) => r.status === 'running' || r.status === 'pending');
     if (stale.length === 0) return [];

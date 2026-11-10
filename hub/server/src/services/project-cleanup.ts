@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Bookmark, EnvProfile, RunRecord, WebhookConfig } from '@hub/shared';
+import type { Bookmark, EnvProfile, WebhookConfig } from '@hub/shared';
 import { OUTPUTS_DIR, TOOLS_DIR } from '../config.js';
 import { removeDirWithRetry } from './fs-remove.js';
+import { historyStore } from './history-store.js';
 import { getToolManifest } from './manifest-registry.js';
 import { loadJson, saveJson } from './persistence.js';
 import { runner } from './runner.js';
@@ -26,7 +27,6 @@ export interface ProjectCleanupResult {
   readonly envProfilesRemoved: number;
 }
 
-const HISTORY = 'history';
 const BOOKMARKS_FILE = 'bookmarks.json';
 const WEBHOOKS_FILE = 'webhooks.json';
 const ENV_PROFILES_FILE = 'env-profiles.json';
@@ -51,7 +51,12 @@ function safeRemoveDir(base: string, target: string): boolean {
   if (resolved === resolvedBase || !resolved.startsWith(resolvedBase + path.sep)) {
     return false;
   }
-  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+  if (!fs.existsSync(resolved) || !fs.lstatSync(resolved).isDirectory()) {
+    return false;
+  }
+  const realBase = fs.existsSync(resolvedBase) ? fs.realpathSync(resolvedBase) : resolvedBase;
+  const real = fs.realpathSync(resolved);
+  if (real === realBase || !real.startsWith(realBase + path.sep)) {
     return false;
   }
   removeDirWithRetry(resolved);
@@ -79,20 +84,17 @@ export async function removeProjectCascade(ref: ProjectRef): Promise<ProjectClea
 
   // 1. project folder on disk
   const projectDir = path.join(TOOLS_DIR, ref.tool, root, ref.type, ref.project);
-  const projectDirRemoved = safeRemoveDir(TOOLS_DIR, projectDir);
+  const projectDirRemoved = safeRemoveDir(path.join(TOOLS_DIR, ref.tool, root), projectDir);
 
   // 2. artifacts under outputs/
   const outputsDir =
     manifest?.projects.typeAxis === false
       ? path.join(OUTPUTS_DIR, ref.tool, ref.project)
       : path.join(OUTPUTS_DIR, ref.tool, ref.type, ref.project);
-  const outputsRemoved = safeRemoveDir(OUTPUTS_DIR, outputsDir);
+  const outputsRemoved = safeRemoveDir(path.join(OUTPUTS_DIR, ref.tool), outputsDir);
 
   // 3. run history
-  const history = loadJson<RunRecord[]>(HISTORY, []);
-  const keptHistory = history.filter((r) => !requestMatches(r.request, ref));
-  const historyRemoved = history.length - keptHistory.length;
-  if (historyRemoved > 0) saveJson(HISTORY, keptHistory);
+  const historyRemoved = historyStore.removeWhere((r) => requestMatches(r.request, ref));
 
   // 4. schedules — go through the service so the live cron task is stopped too
   let schedulesRemoved = 0;
@@ -115,8 +117,9 @@ export async function removeProjectCascade(ref: ProjectRef): Promise<ProjectClea
   const keptWebhooks = webhooks.filter((w) => {
     const scope = w.scope;
     const projectScoped = scope?.project === ref.project;
-    const toolMatches = scope?.tool === undefined || scope.tool === ref.tool;
-    return !(projectScoped && toolMatches);
+    const toolMatches = scope?.tool === ref.tool;
+    const typeMatches = scope?.type === undefined || scope.type === ref.type;
+    return !(projectScoped && toolMatches && typeMatches);
   });
   const webhooksRemoved = webhooks.length - keptWebhooks.length;
   if (webhooksRemoved > 0) saveJson(WEBHOOKS_FILE, keptWebhooks);

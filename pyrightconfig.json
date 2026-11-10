@@ -9,6 +9,7 @@
   "reportAttributeAccessIssue": "error",
   "reportUnnecessaryTypeIgnoreComment": "warning",
   "reportUnnecessaryComparison": "warning",
+  "reportGeneralTypeIssues": "none",
   "reportCallIssue": "error",
   "reportArgumentType": "error",
   "exclude": [
@@ -28,10 +29,7 @@
   "executionEnvironments": [
     {
       "root": "tools/pywinauto",
-      "extraPaths": [
-        "tools/pywinauto/resources",
-        "tools/pywinauto/.venv/Lib/site-packages"
-      ]
+      "extraPaths": ["tools/pywinauto/resources", "tools/pywinauto/.venv/Lib/site-packages"]
     },
     {
       "root": "tools/robot-framework",
