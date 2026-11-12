@@ -306,7 +306,7 @@
 
   "git.autofetch": true,
   "git.confirmSync": false,
-  "git.autofetchPeriod": 600,
+  "git.autofetchPeriod": 900,
 
   "git.autoRepositoryDetection": "subFolders",
   "ruff.lineLength": 100,
@@ -386,7 +386,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, biome.json, uv.lock, .python-version, Taskfile.tools.yml, docker-compose.yml, .markdownlint-cli2.jsonc, .gitignore, .gitattributes, .editorconfig, lefthook.yml, pyproject.toml, Taskfile.yml, .mcp.json",
+    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, biome.json, uv.lock, .python-version, Taskfile.tools.yml, docker-compose.yml, .markdownlint-cli2.jsonc, .gitignore, .gitattributes, .editorconfig, lefthook.yml, pyproject.toml, Taskfile.yml, .mcp.json, pyrightconfig.json",
   },
   "python.terminal.useEnvFile": true
 }
