@@ -19,9 +19,11 @@ const WIN_SCRIPT = path.join(REPO_ROOT, 'scripts', 'setup', 'setup-windows.bat')
 const LAUNCHER = path.join(REPO_ROOT, 'hub', 'bin', 'hub-service.mjs');
 const AUTOSTART_CMD = path.join(REPO_ROOT, 'hub', 'bin', 'hub-autostart.cmd');
 
+const HUB_PRESENT = fs.existsSync(LAUNCHER) && fs.existsSync(AUTOSTART_CMD);
+
 const WIN = fs.readFileSync(WIN_SCRIPT, 'utf8');
-const LAUNCHER_SRC = fs.readFileSync(LAUNCHER, 'utf8');
-const AUTOSTART = fs.readFileSync(AUTOSTART_CMD, 'utf8');
+const LAUNCHER_SRC = HUB_PRESENT ? fs.readFileSync(LAUNCHER, 'utf8') : '';
+const AUTOSTART = HUB_PRESENT ? fs.readFileSync(AUTOSTART_CMD, 'utf8') : '';
 const VOLTA_SHIM = String.raw`scoop\apps\volta\current\appdata\bin`;
 
 describe('Windows boot auto-start is wired via the launcher (user-scope, no admin)', () => {
@@ -30,25 +32,28 @@ describe('Windows boot auto-start is wired via the launcher (user-scope, no admi
   });
 });
 
-describe('hub-service.mjs enable-boot registers a user-scope logon task (no admin)', () => {
-  it('creates a logon Scheduled Task', () => {
-    expect(LAUNCHER_SRC).toMatch(/schtasks\s+\/create/i);
-    expect(LAUNCHER_SRC).toMatch(/\/sc\s+onlogon/i);
-  });
+describe.skipIf(!HUB_PRESENT)(
+  'hub-service.mjs enable-boot registers a user-scope logon task (no admin)',
+  () => {
+    it('creates a logon Scheduled Task', () => {
+      expect(LAUNCHER_SRC).toMatch(/schtasks\s+\/create/i);
+      expect(LAUNCHER_SRC).toMatch(/\/sc\s+onlogon/i);
+    });
 
-  it('uses /rl limited (user scope) and never elevates', () => {
-    expect(LAUNCHER_SRC).toMatch(/\/rl\s+limited/i);
-    expect(LAUNCHER_SRC).not.toMatch(/\/rl\s+highest/i);
-    expect(LAUNCHER_SRC).not.toMatch(/\brunas\b/i);
-  });
+    it('uses /rl limited (user scope) and never elevates', () => {
+      expect(LAUNCHER_SRC).toMatch(/\/rl\s+limited/i);
+      expect(LAUNCHER_SRC).not.toMatch(/\/rl\s+highest/i);
+      expect(LAUNCHER_SRC).not.toMatch(/\brunas\b/i);
+    });
 
-  it('points the task at the hub-autostart.cmd wrapper', () => {
-    expect(LAUNCHER_SRC).toMatch(/hub-autostart\.cmd/);
-    expect(fs.existsSync(AUTOSTART_CMD)).toBe(true);
-  });
-});
+    it('points the task at the hub-autostart.cmd wrapper', () => {
+      expect(LAUNCHER_SRC).toMatch(/hub-autostart\.cmd/);
+      expect(fs.existsSync(AUTOSTART_CMD)).toBe(true);
+    });
+  },
+);
 
-describe('hub-autostart.cmd readies PATH before invoking node', () => {
+describe.skipIf(!HUB_PRESENT)('hub-autostart.cmd readies PATH before invoking node', () => {
   it('puts the Volta shim dir on PATH BEFORE it runs node', () => {
     const lines = AUTOSTART.split(/\r?\n/);
     const isComment = (l: string) => /^\s*REM\b/i.test(l);

@@ -1,8 +1,7 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
+const HERE = __dirname;
 const WORKSPACE_ROOT = path.resolve(HERE, '..', '..');
 const HUB_DIR = path.resolve(HERE, '..');
 const CLIENT_DIST = path.resolve(
