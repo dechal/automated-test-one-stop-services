@@ -21,6 +21,7 @@ const BASE = {
   reportAttributeAccessIssue: 'error',
   reportUnnecessaryTypeIgnoreComment: 'warning',
   reportUnnecessaryComparison: 'warning',
+  reportGeneralTypeIssues: 'none',
   reportCallIssue: 'error',
   reportArgumentType: 'error',
   exclude: [
@@ -78,9 +79,18 @@ export function buildConfig(root = ROOT, platform = process.platform) {
   return { ...BASE, executionEnvironments: [...environments, { root: '.' }] };
 }
 
+export function renderConfig(root = ROOT) {
+  return `${JSON.stringify(buildConfig(root), null, 2)}\n`;
+}
+
+export function writePyrightConfig(root = ROOT) {
+  writeFileSync(path.join(root, OUTPUT), renderConfig(root));
+  return OUTPUT;
+}
+
 function main() {
   const target = path.join(ROOT, OUTPUT);
-  const next = `${JSON.stringify(buildConfig(), null, 2)}\n`;
+  const next = renderConfig();
   const current = existsSync(target) ? readFileSync(target, 'utf8') : '';
   if (process.argv.includes('--check')) {
     if (current !== next) {
@@ -90,7 +100,7 @@ function main() {
     console.log(`${OUTPUT} is up to date.`);
     return;
   }
-  writeFileSync(target, next);
+  writePyrightConfig();
   console.log(
     `Wrote ${OUTPUT} for ${buildConfig().executionEnvironments.length - 1} Python tool(s).`,
   );

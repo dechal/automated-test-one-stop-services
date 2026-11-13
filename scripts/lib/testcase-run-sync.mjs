@@ -18,16 +18,38 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const OUTPUTS_DIR = path.join(ROOT, 'outputs');
 const TOOLS_DIR = path.join(ROOT, 'tools');
 
+/** @typedef {{ rows: string[][] }} Sheet */
+/** @typedef {{ status: 'passed' | 'failed', error?: string }} RunResult */
+/** @typedef {{ id: string, name: string }} Author */
+/** @typedef {{ cellStamp?: string, author?: Author, editors?: Record<string, string> }} ApplyOptions */
+/** @typedef {{ author?: Author, editors?: Record<string, string>, runAt?: string }} SyncOptions */
+/** @typedef {{ status: string, durationMs: number | null, error?: string }} Verdict */
+/** @typedef {{ tool: string, type: string, project: string }} ProjectMeta */
+/** @typedef {{ duration?: number, status?: string, error?: { message?: string } }} PwResult */
+/** @typedef {{ title?: string, tests?: { results?: PwResult[] }[] }} PwSpec */
+/** @typedef {{ specs?: PwSpec[], suites?: PwSuite[] }} PwSuite */
+/** @typedef {{ status: string, durationMs: number | null, lastRun: string }} CaseEntry */
+/** @typedef {{ cases?: Record<string, CaseEntry>, history?: unknown[] }} StatusFile */
+
+/**
+ * @param {string[]} header
+ * @param {string} name
+ */
 function headerIndex(header, name) {
   return header.findIndex((h) => String(h).trim().toLowerCase() === name.toLowerCase());
 }
 
 export function stampNow(at = new Date()) {
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (/** @type {number} */ n) => String(n).padStart(2, '0');
   const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
   return `${date} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
+/**
+ * @param {Sheet[]} sheets
+ * @param {Record<string, RunResult>} resultByCaseId
+ * @param {ApplyOptions} [options]
+ */
 export function applyRunResults(sheets, resultByCaseId, options = {}) {
   const { cellStamp = stampNow(), author, editors: previous = {} } = options;
   const editors = { ...previous };
@@ -63,6 +85,11 @@ export function applyRunResults(sheets, resultByCaseId, options = {}) {
   return { matched, total, editors };
 }
 
+/**
+ * @param {string} docPath
+ * @param {Sheet[]} sheets
+ * @param {{ editors?: Record<string, string>, lastRunAt?: string }} extra
+ */
 export function writeRunOverlay(docPath, sheets, { editors, lastRunAt }) {
   const payload = {
     source: path.basename(docPath),
@@ -74,6 +101,12 @@ export function writeRunOverlay(docPath, sheets, { editors, lastRunAt }) {
   fs.writeFileSync(`${docPath}${OVERLAY_SUFFIX}`, JSON.stringify(payload, null, 2), 'utf8');
 }
 
+/**
+ * @param {string} docPath
+ * @param {Sheet[]} sheets
+ * @param {Record<string, RunResult>} resultByCaseId
+ * @param {SyncOptions} [options]
+ */
 export function syncRunToDoc(docPath, sheets, resultByCaseId, options = {}) {
   const at = new Date();
   const applied = applyRunResults(sheets, resultByCaseId, {
@@ -90,26 +123,32 @@ export function syncRunToDoc(docPath, sheets, resultByCaseId, options = {}) {
   return { matched: applied.matched, total: applied.total };
 }
 
+/** @param {string | undefined} name */
 function extractTcId(name) {
   const m = String(name).match(TC_RE);
   return m ? m[1] : null;
 }
 
+/** @param {string} text */
 function parseRobot(text) {
+  /** @type {Map<string, Verdict>} */
   const out = new Map();
   const testBlock = /<test\b[^>]*\bname="([^"]*)"[^>]*>([\s\S]*?)<\/test>/g;
+  /** @type {Record<string, string>} */
   const verdicts = { PASS: 'Pass', FAIL: 'Fail', SKIP: 'Skipped' };
   for (const m of text.matchAll(testBlock)) {
     const tcId = extractTcId(m[1]);
     if (!tcId) continue;
     const statuses = [
-      ...m[2].matchAll(/<status\b[^>]*\bstatus="([A-Z]+)"[^>]*?(?:\/>|>([\s\S]*?)<\/status>)/g),
+      ...(m[2] ?? '').matchAll(
+        /<status\b[^>]*\bstatus="([A-Z]+)"[^>]*?(?:\/>|>([\s\S]*?)<\/status>)/g,
+      ),
     ];
     const last = statuses.at(-1);
     if (!last) continue;
     const error = last[2]?.trim().split('\n')[0];
     out.set(tcId, {
-      status: verdicts[last[1]] ?? 'Blocked',
+      status: verdicts[last[1] ?? ''] ?? 'Blocked',
       durationMs: null,
       ...(error ? { error } : {}),
     });
@@ -117,17 +156,19 @@ function parseRobot(text) {
   return out;
 }
 
+/** @param {string} text */
 function parseJsonReport(text) {
+  /** @type {Map<string, Verdict>} */
   const out = new Map();
   const data = JSON.parse(text);
-  const mapStatus = (s) => {
+  const mapStatus = (/** @type {string | undefined} */ s) => {
     if (s === 'passed') return 'Pass';
     if (s === 'failed' || s === 'timedOut') return 'Fail';
     if (s === 'skipped') return 'Skipped';
     if (s === 'interrupted') return 'Blocked';
     return null;
   };
-  const walk = (suite) => {
+  const walk = (/** @type {PwSuite} */ suite) => {
     for (const spec of suite.specs ?? []) {
       const tcId = extractTcId(spec.title ?? '');
       if (!tcId) continue;
@@ -157,6 +198,12 @@ const REPORT_PARSERS = [
   { match: /(^|\/)results\.json$/i, parse: parseJsonReport },
 ];
 
+/**
+ * @param {string} dir
+ * @param {(file: string) => boolean} predicate
+ * @param {string[]} [acc]
+ * @returns {string[]}
+ */
 function walkFiles(dir, predicate, acc = []) {
   let entries;
   try {
@@ -172,6 +219,7 @@ function walkFiles(dir, predicate, acc = []) {
   return acc;
 }
 
+/** @param {string} file */
 function parserFor(file) {
   return REPORT_PARSERS.find((p) => p.match.test(file.replace(/\\/g, '/')));
 }
@@ -185,6 +233,10 @@ function findLatestReport() {
   return newest?.file;
 }
 
+/**
+ * @param {string} file
+ * @returns {ProjectMeta | null}
+ */
 function projectFromReport(file) {
   const rel = path.relative(OUTPUTS_DIR, path.resolve(file)).replace(/\\/g, '/');
   const [tool, type, project] = rel.split('/');
@@ -192,6 +244,10 @@ function projectFromReport(file) {
   return { tool, type, project };
 }
 
+/**
+ * @param {string} docPath
+ * @returns {{ sheets: Sheet[], editors?: Record<string, string> } | null}
+ */
 function readSheets(docPath) {
   try {
     const overlay = JSON.parse(fs.readFileSync(`${docPath}${OVERLAY_SUFFIX}`, 'utf8'));
@@ -208,18 +264,28 @@ function readSheets(docPath) {
   return { sheets: JSON.parse(res.stdout) };
 }
 
+/**
+ * @param {ProjectMeta} meta
+ * @param {Map<string, Verdict>} verdicts
+ * @param {string} source
+ */
 function writeStatusJson(meta, verdicts, source) {
   const dir = path.join(OUTPUTS_DIR, 'test-status', meta.tool, meta.type, meta.project);
   const file = path.join(dir, 'status.json');
+  /** @type {StatusFile} */
   let prev = { cases: {}, history: [] };
   try {
     prev = JSON.parse(fs.readFileSync(file, 'utf-8'));
   } catch {}
   const now = new Date().toISOString();
+  /** @type {Record<string, number>} */
   const summary = { pass: 0, fail: 0, skipped: 0, blocked: 0, total: verdicts.size };
   const prevCases = prev.cases ?? {};
+  /** @type {string[]} */
   const regressions = [];
+  /** @type {string[]} */
   const fixed = [];
+  /** @type {Record<string, CaseEntry>} */
   const cases = { ...prevCases };
   for (const [id, v] of verdicts) {
     const before = prevCases[id]?.status;
@@ -227,7 +293,7 @@ function writeStatusJson(meta, verdicts, source) {
     if ((before === 'Fail' || before === 'Blocked') && v.status === 'Pass') fixed.push(id);
     cases[id] = { status: v.status, durationMs: v.durationMs, lastRun: now };
     const k = v.status.toLowerCase();
-    if (k in summary) summary[k]++;
+    if (k in summary) summary[k] = (summary[k] ?? 0) + 1;
   }
   const history = [{ at: now, source, summary, regressions, fixed }, ...(prev.history ?? [])].slice(
     0,
@@ -241,6 +307,7 @@ function writeStatusJson(meta, verdicts, source) {
   return { summary, regressions, fixed };
 }
 
+/** @param {string} file */
 export function syncReport(file) {
   const parser = parserFor(file);
   const meta = projectFromReport(file);
@@ -254,6 +321,7 @@ export function syncReport(file) {
     return 0;
   }
   const { summary, regressions, fixed } = writeStatusJson(meta, verdicts, file);
+  /** @type {Record<string, RunResult>} */
   const resultByCaseId = {};
   for (const [id, v] of verdicts) {
     if (v.status === 'Skipped') continue;
@@ -285,7 +353,7 @@ export function syncReport(file) {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const inputs = process.argv.slice(2).filter(Boolean);
-  const files = inputs.length > 0 ? inputs : [findLatestReport()].filter(Boolean);
+  const files = inputs.length > 0 ? inputs : [findLatestReport()].filter((f) => f !== undefined);
   if (files.length === 0) process.stderr.write('  • no report found under outputs/\n');
   for (const file of files) syncReport(path.resolve(file));
 }

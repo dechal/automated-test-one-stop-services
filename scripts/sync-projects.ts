@@ -23,6 +23,7 @@ import {
   syncToolPackageManager,
   syncToolVersion,
 } from './manifests/version-sync.js';
+import { writePyrightConfig } from './pyright-config.mjs';
 
 const currentDir =
   typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
@@ -101,6 +102,9 @@ async function runManifestSync(workspaceRoot: string): Promise<string[]> {
     regeneratedFiles.push(file);
     console.log(`✅ root ${file} ← tools present on disk`);
   }
+  const pyrightFile = writePyrightConfig(workspaceRoot);
+  regeneratedFiles.push(pyrightFile);
+  console.log(`✅ root ${pyrightFile} ← Python tools present on disk`);
   // Generate per-tool artefacts for enabled tools
   const pnpmVersion = readPnpmVersion(workspaceRoot);
   for (const tool of registry.enabled()) {

@@ -37,6 +37,7 @@ const ALLOW_ID = [
     reason: 'install catalogue: tool names are its data',
   },
   { file: /^pyproject\.toml$/, line: /\.kiro/, reason: 'ruff / ty exclude entries' },
+  { file: /^scripts\/pyright-config\.mjs$/, line: /\.kiro/, reason: 'pyright exclude entry' },
   {
     file: /^pnpm-workspace\.yaml$/,
     line: /^\s+['"]?[@\w./-]+['"]?:\s*['"]?[\d^~]/,

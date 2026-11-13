@@ -99,6 +99,7 @@
       "!!**/.playwright-mcp",
       "!!**/.playwright-cli",
       "!!**/.kiro",
+      "!!**/.claude",
       "!!**/hub/server/data",
       "!!**/selectorshub",
       "!!**/brain",
@@ -106,7 +107,8 @@
       "!**/package*.json",
       "!**/tsconfig.json",
       "!**/docs/**/*.xlsx.edited.json",
-      "!scripts/manifests/data/pipeline.json"
+      "!scripts/manifests/data/pipeline.json",
+      "!pyrightconfig.json"
     ]
   },
   "overrides": [

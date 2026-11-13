@@ -165,8 +165,13 @@ describe('readRunResults', () => {
     // Prime the cap with distinct file versions, then confirm the first evicts.
     const first = writeReport([{ file: 'x', tags: ['low'] }]);
     readRunResults(first);
+    const other = writeReport([{ file: 'f', tags: ['low'] }]);
+    const otherJson = reportPathToResultsJson(other);
+    const baseMs = Date.UTC(2020, 0, 1);
     for (let i = 0; i < RESULTS_CACHE_MAX_ENTRIES; i += 1) {
-      readRunResults(writeReport([{ file: `f${i}`, tags: ['low'] }]));
+      const version = new Date(baseMs + i * 1000);
+      utimesSync(otherJson, version, version);
+      readRunResults(other);
     }
     const spy = vi.spyOn(fs, 'readFileSync');
     readRunResults(first);

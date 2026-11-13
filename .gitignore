@@ -75,6 +75,7 @@ scripts/manifests/data/.tool-overrides.json
 scripts/manifests/data/pipeline.json
 /Taskfile.tools.yml
 /docker-compose.yml
+/pyrightconfig.json
 
 # =============================================================================
 # Portable tool plugins (M4)
