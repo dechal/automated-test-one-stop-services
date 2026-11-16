@@ -156,6 +156,10 @@ function toPosix(p: string): string {
   return p.split(path.sep).join('/');
 }
 
+function toWin(p: string): string {
+  return p.split(path.sep).join('\\');
+}
+
 function tailLines(text: string, count: number): string {
   return text.trim().split(/\r?\n/).slice(-count).join('\n');
 }
@@ -440,7 +444,7 @@ const playwrightBundleStrategy: BundleStrategy = {
     const cli = `"!B!\\${PLAYWRIGHT_CLI}"`;
     return {
       pathDirs: ['runtime\\node'],
-      env: { [PLAYWRIGHT_BROWSERS_ENV]: `%B%\\${PLAYWRIGHT_BROWSERS_DIR}` },
+      env: { [PLAYWRIGHT_BROWSERS_ENV]: `%B%\\${toWin(PLAYWRIGHT_BROWSERS_DIR)}` },
       tag: { kind: 'env', name: PLAYWRIGHT_GREP_ENV },
       command: `${node} ${cli} test !REST!`,
       subcommands: [],
@@ -688,7 +692,7 @@ const robotBundleStrategy: BundleStrategy = {
   },
   launcher(ctx, prepared) {
     const env: Record<string, string> = robotUsesBrowser(ctx)
-      ? { [PLAYWRIGHT_BROWSERS_ENV]: `%B%\\${PLAYWRIGHT_BROWSERS_DIR}` }
+      ? { [PLAYWRIGHT_BROWSERS_ENV]: `%B%\\${toWin(PLAYWRIGHT_BROWSERS_DIR)}` }
       : {};
     return {
       pathDirs: ['runtime\\python'],
@@ -825,7 +829,7 @@ const pywinautoBundleStrategy: BundleStrategy = {
     }
     return {
       pathDirs: ['runtime\\python', 'runtime\\task', 'runtime\\tesseract'],
-      env: { [TESSDATA_ENV]: `%B%\\${TESSERACT_DIR}\\tessdata` },
+      env: { [TESSDATA_ENV]: `%B%\\${toWin(TESSERACT_DIR)}\\tessdata` },
       tag: { kind: 'env', name: PYWINAUTO_GREP_ENV },
       command: `${TASK_LAUNCH} pywin:run-local -- !REST!`,
       subcommands,
