@@ -441,7 +441,7 @@ const playwrightBundleStrategy: BundleStrategy = {
   },
   launcher() {
     const node = '"!B!\\runtime\\node\\node.exe"';
-    const cli = `"!B!\\${PLAYWRIGHT_CLI}"`;
+    const cli = `"!B!\\${toWin(PLAYWRIGHT_CLI)}"`;
     return {
       pathDirs: ['runtime\\node'],
       env: { [PLAYWRIGHT_BROWSERS_ENV]: `%B%\\${toWin(PLAYWRIGHT_BROWSERS_DIR)}` },
