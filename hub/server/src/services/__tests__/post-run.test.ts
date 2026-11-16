@@ -7,6 +7,7 @@ import { discardReportDir, reportDirFor } from '../post-run.js';
 
 /** A throwaway report tree inside the real OUTPUTS_DIR, shaped like a run's. */
 function makeReport(): { root: string; reportPath: string } {
+  mkdirSync(OUTPUTS_DIR, { recursive: true });
   const root = mkdtempSync(path.join(OUTPUTS_DIR, 'post-run-test-'));
   const timeDir = path.join(root, '2026-08-05', '09-30-00');
   const htmlDir = path.join(timeDir, 'html-results');
