@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ubuntu:24.04
     steps:
-      - run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git xz-utils
+      - run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git xz-utils libatomic1
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - run: SETUP_SKIP_HUB=1 SETUP_NO_OPEN=1 bash scripts/setup/setup-linux.sh
       - shell: bash

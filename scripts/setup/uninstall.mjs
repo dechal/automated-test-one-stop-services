@@ -152,7 +152,7 @@ function readUserPath() {
  * Everything else in the user PATH is left untouched.
  */
 function pathEntriesToDrop(userPath) {
-  const userLocal = path.join(process.env.USERPROFILE || '', '.local', 'bin').toLowerCase();
+  const userLocal = path.win32.join(process.env.USERPROFILE || '', '.local', 'bin').toLowerCase();
   return userPath
     .split(';')
     .filter((e) => e.trim() !== '')

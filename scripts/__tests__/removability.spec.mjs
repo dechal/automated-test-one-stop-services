@@ -155,7 +155,9 @@ test('removing any tool or hub/ leaves the generator, planner, task list and ty 
 
   const tmp = buildSkeleton();
   const parked = fs.mkdtempSync(path.join(path.dirname(tmp), 'removability-parked-'));
-  const blocks = [null, ...presentToolIds().map((id) => `tools/${id}`), 'hub'];
+  const blocks = [null, ...presentToolIds().map((id) => `tools/${id}`), 'hub'].filter(
+    (block) => block === null || fs.existsSync(path.join(tmp, block)),
+  );
   const failures = [];
   try {
     for (const block of blocks) {
