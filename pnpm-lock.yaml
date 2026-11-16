@@ -202,6 +202,7 @@ overrides:
   find-my-way@<=9.6.0: '>=9.6.1 <10'
   js-yaml@<=5.2.1: '>=5.2.2 <6'
   nanoid@<3.3.18: '>=3.3.18 <4'
+  re2js@>=2.2.0 <2.8.7: '>=2.8.7 <3'
   undici@<7.29.0: '>=7.29.0 <8'
 
 importers:
@@ -3107,9 +3108,9 @@ packages:
   quick-format-unescaped@4.0.4:
     resolution: {integrity: sha512-tYC1Q1hgyRuHgloV/YXs2w15unPVh8qfu/qCTfhTYamaw7fyhumKa2yGpdSo87vY32rIclj+4fWYQXUMs9EHvg==}
 
-  re2js@2.8.6:
-    resolution: {integrity: sha512-xLgQil4kIUCrAzVk9fRSkxkFNwmygLFjVxXrLc65aE1F0+Zsb8rxumFBy4XKyvgMCTL6kilDq3EZ0piE2dP/Dg==}
-    engines: {node: '>=18.0.0'}
+  re2js@2.10.0:
+    resolution: {integrity: sha512-/P6FNnLbHjXJMRF1dPoZoVTyHvFcuVhbDpzml9DPMlbeErYlZ18GueAaG9GhYhAm/9AN7i7Y6crmDrLX0DeJ4Q==}
+    engines: {node: '>=20.0.0'}
 
   react-dom@19.3.1:
     resolution: {integrity: sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==}
@@ -5860,7 +5861,7 @@ snapshots:
       micromark-extension-gfm-table: 2.1.2
       micromark-extension-math: 3.1.0
       micromark-util-types: 2.0.3
-      re2js: 2.8.6
+      re2js: 2.10.0
       string-width: 8.3.0
     transitivePeerDependencies:
       - supports-color
@@ -6259,7 +6260,7 @@ snapshots:
 
   quick-format-unescaped@4.0.4: {}
 
-  re2js@2.8.6: {}
+  re2js@2.10.0: {}
 
   react-dom@19.3.1(react@19.3.1):
     dependencies:
