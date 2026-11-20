@@ -39,6 +39,7 @@ export interface RunRequest {
    * `outputs/` without bound. Ignored when `silent` is set, which discards more.
    */
   discardReport?: boolean;
+  cloneReportName?: string;
   envProfileId?: string;
   // k6-only
   section?: string;

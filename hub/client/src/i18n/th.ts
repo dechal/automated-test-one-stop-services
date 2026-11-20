@@ -640,6 +640,18 @@ export const th: Record<TranslationKey, string> = {
   'settings.scanToDonate': 'สแกนเพื่อบริจาคผ่านพร้อมเพย์',
 
   // Schedule form
+  'schedule.cloneReport': 'สำรอง report ไว้อีกไฟล์',
+  'schedule.cloneReportHint':
+    'รันเสร็จแล้วจะ copy HTML report ไว้ข้าง index.html ตามชื่อด้านล่าง ปุ่ม Open ก็ยังเปิด index.html เหมือนเดิม ไฟล์ copy มีไว้ส่งต่อให้คนอื่นต่างหาก',
+  'schedule.cloneReportName': 'ชื่อไฟล์ที่ copy',
+  'schedule.cloneReportPreview': 'ไฟล์ถัดไป:',
+  'schedule.cloneReportTokens':
+    '%d วัน · %m เดือน · %y ปี (2 หลัก) · %Y ปี · %H ชั่วโมง · %M นาที · %S วินาที',
+  'schedule.cloneNameErrEmpty': 'ใส่ชื่อไฟล์ด้วย',
+  'schedule.cloneNameErrTooLong': 'ชื่อยาวเกิน 200 ตัวอักษร',
+  'schedule.cloneNameErrForbidden': 'ชื่อไฟล์บน Windows ใช้ < > : " / \\ | ? * ไม่ได้',
+  'schedule.cloneNameErrReserved': 'CON, PRN, AUX, NUL, COM1-9 และ LPT1-9 เป็นชื่อสงวนของ Windows',
+  'schedule.cloneNameErrTrailing': 'ชื่อไฟล์ลงท้ายด้วยจุดหรือเว้นวรรคไม่ได้',
   'schedule.editTitle': 'แก้ไขตารางเวลา',
   'schedule.cronExpr': 'นิพจน์ Cron',
   'schedule.runConfig': 'การตั้งค่าการรัน',

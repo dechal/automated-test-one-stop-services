@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { renderReportName, validateReportName } from '@hub/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { OUTPUTS_DIR } from '../../config.js';
-import { discardReportDir, reportDirFor } from '../post-run.js';
+import { cloneReportFile, discardReportDir, reportDirFor } from '../post-run.js';
 
 /** A throwaway report tree inside the real OUTPUTS_DIR, shaped like a run's. */
 function makeReport(): { root: string; reportPath: string } {
@@ -71,5 +72,45 @@ describe('discardReportDir', () => {
     cleanup.push(root);
     expect(await discardReportDir(reportPath)).toBe(true);
     expect(await discardReportDir(reportPath)).toBe(true);
+  });
+});
+
+describe('report clone naming', () => {
+  const date = new Date(2026, 10, 7, 3, 4, 5);
+
+  it('renders every date token', () => {
+    expect(renderReportName('R_%d-%m-%y_%Y %H.%M.%S', date)).toBe('R_07-11-26_2026 03.04.05');
+  });
+
+  it.each([
+    ['', 'empty'],
+    ['a<b', 'forbiddenChar'],
+    ['a/b', 'forbiddenChar'],
+    ['ab', 'controlChar'],
+    ['CON', 'reserved'],
+    ['lpt1.txt', 'reserved'],
+    ['name.', 'trailingDotOrSpace'],
+    ['name ', 'trailingDotOrSpace'],
+    ['x'.repeat(201), 'tooLong'],
+    ['SP-NON-LIFE_UAT_11-17-2026', undefined],
+  ])('validates %j as %s', (name, expected) => {
+    expect(validateReportName(name)).toBe(expected);
+  });
+});
+
+describe('cloneReportFile', () => {
+  it('copies the report next to index.html, keeping the extension and the original', async () => {
+    const { root, reportPath } = makeReport();
+    cleanup.push(root);
+    const target = await cloneReportFile(reportPath, 'UAT_%m-%d-%Y', new Date(2026, 10, 17));
+    expect(target).toBe(path.join(path.dirname(reportPath), 'UAT_11-17-2026.html'));
+    expect(readFileSync(target as string, 'utf8')).toBe('<html></html>');
+    expect(existsSync(reportPath)).toBe(true);
+  });
+
+  it('refuses a name Windows forbids', async () => {
+    const { root, reportPath } = makeReport();
+    cleanup.push(root);
+    expect(await cloneReportFile(reportPath, 'bad:name', new Date())).toBeUndefined();
   });
 });

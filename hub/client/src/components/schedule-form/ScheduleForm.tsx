@@ -58,6 +58,7 @@ import {
   type TagSelection,
 } from '~/utils/tag-selection.js';
 import { firstEnabledTool, toolSelectData } from '~/utils/tool-label.js';
+import { CloneReportField, cloneReportNameError } from './CloneReportField.js';
 import { fromConfigSilent, toConfigSilent } from './schedule-silent.js';
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,8 @@ export function ScheduleForm({
     noTrack: false,
     silent: false,
     discardReport: false,
+    cloneReport: false,
+    cloneReportName: '',
     section: '',
     perfType: 'LOAD' as PerformanceType,
     // A new schedule is a TOOL run unless the user switches — the common case,
@@ -161,6 +164,8 @@ export function ScheduleForm({
   const [noTrack, setNoTrack] = useState(defaults.noTrack);
   const [silent, setSilent] = useState(defaults.silent);
   const [discardReport, setDiscardReport] = useState(defaults.discardReport);
+  const [cloneReport, setCloneReport] = useState(defaults.cloneReport);
+  const [cloneReportName, setCloneReportName] = useState(defaults.cloneReportName);
   const [section, setSection] = useState(defaults.section);
   const [perfType, setPerfType] = useState<PerformanceType>(defaults.perfType);
   const [kind, setKind] = useState<'tool' | 'custom'>(defaults.kind);
@@ -185,6 +190,8 @@ export function ScheduleForm({
     setNoTrack(schedule.config.noTrack ?? false);
     setSilent(fromConfigSilent(schedule.config));
     setDiscardReport(schedule.config.discardReport ?? false);
+    setCloneReport(Boolean(schedule.config.cloneReportName));
+    setCloneReportName(schedule.config.cloneReportName ?? defaults.cloneReportName);
     setSection(schedule.config.section ?? '');
     setPerfType(schedule.config.performanceType ?? 'LOAD');
     const selection = parseTagExpression(schedule.config.tool, schedule.config.tag);
@@ -210,6 +217,8 @@ export function ScheduleForm({
     setNoTrack(duplicateFrom.config.noTrack ?? false);
     setSilent(fromConfigSilent(duplicateFrom.config));
     setDiscardReport(duplicateFrom.config.discardReport ?? false);
+    setCloneReport(Boolean(duplicateFrom.config.cloneReportName));
+    setCloneReportName(duplicateFrom.config.cloneReportName ?? defaults.cloneReportName);
     setSection(duplicateFrom.config.section ?? '');
     setPerfType(duplicateFrom.config.performanceType ?? 'LOAD');
     const selection = parseTagExpression(duplicateFrom.config.tool, duplicateFrom.config.tag);
@@ -235,6 +244,8 @@ export function ScheduleForm({
     setNoTrack(defaults.noTrack);
     setSilent(defaults.silent);
     setDiscardReport(defaults.discardReport);
+    setCloneReport(defaults.cloneReport);
+    setCloneReportName(defaults.cloneReportName);
     setSection(defaults.section);
     setPerfType(defaults.perfType);
     setSelectedTags(defaults.selectedTags);
@@ -323,6 +334,8 @@ export function ScheduleForm({
   }
 
   const tagExpr = buildTagQuery(tool, selectedTags, excludedTags);
+  const cloneActive = kind === 'tool' && cloneReport && !silent && !discardReport;
+  const cloneNameInvalid = cloneActive && cloneReportNameError(cloneReportName) !== undefined;
   // Human reading of the current cron plus its next fire time. Shown as the raw
   // input's description in advanced view, and standalone under the presets in
   // simple view, where the raw input is hidden.
@@ -349,6 +362,7 @@ export function ScheduleForm({
         // Silent discards the report already; storing both would read as two
         // competing intents on the same schedule.
         discardReport: discardReport && !silent ? true : undefined,
+        cloneReportName: cloneActive ? cloneReportName : undefined,
         section: sectionAxis ? section || undefined : undefined,
         performanceType: sectionAxis ? perfType : undefined,
       };
@@ -689,6 +703,15 @@ export function ScheduleForm({
                 />
               </Tooltip>
             </Group>
+            {kind === 'tool' && (
+              <CloneReportField
+                enabled={cloneReport}
+                template={cloneReportName}
+                disabled={silent || discardReport}
+                onEnabledChange={setCloneReport}
+                onTemplateChange={setCloneReportName}
+              />
+            )}
           </RunStep>
         </Stack>
 
@@ -773,7 +796,7 @@ export function ScheduleForm({
         <Button
           color="green.8"
           onClick={() => mutation.mutate()}
-          disabled={!name || !project || !cronExpr}
+          disabled={!name || !project || !cronExpr || cloneNameInvalid}
           loading={mutation.isPending}
           size="sm"
           leftSection={<TbDeviceFloppy size={16} />}

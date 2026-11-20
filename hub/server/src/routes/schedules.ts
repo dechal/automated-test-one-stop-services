@@ -1,8 +1,20 @@
-import type { CustomCommand, RunRequest } from '@hub/shared';
+import {
+  type CustomCommand,
+  type RunRequest,
+  renderReportName,
+  validateReportName,
+} from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { validateCustomCommand } from '../services/custom-command-builder.js';
 import { getEnabledToolIds } from '../services/manifest-registry.js';
 import { scheduler } from '../services/scheduler.js';
+
+function validateCloneReportName(config?: RunRequest) {
+  const template = config?.cloneReportName;
+  if (template === undefined) return undefined;
+  const error = validateReportName(renderReportName(template, new Date()));
+  return error ? { code: 'INVALID_REPORT_NAME', message: error } : undefined;
+}
 
 export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
   /** GET /api/schedules — list schedules for ENABLED tools only.
@@ -27,7 +39,9 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
   }>('/api/schedules', async (req, reply) => {
     // Validate a custom command HERE, at create time, so the user sees the
     // rejection — a cron tick would only bury it in a log.
-    const invalid = req.body.command && validateCustomCommand(req.body.command);
+    const invalid =
+      (req.body.command && validateCustomCommand(req.body.command)) ||
+      validateCloneReportName(req.body.config);
     if (invalid) {
       reply.status(400);
       return invalid;
@@ -59,7 +73,9 @@ export async function scheduleRoutes(app: FastifyInstance): Promise<void> {
       envProfileId?: string;
     };
   }>('/api/schedules/:id', async (req, reply) => {
-    const invalid = req.body.command && validateCustomCommand(req.body.command);
+    const invalid =
+      (req.body.command && validateCustomCommand(req.body.command)) ||
+      validateCloneReportName(req.body.config);
     if (invalid) {
       reply.status(400);
       return invalid;

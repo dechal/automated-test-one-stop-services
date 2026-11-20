@@ -1,7 +1,15 @@
 import type { ReportEntry, RunSummary } from '@hub/shared';
 import { parseTagExpr } from '@hub/shared';
 import { ActionIcon, Badge, Button, Checkbox, Group, Table, Text, Tooltip } from '@mantine/core';
-import { TbExternalLink, TbLock, TbLockOpen, TbStar, TbStarFilled, TbTrash } from 'react-icons/tb';
+import {
+  TbExternalLink,
+  TbFolderOpen,
+  TbLock,
+  TbLockOpen,
+  TbStar,
+  TbStarFilled,
+  TbTrash,
+} from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { PassScoreCell } from '~/components/PassScoreCell.js';
 import { RunStatusBadge } from '~/components/RunStatusBadge.js';
@@ -232,6 +240,23 @@ export function ReportRow({
           >
             {t('reports.open')}
           </Button>
+          <Tooltip label={t('run.revealReportHint')} withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await api.post('/api/system/reveal', { path: r.reportPath });
+                } catch (err) {
+                  toast.error((err as Error).message || t('run.revealReportFailed'));
+                }
+              }}
+              aria-label={t('run.revealReport')}
+            >
+              <TbFolderOpen size={14} />
+            </ActionIcon>
+          </Tooltip>
           <ArtifactMenu reportPath={r.reportPath} />
           {/* Lock and delete stay as their own icons rather than
               collapsing into a `⋯` menu: ArtifactMenu already owns a

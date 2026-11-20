@@ -15,7 +15,7 @@ import {
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { TbCopy, TbDots, TbFolder, TbPlayerPlay, TbRoute, TbSearch } from 'react-icons/tb';
+import { TbCopy, TbFolder, TbPaperclip, TbPlayerPlay, TbRoute, TbSearch } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
@@ -216,7 +216,7 @@ export function ArtifactMenu({ reportPath }: ArtifactMenuProps) {
     <>
       <Tooltip label={t('artifactMenu.view')}>
         <ActionIcon variant="subtle" size="sm" onClick={handleOpen} aria-label={t('nav.artifacts')}>
-          <TbDots size={14} />
+          <TbPaperclip size={14} />
         </ActionIcon>
       </Tooltip>
 

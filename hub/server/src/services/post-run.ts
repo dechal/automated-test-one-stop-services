@@ -1,5 +1,12 @@
+import fs from 'node:fs/promises';
 import path from 'node:path';
-import { type RunRecord, runDirFromReportPath, type WsServerEvent } from '@hub/shared';
+import {
+  type RunRecord,
+  renderReportName,
+  runDirFromReportPath,
+  validateReportName,
+  type WsServerEvent,
+} from '@hub/shared';
 import { OUTPUTS_DIR } from '../config.js';
 import { removeDirWithRetryAsync } from './fs-remove.js';
 import { isUnder } from './path-guard.js';
@@ -59,6 +66,20 @@ export async function discardReportDir(reportPath: string, outputStamp?: string)
   }
 }
 
+export async function cloneReportFile(
+  reportPath: string,
+  template: string,
+  date: Date,
+): Promise<string | undefined> {
+  const name = renderReportName(template, date);
+  if (validateReportName(name) !== undefined) return undefined;
+  const target = path.join(path.dirname(reportPath), `${name}${path.extname(reportPath)}`);
+  if (!isUnder(OUTPUTS_DIR, target)) return undefined;
+  await fs.copyFile(reportPath, target, fs.constants.COPYFILE_EXCL);
+  invalidateReportsCache();
+  return target;
+}
+
 /** Locate the run's report, polling while the task finishes promoting it. */
 async function waitForReport(record: RunRecord): Promise<string | undefined> {
   for (const [attempt, delayMs] of REPORT_WAIT_STEPS_MS.entries()) {
@@ -102,6 +123,10 @@ export async function runPostRunSteps(record: RunRecord): Promise<void> {
 
   if (!silent && reportPath) await syncDocsForRun(record, reportPath);
   if (discard && reportPath) await discardReportDir(reportPath, record.outputStamp);
+  const cloneTemplate = record.request.cloneReportName;
+  if (!discard && reportPath && cloneTemplate) {
+    await cloneReportFile(reportPath, cloneTemplate, new Date(record.startedAt));
+  }
 }
 
 let started = false;

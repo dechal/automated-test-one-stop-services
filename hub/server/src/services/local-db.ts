@@ -16,6 +16,9 @@ import {
 } from './db-repositories.js';
 import { type Row, SCHEMA_DDL, SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './db-schema.js';
 
+const RUN_REQUEST_TABLES = ['history', 'schedules', 'bookmarks'] as const;
+const CLONE_REPORT_NAME_COLUMN = 'req_clone_report_name';
+
 /**
  * Local_DB — node:sqlite backing store with a NORMALIZED schema.
  *
@@ -121,6 +124,12 @@ export function openLocalDb(dbPath: string): LocalDb {
 
   // Prepare the normalized schema (idempotent).
   db.exec(SCHEMA_DDL);
+  for (const table of RUN_REQUEST_TABLES) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Row[];
+    if (!columns.some((c) => c.name === CLONE_REPORT_NAME_COLUMN)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${CLONE_REPORT_NAME_COLUMN} TEXT`);
+    }
+  }
 
   // --- repo dispatch helpers -------------------------------------------------
   function writeDataset(name: string, rows: unknown[] | unknown): void {

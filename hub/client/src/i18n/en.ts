@@ -652,6 +652,18 @@ export const en = {
   'settings.scanToDonate': 'Scan to donate via PromptPay',
 
   // Schedule form
+  'schedule.cloneReport': 'Save a copy of the report',
+  'schedule.cloneReportHint':
+    'After the run, copies the HTML report next to index.html under the name below. Open still opens index.html — the copy is the file to send on.',
+  'schedule.cloneReportName': 'Copy file name',
+  'schedule.cloneReportPreview': 'Next copy:',
+  'schedule.cloneReportTokens':
+    '%d day · %m month · %y year (2 digits) · %Y year · %H hour · %M minute · %S second',
+  'schedule.cloneNameErrEmpty': 'Enter a file name',
+  'schedule.cloneNameErrTooLong': 'Name is too long (200 characters max)',
+  'schedule.cloneNameErrForbidden': 'Windows does not allow < > : " / \\ | ? * in a file name',
+  'schedule.cloneNameErrReserved': 'CON, PRN, AUX, NUL, COM1-9 and LPT1-9 are reserved by Windows',
+  'schedule.cloneNameErrTrailing': 'A file name cannot end with a dot or a space',
   'schedule.editTitle': 'Edit Schedule',
   'schedule.cronExpr': 'Cron Expression',
   'schedule.runConfig': 'Run Configuration',

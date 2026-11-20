@@ -39,6 +39,7 @@ export const RUN_REQUEST_DDL = `
   req_no_track         INTEGER,
   req_silent           INTEGER,
   req_discard_report   INTEGER,
+  req_clone_report_name TEXT,
   req_section          TEXT,
   req_performance_type TEXT
 `;

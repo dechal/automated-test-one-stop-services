@@ -18,6 +18,7 @@ export * from './domains/env.js';
 export * from './domains/flaky.js';
 export * from './domains/import-export.js';
 export * from './domains/projects.js';
+export * from './domains/report-clone.js';
 export * from './domains/reports.js';
 export * from './domains/run-summary.js';
 export * from './domains/runs.js';

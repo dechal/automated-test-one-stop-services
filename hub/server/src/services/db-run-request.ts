@@ -27,6 +27,7 @@ export const RUN_REQUEST_COLUMNS = [
   'req_no_track',
   'req_silent',
   'req_discard_report',
+  'req_clone_report_name',
   'req_section',
   'req_performance_type',
 ] as const;
@@ -44,6 +45,7 @@ export function runRequestValues(r: RunRequest): SqlValue[] {
     boolCol(r.noTrack),
     boolCol(r.silent),
     boolCol(r.discardReport),
+    strCol(r.cloneReportName),
     strCol(r.section),
     strCol(r.performanceType),
   ];
@@ -62,6 +64,7 @@ export function readRunRequest(row: Row): RunRequest {
     noTrack: readBool(row.req_no_track),
     silent: readBool(row.req_silent),
     discardReport: readBool(row.req_discard_report),
+    cloneReportName: readStr(row.req_clone_report_name),
     section: readStr(row.req_section),
     performanceType: readStr(row.req_performance_type) as PerformanceType | undefined,
   };
