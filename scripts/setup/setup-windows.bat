@@ -227,6 +227,10 @@ echo [aux] Installing tesseract OCR (best-effort; robot-framework IIA desktop te
 call :installTesseract || echo   [warn] tesseract install skipped ^(non-fatal^) - IIA error-dialog OCR will fail until it is on PATH
 
 echo.
+echo [aux] Installing glab (best-effort; GitLab CLI for creating and syncing company GitLab projects)
+where glab >nul 2>nul && ( echo   [SKIPPED] glab already present on PATH ) || ( call :scoopInstall glab glab || echo   [warn] glab install skipped ^(non-fatal^) - install later with: scoop install glab )
+
+echo.
 echo [aux] Android is opt-in and NOT part of core setup. Run "task setup-android" to install the Android SDK + emulator.
 
 echo.

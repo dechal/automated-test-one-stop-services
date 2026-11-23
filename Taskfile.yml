@@ -317,6 +317,11 @@ tasks:
     silent: true
     cmds:
       - node scripts/lib/pull-repos.mjs
+  brain:sync:
+    desc: Sync brain repos company (origin) -> personal, no force. One project - task brain:sync -- <project>
+    silent: true
+    cmds:
+      - node scripts/brain-sync.mjs {{.CLI_ARGS}}
 
   # ==============================================================================
   # WORKSPACE HEALTH

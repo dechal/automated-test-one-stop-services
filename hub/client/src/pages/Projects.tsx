@@ -14,7 +14,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { TbDownload, TbKey, TbList, TbPlus, TbPuzzle } from 'react-icons/tb';
+import { TbCloudUpload, TbDownload, TbKey, TbList, TbPlus, TbPuzzle } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { waitForHealth } from '~/api/health.js';
 import { qEnv, qGitStatus, qProjects, qRunsLastStatus, queryRoots } from '~/api/queries.js';
@@ -66,6 +66,11 @@ interface PullAllStatus {
   finishedAt?: string;
 }
 
+interface BrainSyncResult {
+  project: string;
+  status: 'synced' | 'already-up-to-date' | 'diverged' | 'failed';
+  message: string;
+}
 type EditingEnv = (EnvModalEditingTarget & { tool: ToolId | 'scripts' }) | null;
 
 /**
@@ -235,6 +240,24 @@ export function ProjectsPage() {
     onError: () => toast.error(t('projects.pullAllFailed')),
   });
 
+  const brainSyncMutation = useMutation<{ results: BrainSyncResult[] }, Error>({
+    mutationFn: () => api.post('/api/brain/sync', {}),
+    onSuccess: ({ results }) => {
+      if (results.length === 0) {
+        toast.error(t('projects.brainSyncNone'));
+        return;
+      }
+      const summary = results
+        .map((r) => `${r.project}: ${t(`projects.brainSyncStatus.${r.status}`)}`)
+        .join('\n');
+      const allOk = results.every(
+        (r) => r.status === 'synced' || r.status === 'already-up-to-date',
+      );
+      if (allOk) toast.success(`${t('projects.brainSyncDone')}\n${summary}`);
+      else toast.error(`${t('projects.brainSyncIssues')}\n${summary}`);
+    },
+    onError: () => toast.error(t('projects.brainSyncFailed')),
+  });
   const [pullingProject, setPullingProject] = useState<string | null>(null);
   const pullOneMutation = useMutation<
     PullResult,
@@ -365,6 +388,16 @@ export function ProjectsPage() {
                 {t('projects.pullAll')}
               </Button>
             </Indicator>
+            <Button
+              leftSection={<TbCloudUpload size={14} />}
+              variant="default"
+              size="xs"
+              onClick={() => brainSyncMutation.mutate()}
+              loading={brainSyncMutation.isPending}
+              title={t('projects.brainSyncHint')}
+            >
+              {t('projects.brainSync')}
+            </Button>
           </>
         }
       />
