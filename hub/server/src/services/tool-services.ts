@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { ComposeServiceInfo, ToolLocalServiceId } from '@hub/shared';
+import type { ComposeServiceInfo, ToolLocalServiceId, ToolRef } from '@hub/shared';
 import { TOOLS_DIR } from '../config.js';
 import { runChild } from './exec.js';
 import { getEnabledTools, type ToolManifest } from './manifest-registry.js';
@@ -81,8 +81,10 @@ export async function composeStartAllCommands(): Promise<string[]> {
   return [...new Set((await loadEntries()).map((e) => e.startCommand))];
 }
 
-export async function isLocalServiceRequired(id: ToolLocalServiceId): Promise<boolean> {
+export async function localServiceOwners(id: ToolLocalServiceId): Promise<ToolRef[]> {
   const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
-  return tools.some((t) => t.localServices?.includes(id) === true);
+  return tools
+    .filter((t) => t.localServices?.includes(id) === true)
+    .map((t) => ({ toolId: t.id, toolTitle: t.title }));
 }
 

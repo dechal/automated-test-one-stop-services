@@ -3,7 +3,6 @@ import { TbBrandDocker, TbRefresh } from 'react-icons/tb';
 import { UsageLoggingSetup } from '~/components/projects/UsageLoggingSetup.js';
 import type { HubUpdateState } from '~/components/settings/useHubUpdate.js';
 import { useT } from '~/i18n';
-import { DockerServicesBody } from '~/pages/DockerServices.js';
 
 export function SystemSettings({ isUpdating, updateStatus, runUpdate }: HubUpdateState) {
   const t = useT();
@@ -43,21 +42,6 @@ export function SystemSettings({ isUpdating, updateStatus, runUpdate }: HubUpdat
       </Paper>
 
       <UsageLoggingSetup />
-
-      <Paper p="md" withBorder>
-        <Stack gap={4} mb="sm">
-          <Group gap="xs">
-            <TbBrandDocker size={18} />
-            <Title order={2} size="h5">
-              {t('settings.dockerServices')}
-            </Title>
-          </Group>
-          <Text size="xs" c="dimmed">
-            {t('settings.dockerServicesDesc')}
-          </Text>
-        </Stack>
-        <DockerServicesBody />
-      </Paper>
     </>
   );
 }

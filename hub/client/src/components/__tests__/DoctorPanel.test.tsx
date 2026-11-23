@@ -247,11 +247,11 @@ describe('DoctorPanel rendering', () => {
     // so assert visibility, not DOM presence.
     expect(screen.getByText('Required 2/2 OK')).toBeVisible();
     expect(screen.getByText('srv-1.0.0')).not.toBeVisible();
-    expect(screen.getByText('Required')).not.toBeVisible();
+    expect(screen.getByText('General')).not.toBeVisible();
 
     // Click header -> expand: the contents become visible.
     await user.click(screen.getByText('Environment Status'));
-    expect(screen.getByText('Required')).toBeVisible();
+    expect(screen.getByText('General')).toBeVisible();
     expect(screen.getByText('srv-1.0.0')).toBeVisible();
     expect(screen.getByText('cli-1.0.0')).toBeVisible();
   });

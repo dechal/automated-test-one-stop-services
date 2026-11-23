@@ -2,9 +2,10 @@ import type { DoctorCategory, DoctorCheck, DoctorReport } from '@hub/shared';
 import { missingPrerequisites } from '@hub/shared';
 import {
   Badge,
+  Box,
   Button,
-  Card,
   Collapse,
+  Grid,
   Group,
   Loader,
   Paper,
@@ -25,12 +26,15 @@ import {
   TbHelpCircle,
   TbRefresh,
 } from 'react-icons/tb';
+import { ServiceActions } from '~/components/ServiceActions.js';
 import { useInstallPython, useProvisionTool } from '~/hooks/useTools.js';
 import type { TranslationKey } from '~/i18n/en';
 import { useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import {
+  type DoctorToolGroup,
   groupByCategory,
+  groupByTool,
   provisionGuidance,
   provisionTargetFor,
   shouldAutoExpand,
@@ -78,6 +82,7 @@ interface InstallState {
 interface CategoryConfig {
   key: DoctorCategory;
   titleKey: TranslationKey;
+  tagKey?: TranslationKey;
   /**
    * Left-edge accent for a FAILING check. There is deliberately no ok/fail
    * background or outline colour: each card already carries a status icon, so a
@@ -87,6 +92,9 @@ interface CategoryConfig {
   failAccent: string;
   failIcon: 'x' | 'warn';
 }
+
+const GENERAL_GROUP_KEY = 'general';
+const INLINE_CHECK_MIN_WIDTH = 160;
 
 const CATEGORIES: CategoryConfig[] = [
   {
@@ -98,12 +106,14 @@ const CATEGORIES: CategoryConfig[] = [
   {
     key: 'optional-install',
     titleKey: 'doctor.catOptionalInstall',
+    tagKey: 'doctor.tagOptional',
     failAccent: 'var(--mantine-color-yellow-6)',
     failIcon: 'warn',
   },
   {
     key: 'optional-process',
     titleKey: 'doctor.catOptionalServices',
+    tagKey: 'doctor.tagService',
     // A stopped optional service is a fact, not a fault — neutral accent.
     failAccent: 'var(--mantine-color-dark-3)',
     failIcon: 'x',
@@ -129,10 +139,7 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
   // `optional-process` is Docker / InfluxDB / Grafana — infrastructure a basic
   // user never starts and cannot act on, so a stopped one reads as a broken Hub
   // rather than an unused extra. Advanced mode owns that surface.
-  const advancedMode = usePreferences((s) => s.advancedMode);
-  const visibleCategories = advancedMode
-    ? CATEGORIES
-    : CATEGORIES.filter((c) => c.key !== 'optional-process');
+  const visibleCategories = CATEGORIES;
   const visibleKeys = new Set(visibleCategories.map((c) => c.key));
   const okCount = doctor?.checks.filter((c) => c.ok && visibleKeys.has(c.category)).length ?? 0;
 
@@ -169,7 +176,72 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
   }
 
   const badge = summaryBadge(doctor.checks);
-  const groups = groupByCategory(doctor.checks);
+  const toolGroups = groupByTool(doctor.checks);
+  const allChecks = doctor.checks;
+
+  function renderToolGroup(toolGroup: DoctorToolGroup, inline = false) {
+    const groups = groupByCategory(toolGroup.checks);
+    const sections = visibleCategories.flatMap((cat) => {
+      // Opened because something is wrong? Then show what is wrong. The
+      // healthy checks were taking most of the first screen to say
+      // "fine" — the summary badge already says that in four characters.
+      const all = groups[cat.key];
+      // Filter only when the panel opened itself over a problem. When all
+      // is well the user expanded on purpose, and the passing checks are
+      // the only thing there is to show.
+      const checks = showHealthy || !hasIssues ? all : all.filter((c) => !c.ok);
+      if (checks.length === 0 || !shouldShowGroup(all)) return [];
+      return [{ cat, checks }];
+    });
+    if (sections.length === 0) return null;
+    const required = groups['required-install'];
+    const requiredOk = required.filter((c) => c.ok).length;
+    return (
+      <Paper key={toolGroup.toolId ?? GENERAL_GROUP_KEY} withBorder radius="md" p="sm">
+        <Group justify="space-between" wrap="nowrap" mb={6}>
+          <Text size="sm" fw={600} truncate>
+            {toolGroup.toolTitle ?? t('doctor.general')}
+          </Text>
+          {required.length > 0 && (
+            <Badge
+              size="xs"
+              variant="light"
+              color={requiredOk === required.length ? 'green' : 'red'}
+              style={{ flexShrink: 0 }}
+            >
+              {`${requiredOk}/${required.length}`}
+            </Badge>
+          )}
+        </Group>
+        <Box
+          style={
+            inline
+              ? {
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  borderTop: '1px solid var(--mantine-color-default-border)',
+                }
+              : { display: 'flex', flexDirection: 'column' }
+          }
+        >
+          {sections
+            .flatMap(({ cat, checks }) => checks.map((check) => ({ cat, check })))
+            .map(({ cat, check }, index) => (
+              <CheckCard
+                key={`${cat.key}:${check.name}`}
+                check={check}
+                cat={cat}
+                allChecks={allChecks}
+                provision={provisionState}
+                install={installState}
+                inline={inline}
+                first={index === 0}
+              />
+            ))}
+        </Box>
+      </Paper>
+    );
+  }
 
   return (
     <Paper p="md" withBorder>
@@ -217,27 +289,21 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
 
       <Collapse expanded={isExpanded}>
         <Stack gap="md" mt="md">
-          {visibleCategories.map((cat) => {
-            // Opened because something is wrong? Then show what is wrong. The
-            // healthy checks were taking most of the first screen to say
-            // "fine" — the summary badge already says that in four characters.
-            const all = groups[cat.key];
-            // Filter only when the panel opened itself over a problem. When all
-            // is well the user expanded on purpose, and the passing checks are
-            // the only thing there is to show.
-            const checks = showHealthy || !hasIssues ? all : all.filter((c) => !c.ok);
-            if (checks.length === 0 || !shouldShowGroup(all)) return null;
+          {(() => {
+            const [general, ...tools] = toolGroups;
+            const generalCard = general ? renderToolGroup(general, true) : null;
+            const toolCards = tools.map((g) => renderToolGroup(g)).filter((n) => n !== null);
             return (
-              <CategorySection
-                key={cat.key}
-                cat={cat}
-                checks={checks}
-                allChecks={doctor.checks}
-                provision={provisionState}
-                install={installState}
-              />
+              <Stack gap="sm">
+                {generalCard}
+                {toolCards.length > 0 && (
+                  <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+                    {toolCards}
+                  </SimpleGrid>
+                )}
+              </Stack>
             );
-          })}
+          })()}
           {hasIssues && (
             <Button
               size="compact-xs"
@@ -255,53 +321,22 @@ export function DoctorPanel({ doctor, isLoading }: DoctorPanelProps) {
   );
 }
 
-function CategorySection({
-  cat,
-  checks,
-  allChecks,
-  provision,
-  install,
-}: {
-  cat: CategoryConfig;
-  checks: DoctorCheck[];
-  allChecks: DoctorCheck[];
-  provision: ProvisionState;
-  install: InstallState;
-}) {
-  const t = useT();
-  return (
-    <div>
-      <Text size="xs" fw={700} c="dimmed" mb={6}>
-        {t(cat.titleKey)}
-      </Text>
-      <SimpleGrid cols={{ base: 2, md: 4 }} spacing="xs">
-        {checks.map((check) => (
-          <CheckCard
-            key={check.name}
-            check={check}
-            cat={cat}
-            allChecks={allChecks}
-            provision={provision}
-            install={install}
-          />
-        ))}
-      </SimpleGrid>
-    </div>
-  );
-}
-
 function CheckCard({
   check,
   cat,
   allChecks,
   provision,
   install,
+  inline = false,
+  first = false,
 }: {
   check: DoctorCheck;
   cat: CategoryConfig;
   allChecks: DoctorCheck[];
   provision: ProvisionState;
   install: InstallState;
+  inline?: boolean;
+  first?: boolean;
 }) {
   const [showFix, setShowFix] = useState(false);
   // An unverified check reads as "unknown", never as broken: neutral icon and
@@ -344,13 +379,25 @@ function CheckCard({
   const prereqBlocked = prereqMissing.length > 0;
 
   return (
-    <Card
-      p="xs"
-      withBorder
+    <Box
+      py={6}
+      px="xs"
       style={
-        check.ok || check.unverified
-          ? undefined
-          : { borderLeftWidth: 3, borderLeftColor: cat.failAccent }
+        inline
+          ? {
+              flex: `1 1 ${INLINE_CHECK_MIN_WIDTH}px`,
+              minWidth: 0,
+              borderLeft:
+                check.ok || check.unverified
+                  ? first
+                    ? '1px solid transparent'
+                    : '1px solid var(--mantine-color-default-border)'
+                  : `3px solid ${cat.failAccent}`,
+            }
+          : {
+              borderTop: '1px solid var(--mantine-color-default-border)',
+              borderLeft: `3px solid ${check.ok || check.unverified ? 'transparent' : cat.failAccent}`,
+            }
       }
     >
       <Group gap={6} wrap="nowrap">
@@ -367,15 +414,20 @@ function CheckCard({
             {t('doctor.notEnabled')}
           </Badge>
         )}
+        {cat.tagKey && !inline && (
+          <Text size="xs" c="dimmed" ml="auto" style={{ flexShrink: 0 }}>
+            {t(cat.tagKey)}
+          </Text>
+        )}
       </Group>
       {check.ok && check.version && (
-        <Text size="xs" c="dimmed" mt={4} truncate title={check.version}>
+        <Text size="xs" c="dimmed" mt={2} pl={22} truncate title={check.version}>
           {check.version}
         </Text>
       )}
       {!check.ok && check.hint && (
         <Tooltip label={check.hint} multiline w={320}>
-          <Text size="xs" c={hintColor} mt={4} lineClamp={2}>
+          <Text size="xs" c={hintColor} mt={2} pl={22} lineClamp={2}>
             {check.hint}
           </Text>
         </Tooltip>
@@ -455,6 +507,7 @@ function CheckCard({
           )}
         </Stack>
       )}
-    </Card>
+      {check.service && <ServiceActions check={check} allChecks={allChecks} />}
+    </Box>
   );
 }

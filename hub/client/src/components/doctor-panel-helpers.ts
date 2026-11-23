@@ -16,6 +16,34 @@ export const DOCTOR_CATEGORY_ORDER: readonly DoctorCategory[] = [
   'optional-process',
 ] as const;
 
+export interface DoctorToolGroup {
+  toolId: string | undefined;
+  toolTitle: string | undefined;
+  checks: DoctorCheck[];
+}
+
+export function groupByTool(checks: readonly DoctorCheck[]): DoctorToolGroup[] {
+  const general: DoctorToolGroup = { toolId: undefined, toolTitle: undefined, checks: [] };
+  const byTool = new Map<string, DoctorToolGroup>();
+  for (const check of checks) {
+    if (check.toolId === undefined) {
+      general.checks.push(check);
+      continue;
+    }
+    const group = byTool.get(check.toolId) ?? {
+      toolId: check.toolId,
+      toolTitle: check.toolTitle ?? check.toolId,
+      checks: [],
+    };
+    group.checks.push(check);
+    byTool.set(check.toolId, group);
+  }
+  const tools = [...byTool.values()].sort((a, b) =>
+    (a.toolTitle ?? '').localeCompare(b.toolTitle ?? ''),
+  );
+  return [general, ...tools];
+}
+
 /** Checks partitioned by their {@link DoctorCategory}. */
 export type DoctorCategoryGroups = Record<DoctorCategory, DoctorCheck[]>;
 

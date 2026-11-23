@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { appiumServer } from '../services/appium-server.js';
-import { isLocalServiceRequired } from '../services/tool-services.js';
+import { markServiceTransition } from '../services/doctor.js';
+import { localServiceOwners } from '../services/tool-services.js';
 
 /**
  * Host-Appium control (mobile testing). Lets the Hub start/stop/install the
@@ -8,9 +9,10 @@ import { isLocalServiceRequired } from '../services/tool-services.js';
  */
 export async function appiumRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/appium/status', async () => {
-    const required = await isLocalServiceRequired('appium');
+    const requiredBy = await localServiceOwners('appium');
+    const required = requiredBy.length > 0;
     const installed = required ? await appiumServer.isInstalled() : false;
-    return { ...appiumServer.status(), installed, required };
+    return { ...appiumServer.status(), installed, required, requiredBy };
   });
 
   app.post('/api/appium/start', async (_req, reply) => {
@@ -21,15 +23,20 @@ export async function appiumRoutes(app: FastifyInstance): Promise<void> {
         message: 'Appium is not installed on the host. Run Install first.',
       };
     }
-    return appiumServer.start();
+    const result = await appiumServer.start();
+    markServiceTransition();
+    return result;
   });
 
   app.post('/api/appium/stop', async () => {
-    return appiumServer.stop();
+    const result = await appiumServer.stop();
+    markServiceTransition();
+    return result;
   });
 
   app.post('/api/appium/install', async () => {
     const res = await appiumServer.install();
+    markServiceTransition();
     return { success: res.ok, output: res.output };
   });
 }

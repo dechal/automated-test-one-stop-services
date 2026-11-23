@@ -3,10 +3,11 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { DoctorCategory, DoctorCheck, DoctorReport } from '@hub/shared';
 import { SCRIPTS_DIR, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
-import { getComposeServiceStatus, isDockerRunning } from './docker.js';
+import { appiumServer } from './appium-server.js';
+import { getComposeServiceStatus, invalidateDockerStatusCache, isDockerRunning } from './docker.js';
 import { runChild } from './exec.js';
 import { getEnabledTools, type ToolManifest } from './manifest-registry.js';
-import { listComposeServices } from './tool-services.js';
+import { listComposeServices, localServiceOwners } from './tool-services.js';
 
 /**
  * The pinned Python version from `scripts/setup/versions.env` (the single
@@ -124,7 +125,7 @@ export async function checkComposeService(
     return {
       name,
       ok: false,
-      hint: `Needs Docker — start Docker first, then start ${name} from the Docker Services page`,
+      hint: 'Needs Docker — start Docker first',
       category: 'optional-process',
     };
   }
@@ -140,7 +141,7 @@ export async function checkComposeService(
   return {
     name,
     ok: false,
-    hint: `Start ${name} from the Docker Services page, or: docker compose up ${name} -d`,
+    hint: `Stopped — start it here, or: docker compose up ${name} -d`,
     category: 'optional-process',
   };
 }
@@ -153,12 +154,19 @@ export function dockerStartHint(platform: NodeJS.Platform = process.platform): s
 
 function dockerDaemonCheck(ok: boolean): DoctorCheck {
   return ok
-    ? { name: 'docker-running', ok: true, version: 'daemon active', category: 'optional-process' }
+    ? {
+        name: 'docker-running',
+        ok: true,
+        version: 'daemon active',
+        category: 'optional-process',
+        service: 'docker',
+      }
     : {
         name: 'docker-running',
         ok: false,
         hint: dockerStartHint(),
         category: 'optional-process',
+        service: 'docker',
       };
 }
 
@@ -214,6 +222,10 @@ function absentToolCheck(name: string, reason: string): DoctorCheck {
   };
 }
 
+function ownedBy(check: DoctorCheck, tool: ToolManifest): DoctorCheck {
+  return { ...check, toolId: tool.id, toolTitle: tool.title };
+}
+
 async function checkToolRequirements(tools: readonly ToolManifest[]): Promise<DoctorCheck[]> {
   return Promise.all(
     tools.flatMap((tool) =>
@@ -224,7 +236,7 @@ async function checkToolRequirements(tools: readonly ToolManifest[]): Promise<Do
           args: [...req.args],
           hint: req.hint,
           category: req.optional ? 'optional-install' : 'required-install',
-        }),
+        }).then((check) => ownedBy(check, tool)),
       ),
     ),
   );
@@ -477,6 +489,9 @@ function checkCredentials(): boolean {
 }
 
 let lastReport: { value: DoctorReport; at: number } | null = null;
+let serviceTransitionUntil = 0;
+const SERVICE_TRANSITION_WINDOW_MS = 120_000;
+const SERVICE_TRANSITION_CACHE_TTL_MS = 2_000;
 /**
  * Per-probe limit. Every probe spawns a child process (through `cmd.exe` on
  * Windows), so this is a load ceiling, not a measure of how slow any tool is.
@@ -500,24 +515,65 @@ export function cachedDoctorReport(): DoctorReport | undefined {
   return undefined;
 }
 
+const PLAYWRIGHT_TOOL_ID = 'playwright';
+
+async function checkAppium(): Promise<DoctorCheck[]> {
+  const owners = await localServiceOwners('appium');
+  if (owners.length === 0) return [];
+  const installed = await appiumServer.isInstalled();
+  const { running, port } = appiumServer.status();
+  const check: DoctorCheck = running
+    ? { name: 'appium', ok: true, version: `running on :${port}`, category: 'optional-process' }
+    : installed
+      ? { name: 'appium', ok: false, hint: 'Stopped — start it here', category: 'optional-process' }
+      : {
+          name: 'appium',
+          ok: false,
+          hint: 'Not installed — click Install (npm i -g appium + uiautomator2)',
+          category: 'optional-process',
+          install: 'appium',
+        };
+  return owners.map((owner) => ({ ...check, ...owner, service: 'appium' }));
+}
+
+export function markServiceTransition(): void {
+  serviceTransitionUntil = Date.now() + SERVICE_TRANSITION_WINDOW_MS;
+  invalidateDoctorCache();
+}
+
 export async function runDoctor(): Promise<DoctorReport> {
   const now = Date.now();
-  if (lastReport && now - lastReport.at < DOCTOR_CACHE_TTL_MS) return lastReport.value;
+  const inTransition = now < serviceTransitionUntil;
+  const ttl = inTransition ? SERVICE_TRANSITION_CACHE_TTL_MS : DOCTOR_CACHE_TTL_MS;
+  if (lastReport && now - lastReport.at < ttl) return lastReport.value;
+  if (inTransition) invalidateDockerStatusCache();
 
-  const playwrightPresent = isToolFolderPresent('playwright');
   const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
-  const pythonPresent = tools.some((t) => t.packageManager === 'uv');
+  const pythonTools = tools.filter((t) => t.packageManager === 'uv');
+  const playwrightTool = tools.find((t) => t.id === PLAYWRIGHT_TOOL_ID);
   const dockerUp = isDockerRunning();
   const composeServices = listComposeServices();
 
   const checks = await Promise.all([
     ...CHECKS.map(runCheck),
     checkToolRequirements(tools),
-    checkPython(pythonPresent),
-    Promise.resolve(checkPlaywrightBrowsers(playwrightPresent)),
+    pythonTools.length > 0
+      ? checkPython(true).then((check) => pythonTools.map((tool) => ownedBy(check, tool)))
+      : [],
+    playwrightTool ? [ownedBy(checkPlaywrightBrowsers(true), playwrightTool)] : [],
+    checkAppium(),
     dockerUp.then(dockerDaemonCheck),
     Promise.all([dockerUp, composeServices]).then(([up, services]) =>
-      Promise.all(services.map((svc) => checkComposeService(svc.name, svc.port, up))),
+      Promise.all(
+        services.map((svc) =>
+          checkComposeService(svc.name, svc.port, up).then((check) => ({
+            ...check,
+            service: 'compose' as const,
+            toolId: svc.toolId,
+            toolTitle: svc.toolTitle,
+          })),
+        ),
+      ),
     ),
   ]);
 

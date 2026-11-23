@@ -6,6 +6,7 @@ import {
   invalidateDockerStatusCache,
   isDockerRunning,
 } from '../services/docker.js';
+import { markServiceTransition } from '../services/doctor.js';
 import { runChild } from '../services/exec.js';
 import {
   composeServiceStartCommand,
@@ -59,6 +60,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
         spawn('systemctl', ['start', 'docker'], { detached: true, stdio: 'ignore' }).unref();
       }
       invalidateDockerStatusCache();
+      markServiceTransition();
       return { success: true, message: 'Docker Desktop starting...' };
     } catch (err) {
       return { success: false, message: (err as Error).message };
@@ -81,6 +83,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
     }
     const result = await taskCmd(startCommand);
     invalidateDockerStatusCache();
+    markServiceTransition();
     return { success: result.ok, output: result.output };
   });
 
@@ -92,26 +95,25 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
     }
     const result = await compose(['stop', service]);
     invalidateDockerStatusCache();
+    markServiceTransition();
     return { success: result.ok, output: result.output };
   });
 
-  app.post<{ Body: { service: string } }>(
-    '/api/docker/service/restart',
-    async (req, reply) => {
-      const { service } = req.body;
-      if (!(await isKnownService(service))) {
-        reply.status(400);
-        return { code: 'INVALID_SERVICE', message: `Invalid service: ${service}` };
-      }
-      if (!(await isDockerRunning())) {
-        reply.status(400);
-        return { code: 'DOCKER_NOT_RUNNING', message: 'Docker is not running.' };
-      }
-      const result = await compose(['restart', service]);
-      invalidateDockerStatusCache();
-      return { success: result.ok, output: result.output };
-    },
-  );
+  app.post<{ Body: { service: string } }>('/api/docker/service/restart', async (req, reply) => {
+    const { service } = req.body;
+    if (!(await isKnownService(service))) {
+      reply.status(400);
+      return { code: 'INVALID_SERVICE', message: `Invalid service: ${service}` };
+    }
+    if (!(await isDockerRunning())) {
+      reply.status(400);
+      return { code: 'DOCKER_NOT_RUNNING', message: 'Docker is not running.' };
+    }
+    const result = await compose(['restart', service]);
+    invalidateDockerStatusCache();
+    markServiceTransition();
+    return { success: result.ok, output: result.output };
+  });
 
   app.post('/api/docker/start-all', async (_req, reply) => {
     if (!(await isDockerRunning())) {
@@ -120,6 +122,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
     }
     const results = await Promise.all((await composeStartAllCommands()).map(taskCmd));
     invalidateDockerStatusCache();
+    markServiceTransition();
     const allOk = results.every((r) => r.ok);
     const output = results.map((r) => r.output).join('\n');
     return { success: allOk, output };
@@ -128,6 +131,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/docker/stop-all', async () => {
     const result = await compose(['stop']);
     invalidateDockerStatusCache();
+    markServiceTransition();
     return { success: result.ok, output: result.output };
   });
 }

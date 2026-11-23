@@ -5,7 +5,9 @@ export type DoctorCategory = 'required-install' | 'optional-install' | 'optional
  * an in-panel button. Currently only `'python'` (retroactive `uv python install`
  * when the toolchain was skipped during setup). Extend the union to add more.
  */
-export type DoctorInstallKind = 'python';
+export type DoctorInstallKind = 'python' | 'appium';
+
+export type DoctorServiceKind = 'compose' | 'appium' | 'docker';
 
 export interface DoctorCheck {
   name: string;
@@ -29,6 +31,9 @@ export interface DoctorCheck {
    * `ok` stays false, but nothing treats it as a verdict.
    */
   unverified?: boolean;
+  toolId?: string;
+  toolTitle?: string;
+  service?: DoctorServiceKind;
 }
 
 export interface DoctorReport {

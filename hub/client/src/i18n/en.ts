@@ -82,8 +82,6 @@ export const en = {
   'settings.categoryExecution': 'Execution',
   'settings.categorySystem': 'System',
   'settings.categoryAbout': 'About',
-  'settings.dockerServices': 'Docker Services',
-  'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana for mobile and performance runs',
   'settings.appearance': 'Appearance',
   'settings.colorScheme': 'Color Scheme',
   'settings.notifications': 'Notifications',
@@ -122,10 +120,7 @@ export const en = {
   'reports.noReports': 'No reports yet. Run some tests to generate reports.',
 
   // Docker
-  'docker.checking': 'Checking Docker status...',
   'docker.startDesktop': 'Start Docker Desktop',
-  'docker.startAll': 'Start All',
-  'docker.stopAll': 'Stop All',
 
   // Env Profiles
   'envProfiles.title': 'Environment Profiles',
@@ -815,6 +810,9 @@ export const en = {
   // Doctor / environment panel
   'doctor.checking': 'Checking environment...',
   'doctor.envStatus': 'Environment Status',
+  'doctor.general': 'General',
+  'doctor.tagOptional': 'optional',
+  'doctor.tagService': 'service',
   'doctor.catRequired': 'Required',
   'doctor.catOptionalInstall': 'Optional — Install',
   'doctor.catOptionalServices': 'Optional — Services',
@@ -874,13 +872,6 @@ export const en = {
   'performance.refreshFailed': 'Refresh failed',
 
   // Docker services
-  'docker.desktopStarting': 'Docker Desktop starting...',
-  'docker.serviceRestarting': 'Service restarting...',
-  'docker.startingAll': 'Starting all services...',
-  'docker.stoppingAll': 'Stopping all services...',
-  'docker.startService': 'Start service',
-  'docker.stopService': 'Stop service',
-  'docker.restartService': 'Restart service',
 
   // Artifacts actions
   'artifacts.deleted': 'Deleted successfully',
@@ -1088,13 +1079,6 @@ export const en = {
   'flaky.recent': 'Recent',
 
   // Docker services
-  'docker.localServices': 'Local services',
-  'docker.installAppiumTip': 'Install Appium and the uiautomator2 driver on this machine',
-  'docker.appiumLocal': 'Appium (local)',
-  'docker.appiumDesc': 'Runs an Appium server on this machine for mobile tests',
-  'docker.appiumStarting': 'Appium is starting',
-  'docker.appiumStopped': 'Appium stopped',
-  'docker.appiumInstalled': 'Appium installed',
 
   // Artifacts
   'artifacts.loadingContent': 'Loading content...',

@@ -84,8 +84,6 @@ export const th: Record<TranslationKey, string> = {
   'settings.categoryExecution': 'การทำงาน',
   'settings.categorySystem': 'ระบบ',
   'settings.categoryAbout': 'เกี่ยวกับ',
-  'settings.dockerServices': 'Docker Services',
-  'settings.dockerServicesDesc': 'Appium / InfluxDB / Grafana สำหรับงานมือถือและทดสอบประสิทธิภาพ',
   'settings.appearance': 'หน้าตา',
   'settings.colorScheme': 'โทนสี',
   'settings.notifications': 'การแจ้งเตือน',
@@ -121,10 +119,7 @@ export const th: Record<TranslationKey, string> = {
   'reports.noReports': 'ยังไม่มีรายงาน รันเทสเพื่อสร้างรายงาน',
 
   // Docker
-  'docker.checking': 'กำลังตรวจสอบ Docker...',
   'docker.startDesktop': 'เปิด Docker Desktop',
-  'docker.startAll': 'เปิดทั้งหมด',
-  'docker.stopAll': 'ปิดทั้งหมด',
 
   // Env Profiles
   'envProfiles.title': 'โปรไฟล์ Environment',
@@ -800,6 +795,9 @@ export const th: Record<TranslationKey, string> = {
   // Doctor / environment panel
   'doctor.checking': 'กำลังตรวจสอบสภาพแวดล้อม...',
   'doctor.envStatus': 'สถานะสภาพแวดล้อม',
+  'doctor.general': 'ทั่วไป',
+  'doctor.tagOptional': 'ไม่บังคับ',
+  'doctor.tagService': 'บริการ',
   'doctor.catRequired': 'จำเป็น',
   'doctor.catOptionalInstall': 'ไม่บังคับ — ติดตั้ง',
   'doctor.catOptionalServices': 'ไม่บังคับ — บริการ',
@@ -857,13 +855,6 @@ export const th: Record<TranslationKey, string> = {
   'performance.refreshFailed': 'รีเฟรชไม่สำเร็จ',
 
   // Docker services
-  'docker.desktopStarting': 'กำลังเปิด Docker Desktop...',
-  'docker.serviceRestarting': 'กำลังรีสตาร์ทบริการ...',
-  'docker.startingAll': 'กำลังเปิดบริการทั้งหมด...',
-  'docker.stoppingAll': 'กำลังปิดบริการทั้งหมด...',
-  'docker.startService': 'เปิดบริการ',
-  'docker.stopService': 'ปิดบริการ',
-  'docker.restartService': 'รีสตาร์ทบริการ',
 
   // Artifacts actions
   'artifacts.deleted': 'ลบสำเร็จ',
@@ -1065,13 +1056,6 @@ export const th: Record<TranslationKey, string> = {
   'flaky.recent': 'ล่าสุด',
 
   // Docker services
-  'docker.localServices': 'บริการในเครื่อง',
-  'docker.installAppiumTip': 'ติดตั้ง Appium และไดรเวอร์ uiautomator2 บนเครื่องนี้',
-  'docker.appiumLocal': 'Appium (ในเครื่อง)',
-  'docker.appiumDesc': 'รันเซิร์ฟเวอร์ Appium บนเครื่องนี้เพื่อเทสบนมือถือ',
-  'docker.appiumStarting': 'กำลังเริ่ม Appium',
-  'docker.appiumStopped': 'หยุด Appium แล้ว',
-  'docker.appiumInstalled': 'ติดตั้ง Appium แล้ว',
 
   // Artifacts
   'artifacts.loadingContent': 'กำลังโหลดเนื้อหา...',
