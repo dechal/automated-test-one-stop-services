@@ -323,12 +323,30 @@ describe('validateManifest — root socket fields', () => {
     }
   });
 
+  it('accepts localServices and compose.servicesStart', () => {
+    const res = validateManifest({
+      ...baseManifest(),
+      localServices: ['appium'],
+      compose: { template: 't.yml', anchor: 'a', networks: [], servicesStart: 'start-grafana' },
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.manifest.localServices).toEqual(['appium']);
+      expect(res.manifest.compose?.servicesStart).toBe('start-grafana');
+    }
+  });
+
   it.each([
     ['lower-case env key', { env: { cache_dir: 'x' } }],
     ['clean path that climbs out', { clean: { paths: ['..'] } }],
     ['clean path with a separator', { clean: { paths: ['a/b'] } }],
     ['unknown installer', { requires: [{ cmd: 'ocr', install: { npm: 'ocr' } }] }],
     ['package name with a space', { requires: [{ cmd: 'ocr', install: { apt: 'a b' } }] }],
+    ['unknown local service', { localServices: ['selenium'] }],
+    [
+      'services start task with a space',
+      { compose: { template: 't.yml', anchor: 'a', networks: [], servicesStart: 'start all' } },
+    ],
   ])('rejects %s', (_label, patch) => {
     const res = validateManifest({ ...baseManifest(), ...patch });
     expect(res.ok).toBe(false);

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { appiumServer } from '../services/appium-server.js';
+import { isLocalServiceRequired } from '../services/tool-services.js';
 
 /**
  * Host-Appium control (mobile testing). Lets the Hub start/stop/install the
@@ -7,8 +8,9 @@ import { appiumServer } from '../services/appium-server.js';
  */
 export async function appiumRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/appium/status', async () => {
-    const installed = await appiumServer.isInstalled();
-    return { ...appiumServer.status(), installed };
+    const required = await isLocalServiceRequired('appium');
+    const installed = required ? await appiumServer.isInstalled() : false;
+    return { ...appiumServer.status(), installed, required };
   });
 
   app.post('/api/appium/start', async (_req, reply) => {

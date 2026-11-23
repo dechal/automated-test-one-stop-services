@@ -1226,8 +1226,6 @@ export const en = {
   'artifacts.filterVideos': 'Videos',
   'artifacts.filterTraces': 'Traces',
   'artifacts.filterLogs': 'Logs',
-  'docker.influxDesc': 'Time-series metrics database',
-  'docker.grafanaDesc': 'Metrics dashboard',
   'projects.pullAllError': 'Pull-all error: {error}',
   'projects.pullAllSuccess': 'Pulled {n} project(s) successfully',
   'projects.pullSomeFailed': '{failed}/{total} pull(s) failed: {list}',

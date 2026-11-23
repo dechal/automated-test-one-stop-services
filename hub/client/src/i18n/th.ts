@@ -1200,8 +1200,6 @@ export const th: Record<TranslationKey, string> = {
   'artifacts.filterVideos': 'วิดีโอ',
   'artifacts.filterTraces': 'Trace',
   'artifacts.filterLogs': 'Log',
-  'docker.influxDesc': 'ฐานข้อมูล metrics ตามเวลา',
-  'docker.grafanaDesc': 'แดชบอร์ด metrics',
   'projects.pullAllError': 'อัปเดตทั้งหมดไม่สำเร็จ: {error}',
   'projects.pullAllSuccess': 'อัปเดตสำเร็จ {n} โปรเจกต์',
   'projects.pullSomeFailed': 'อัปเดตไม่สำเร็จ {failed}/{total}: {list}',

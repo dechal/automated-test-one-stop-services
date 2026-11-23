@@ -1,7 +1,18 @@
 /** Docker + compose-service status (GET /api/docker/status). */
+export type ToolLocalServiceId = 'appium';
+
+export interface ComposeServiceInfo {
+  name: string;
+  toolId: string;
+  toolTitle: string;
+  image?: string;
+  port?: number;
+}
+
 export interface DockerStatus {
   dockerRunning: boolean;
   services: Record<string, string>;
+  available: ComposeServiceInfo[];
 }
 
 /**
@@ -14,6 +25,7 @@ export interface AppiumStatus {
   pid: number | null;
   port: number;
   installed: boolean;
+  required: boolean;
 }
 
 /** Presence of a third-party tool's credentials.json (GET /api/credentials). */

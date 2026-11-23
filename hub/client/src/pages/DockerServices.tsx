@@ -24,7 +24,7 @@ import { qAppiumStatus, qDockerStatus, queryRoots } from '~/api/queries.js';
 import { ErrorState } from '~/components/ErrorState.js';
 import { GridSkeleton } from '~/components/Skeletons.js';
 import { toast } from '~/components/Toast';
-import { type TranslationKey, useT } from '~/i18n/index.js';
+import { useT } from '~/i18n/index.js';
 
 /**
  * Poll interval for the Docker/Appium probes. Each poll shells out to the
@@ -33,11 +33,6 @@ import { type TranslationKey, useT } from '~/i18n/index.js';
  * the process churn of the previous 5s.
  */
 const STATUS_POLL_MS = 10_000;
-
-const SERVICE_INFO: Record<string, { label: string; port: number; descKey: TranslationKey }> = {
-  influxdb: { label: 'InfluxDB', port: 8086, descKey: 'docker.influxDesc' },
-  grafana: { label: 'Grafana', port: 3000, descKey: 'docker.grafanaDesc' },
-};
 
 export function DockerServicesBody() {
   const t = useT();
@@ -49,6 +44,7 @@ export function DockerServicesBody() {
   });
 
   const dockerRunning = status.data?.dockerRunning ?? false;
+  const composeServices = status.data?.available ?? [];
 
   const startDesktop = useMutation({
     mutationFn: () => api.post('/api/docker/start-desktop'),
@@ -190,33 +186,35 @@ export function DockerServicesBody() {
             </Group>
           </Card>
 
-          {/* Bulk actions */}
-          <Group gap="xs">
-            <Button
-              size="xs"
-              variant="light"
-              leftSection={<TbPlayerPlay size={14} />}
-              onClick={() => startAll.mutate()}
-              loading={startAll.isPending}
-              disabled={!dockerRunning}
-            >
-              {t('docker.startAll')}
-            </Button>
-            <Button
-              size="xs"
-              variant="default"
-              leftSection={<TbPlayerStop size={14} />}
-              onClick={() => stopAll.mutate()}
-              loading={stopAll.isPending}
-              disabled={!dockerRunning}
-            >
-              {t('docker.stopAll')}
-            </Button>
-          </Group>
+          {composeServices.length > 0 && (
+            <Group gap="xs">
+              <Button
+                size="xs"
+                variant="light"
+                leftSection={<TbPlayerPlay size={14} />}
+                onClick={() => startAll.mutate()}
+                loading={startAll.isPending}
+                disabled={!dockerRunning}
+              >
+                {t('docker.startAll')}
+              </Button>
+              <Button
+                size="xs"
+                variant="default"
+                leftSection={<TbPlayerStop size={14} />}
+                onClick={() => stopAll.mutate()}
+                loading={stopAll.isPending}
+                disabled={!dockerRunning}
+              >
+                {t('docker.stopAll')}
+              </Button>
+            </Group>
+          )}
 
           {/* Service cards */}
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-            {Object.entries(SERVICE_INFO).map(([name, info]) => {
+            {composeServices.map((info) => {
+              const { name } = info;
               const svcStatus = getServiceStatus(name);
               const isRunning = svcStatus === 'running';
 
@@ -227,7 +225,7 @@ export function DockerServicesBody() {
                       <Group gap="xs">
                         <TbServer size={16} />
                         <Text size="sm" fw={500}>
-                          {info.label}
+                          {name}
                         </Text>
                       </Group>
                       <Badge size="sm" variant="light" color={isRunning ? 'green' : 'red'}>
@@ -237,10 +235,12 @@ export function DockerServicesBody() {
 
                     <Stack gap={2}>
                       <Text size="xs" c="dimmed">
-                        {t(info.descKey)}
+                        {info.toolTitle}
                       </Text>
-                      <Text size="xs" c="dimmed" ff="monospace">
-                        :{info.port}
+                      <Text size="xs" c="dimmed" ff="monospace" truncate>
+                        {[info.port === undefined ? null : `:${info.port}`, info.image]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </Text>
                     </Stack>
 
@@ -298,76 +298,78 @@ export function DockerServicesBody() {
       {/* Local services — host processes (not Docker). Appium runs on the host
           for mobile testing (host emulator + host appium); Docker can't run an
           Android emulator on Windows. */}
-      <div>
-        <Text size="sm" fw={700} c="dimmed" mb="xs">
-          {t('docker.localServices')}
-        </Text>
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-          <Card withBorder p="md">
-            <Stack gap="sm">
-              <Group justify="space-between">
-                <Group gap="xs">
-                  <TbDeviceMobile size={16} />
-                  <Text size="sm" fw={500}>
-                    {t('docker.appiumLocal')}
-                  </Text>
+      {appium.data?.required && (
+        <div>
+          <Text size="sm" fw={700} c="dimmed" mb="xs">
+            {t('docker.localServices')}
+          </Text>
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+            <Card withBorder p="md">
+              <Stack gap="sm">
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <TbDeviceMobile size={16} />
+                    <Text size="sm" fw={500}>
+                      {t('docker.appiumLocal')}
+                    </Text>
+                  </Group>
+                  <Badge size="sm" variant="light" color={appium.data?.running ? 'green' : 'red'}>
+                    {appium.data?.running ? t('common.running') : t('common.stopped')}
+                  </Badge>
                 </Group>
-                <Badge size="sm" variant="light" color={appium.data?.running ? 'green' : 'red'}>
-                  {appium.data?.running ? t('common.running') : t('common.stopped')}
-                </Badge>
-              </Group>
 
-              <Stack gap={2}>
-                <Text size="xs" c="dimmed">
-                  {t('docker.appiumDesc')}
-                </Text>
-                <Text size="xs" c="dimmed" ff="monospace">
-                  :{appium.data?.port ?? 4723}
-                </Text>
-              </Stack>
+                <Stack gap={2}>
+                  <Text size="xs" c="dimmed">
+                    {t('docker.appiumDesc')}
+                  </Text>
+                  <Text size="xs" c="dimmed" ff="monospace">
+                    :{appium.data?.port ?? 4723}
+                  </Text>
+                </Stack>
 
-              {appium.data && !appium.data.installed ? (
-                <Tooltip label={t('docker.installAppiumTip')}>
-                  <Button
-                    size="xs"
-                    variant="default"
-                    leftSection={<TbDownload size={12} />}
-                    onClick={() => appiumInstall.mutate()}
-                    loading={appiumInstall.isPending}
-                  >
-                    {t('common.install')}
-                  </Button>
-                </Tooltip>
-              ) : (
-                <Group gap="xs">
-                  {!appium.data?.running && (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      leftSection={<TbPlayerPlay size={12} />}
-                      onClick={() => appiumStart.mutate()}
-                      loading={appiumStart.isPending}
-                    >
-                      {t('common.start')}
-                    </Button>
-                  )}
-                  {appium.data?.running && (
+                {appium.data && !appium.data.installed ? (
+                  <Tooltip label={t('docker.installAppiumTip')}>
                     <Button
                       size="xs"
                       variant="default"
-                      leftSection={<TbPlayerStop size={12} />}
-                      onClick={() => appiumStop.mutate()}
-                      loading={appiumStop.isPending}
+                      leftSection={<TbDownload size={12} />}
+                      onClick={() => appiumInstall.mutate()}
+                      loading={appiumInstall.isPending}
                     >
-                      {t('common.stop')}
+                      {t('common.install')}
                     </Button>
-                  )}
-                </Group>
-              )}
-            </Stack>
-          </Card>
-        </SimpleGrid>
-      </div>
+                  </Tooltip>
+                ) : (
+                  <Group gap="xs">
+                    {!appium.data?.running && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<TbPlayerPlay size={12} />}
+                        onClick={() => appiumStart.mutate()}
+                        loading={appiumStart.isPending}
+                      >
+                        {t('common.start')}
+                      </Button>
+                    )}
+                    {appium.data?.running && (
+                      <Button
+                        size="xs"
+                        variant="default"
+                        leftSection={<TbPlayerStop size={12} />}
+                        onClick={() => appiumStop.mutate()}
+                        loading={appiumStop.isPending}
+                      >
+                        {t('common.stop')}
+                      </Button>
+                    )}
+                  </Group>
+                )}
+              </Stack>
+            </Card>
+          </SimpleGrid>
+        </div>
+      )}
     </Stack>
   );
 }

@@ -6,6 +6,7 @@ import { SCRIPTS_DIR, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
 import { getComposeServiceStatus, isDockerRunning } from './docker.js';
 import { runChild } from './exec.js';
 import { getEnabledTools, type ToolManifest } from './manifest-registry.js';
+import { listComposeServices } from './tool-services.js';
 
 /**
  * The pinned Python version from `scripts/setup/versions.env` (the single
@@ -115,8 +116,8 @@ async function runCheck(def: CheckDef): Promise<DoctorCheck> {
 
 /** Compose-service availability probe with a friendly hint per service. */
 export async function checkComposeService(
-  name: 'influxdb' | 'grafana',
-  port: number,
+  name: string,
+  port: number | undefined,
   dockerUp: boolean,
 ): Promise<DoctorCheck> {
   if (!dockerUp) {
@@ -132,7 +133,7 @@ export async function checkComposeService(
     return {
       name,
       ok: true,
-      version: `running on :${port}`,
+      version: port === undefined ? 'running' : `running on :${port}`,
       category: 'optional-process',
     };
   }
@@ -506,8 +507,8 @@ export async function runDoctor(): Promise<DoctorReport> {
   const playwrightPresent = isToolFolderPresent('playwright');
   const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
   const pythonPresent = tools.some((t) => t.packageManager === 'uv');
-  const hasSharedServices = tools.some((t) => t.compose?.services !== undefined);
   const dockerUp = isDockerRunning();
+  const composeServices = listComposeServices();
 
   const checks = await Promise.all([
     ...CHECKS.map(runCheck),
@@ -515,12 +516,9 @@ export async function runDoctor(): Promise<DoctorReport> {
     checkPython(pythonPresent),
     Promise.resolve(checkPlaywrightBrowsers(playwrightPresent)),
     dockerUp.then(dockerDaemonCheck),
-    ...(hasSharedServices
-      ? [
-          dockerUp.then((up) => checkComposeService('influxdb', 8086, up)),
-          dockerUp.then((up) => checkComposeService('grafana', 3000, up)),
-        ]
-      : []),
+    Promise.all([dockerUp, composeServices]).then(([up, services]) =>
+      Promise.all(services.map((svc) => checkComposeService(svc.name, svc.port, up))),
+    ),
   ]);
 
   // Some checks may contribute an array; flatten so `DoctorReport.checks`

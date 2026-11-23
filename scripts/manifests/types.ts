@@ -57,6 +57,7 @@ export interface ToolComposeConfig {
   /** Names of external Docker networks to declare in the generated compose file. */
   readonly networks: readonly string[];
   readonly services?: string;
+  readonly servicesStart?: string;
 }
 
 export interface ToolTsconfigGenConfig {
@@ -252,11 +253,15 @@ export interface ToolManifest {
   readonly tags?: ToolTagsCapability;
   readonly versionFrom?: ToolVersionSourceConfig;
   readonly requires: readonly ToolRequirement[];
+  readonly localServices?: readonly ToolLocalService[];
   readonly env?: ToolEnv;
   readonly clean?: ToolCleanConfig;
 }
 
 export type ToolEnv = Readonly<Record<string, string>>;
+
+export const TOOL_LOCAL_SERVICES = ['appium'] as const;
+export type ToolLocalService = (typeof TOOL_LOCAL_SERVICES)[number];
 
 export interface ToolCleanConfig {
   readonly paths: readonly string[];

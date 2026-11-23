@@ -7,15 +7,15 @@ import {
   isDockerRunning,
 } from '../services/docker.js';
 import { runChild } from '../services/exec.js';
+import {
+  composeServiceStartCommand,
+  composeStartAllCommands,
+  listComposeServices,
+} from '../services/tool-services.js';
 
-type ServiceName = 'influxdb' | 'grafana';
-const VALID_SERVICES: ServiceName[] = ['influxdb', 'grafana'];
-
-/** Map service name to the task command that starts it. */
-const SERVICE_START_CMD: Record<ServiceName, string> = {
-  influxdb: 'task k6:start-grafana TRACK=none',
-  grafana: 'task k6:start-grafana TRACK=none',
-};
+async function isKnownService(service: string | undefined): Promise<boolean> {
+  return (await listComposeServices()).some((s) => s.name === service);
+}
 
 /** Run a `docker compose ...` command. */
 function compose(args: string[]) {
@@ -29,17 +29,20 @@ function taskCmd(line: string) {
 
 export async function dockerRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/docker/status', async () => {
-    const dockerRunning = await isDockerRunning();
+    const [dockerRunning, available] = await Promise.all([
+      isDockerRunning(),
+      listComposeServices(),
+    ]);
     const services: Record<string, string> = {};
 
     if (dockerRunning) {
-      const statuses = await Promise.all(VALID_SERVICES.map((s) => getComposeServiceStatus(s)));
-      VALID_SERVICES.forEach((svc, idx) => {
-        services[svc] = statuses[idx] ?? 'unknown';
+      const statuses = await Promise.all(available.map((s) => getComposeServiceStatus(s.name)));
+      available.forEach((svc, idx) => {
+        services[svc.name] = statuses[idx] ?? 'unknown';
       });
     }
 
-    return { dockerRunning, services };
+    return { dockerRunning, services, available };
   });
 
   app.post('/api/docker/start-desktop', async () => {
@@ -62,9 +65,10 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  app.post<{ Body: { service: ServiceName } }>('/api/docker/service/start', async (req, reply) => {
+  app.post<{ Body: { service: string } }>('/api/docker/service/start', async (req, reply) => {
     const { service } = req.body;
-    if (!VALID_SERVICES.includes(service)) {
+    const startCommand = await composeServiceStartCommand(service);
+    if (!startCommand) {
       reply.status(400);
       return { code: 'INVALID_SERVICE', message: `Invalid service: ${service}` };
     }
@@ -75,14 +79,14 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
         message: 'Docker is not running. Start Docker Desktop first.',
       };
     }
-    const result = await taskCmd(SERVICE_START_CMD[service]);
+    const result = await taskCmd(startCommand);
     invalidateDockerStatusCache();
     return { success: result.ok, output: result.output };
   });
 
-  app.post<{ Body: { service: ServiceName } }>('/api/docker/service/stop', async (req, reply) => {
+  app.post<{ Body: { service: string } }>('/api/docker/service/stop', async (req, reply) => {
     const { service } = req.body;
-    if (!VALID_SERVICES.includes(service)) {
+    if (!(await isKnownService(service))) {
       reply.status(400);
       return { code: 'INVALID_SERVICE', message: `Invalid service: ${service}` };
     }
@@ -91,11 +95,11 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
     return { success: result.ok, output: result.output };
   });
 
-  app.post<{ Body: { service: ServiceName } }>(
+  app.post<{ Body: { service: string } }>(
     '/api/docker/service/restart',
     async (req, reply) => {
       const { service } = req.body;
-      if (!VALID_SERVICES.includes(service)) {
+      if (!(await isKnownService(service))) {
         reply.status(400);
         return { code: 'INVALID_SERVICE', message: `Invalid service: ${service}` };
       }
@@ -114,7 +118,7 @@ export async function dockerRoutes(app: FastifyInstance): Promise<void> {
       reply.status(400);
       return { code: 'DOCKER_NOT_RUNNING', message: 'Docker is not running.' };
     }
-    const results = await Promise.all([taskCmd(SERVICE_START_CMD.grafana)]);
+    const results = await Promise.all((await composeStartAllCommands()).map(taskCmd));
     invalidateDockerStatusCache();
     const allOk = results.every((r) => r.ok);
     const output = results.map((r) => r.output).join('\n');

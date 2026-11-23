@@ -18,6 +18,7 @@ import type {
   ToolManifestRecord,
   ToolTagsStrategy,
 } from './types.js';
+import { TOOL_LOCAL_SERVICES } from './types.js';
 
 const ToolIdSchema = z.string().regex(/^[a-z][a-z0-9-]+$/);
 const ToolAliasSchema = z.string().regex(/^[a-z][a-z0-9]*$/);
@@ -136,6 +137,7 @@ export const ToolManifestSchema = z.object({
       anchor: z.string(),
       networks: z.array(NamespaceSchema),
       services: z.string().min(1).optional(),
+      servicesStart: NamespaceSchema.optional(),
     })
     .optional(),
   tsconfigGen: z
@@ -193,6 +195,7 @@ export const ToolManifestSchema = z.object({
       }),
     )
     .default([]),
+  localServices: z.array(z.enum(TOOL_LOCAL_SERVICES)).optional(),
   env: z.record(EnvKeySchema, z.string()).optional(),
   clean: z
     .object({
