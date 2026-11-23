@@ -14,7 +14,15 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { TbCloudUpload, TbDownload, TbKey, TbList, TbPlus, TbPuzzle } from 'react-icons/tb';
+import {
+  TbCloudUpload,
+  TbDownload,
+  TbGitBranch,
+  TbKey,
+  TbList,
+  TbPlus,
+  TbPuzzle,
+} from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { waitForHealth } from '~/api/health.js';
 import { qEnv, qGitStatus, qProjects, qRunsLastStatus, queryRoots } from '~/api/queries.js';
@@ -31,7 +39,14 @@ import {
   type EnvModalEditingTarget,
 } from '~/components/projects/EnvModal.js';
 import { ProjectRow } from '~/components/projects/ProjectRow.js';
+import {
+  type ProjectSyncResult,
+  summarizeProjectSync,
+} from '~/components/projects/project-sync-summary.js';
+import { RemotesModal } from '~/components/projects/RemotesModal.js';
 import { RemoveProjectSummary } from '~/components/projects/RemoveProjectSummary.js';
+import { RepoRemotesModal } from '~/components/projects/RepoRemotesModal.js';
+import { remotesRepoId } from '~/components/projects/remotes-filter.js';
 import { StandaloneModal } from '~/components/projects/StandaloneModal.js';
 import { ToolSection } from '~/components/projects/ToolSection.js';
 import { ToolSectionActions } from '~/components/projects/ToolSectionActions.js';
@@ -41,7 +56,7 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { EnvProfilesBody } from '~/pages/EnvProfiles.js';
 
-const BRAIN_SYNC_TIMEOUT_MS = 10 * 60_000;
+const PROJECT_SYNC_TIMEOUT_MS = 10 * 60_000;
 
 interface PullResult {
   project: string;
@@ -68,11 +83,6 @@ interface PullAllStatus {
   finishedAt?: string;
 }
 
-interface BrainSyncResult {
-  project: string;
-  status: 'synced' | 'already-up-to-date' | 'diverged' | 'failed';
-  message: string;
-}
 type EditingEnv = (EnvModalEditingTarget & { tool: ToolId | 'scripts' }) | null;
 
 /**
@@ -95,6 +105,8 @@ export function ProjectsPage() {
   const [createOpen, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [cloneOpen, { open: openClone, close: closeClone }] = useDisclosure(false);
   const [addToolsOpen, { open: openAddTools, close: closeAddTools }] = useDisclosure(false);
+  const [remotesOpen, { open: openRemotes, close: closeRemotes }] = useDisclosure(false);
+  const [remotesRepo, setRemotesRepo] = useState<string | null>(null);
   const [cloneTool, setCloneTool] = useState<ToolId | undefined>(undefined);
   // Sections expanded by default: `scripts` plus every installed tool. Seeded
   // once from `useTools()` (below) so portable tools expand by default too,
@@ -242,23 +254,18 @@ export function ProjectsPage() {
     onError: () => toast.error(t('projects.pullAllFailed')),
   });
 
-  const brainSyncMutation = useMutation<{ results: BrainSyncResult[] }, Error>({
-    mutationFn: () => api.post('/api/brain/sync', {}, { timeout: BRAIN_SYNC_TIMEOUT_MS }),
+  const projectSyncMutation = useMutation<{ results: ProjectSyncResult[] }, Error>({
+    mutationFn: () => api.post('/api/projects/sync', {}, { timeout: PROJECT_SYNC_TIMEOUT_MS }),
     onSuccess: ({ results }) => {
       if (results.length === 0) {
-        toast.error(t('projects.brainSyncNone'));
+        toast.error(t('projects.projectSyncNone'));
         return;
       }
-      const summary = results
-        .map((r) => `${r.project}: ${t(`projects.brainSyncStatus.${r.status}`)}`)
-        .join('\n');
-      const allOk = results.every(
-        (r) => r.status === 'synced' || r.status === 'already-up-to-date',
-      );
-      if (allOk) toast.success(`${t('projects.brainSyncDone')}\n${summary}`);
-      else toast.error(`${t('projects.brainSyncIssues')}\n${summary}`);
+      const { ok, message } = summarizeProjectSync(results, t);
+      if (ok) toast.success(`${t('projects.projectSyncDone')}: ${message}`);
+      else toast.error(`${t('projects.projectSyncIssues')}: ${message}`);
     },
-    onError: (err) => toast.error(`${t('projects.brainSyncFailed')}\n${err.message}`),
+    onError: (err) => toast.error(`${t('projects.projectSyncFailed')}: ${err.message}`),
   });
   const [pullingProject, setPullingProject] = useState<string | null>(null);
   const pullOneMutation = useMutation<
@@ -394,11 +401,19 @@ export function ProjectsPage() {
               leftSection={<TbCloudUpload size={14} />}
               variant="default"
               size="xs"
-              onClick={() => brainSyncMutation.mutate()}
-              loading={brainSyncMutation.isPending}
-              title={t('projects.brainSyncHint')}
+              onClick={() => projectSyncMutation.mutate()}
+              loading={projectSyncMutation.isPending}
+              title={t('projects.projectSyncHint')}
             >
-              {t('projects.brainSync')}
+              {t('projects.projectSync')}
+            </Button>
+            <Button
+              leftSection={<TbGitBranch size={14} />}
+              variant="default"
+              size="xs"
+              onClick={openRemotes}
+            >
+              {t('remotes.button')}
             </Button>
           </>
         }
@@ -523,6 +538,9 @@ export function ProjectsPage() {
                               onExportBundle={
                                 tool.supportsBundle ? () => setBundleTarget(p) : undefined
                               }
+                              onRemotes={() =>
+                                setRemotesRepo(remotesRepoId(p.tool, p.type, p.name))
+                              }
                             />
                           ))}
                         </Stack>
@@ -624,6 +642,8 @@ export function ProjectsPage() {
         isSaving={saveMutation.isPending}
         editingEnv={editingEnv}
       />
+      <RemotesModal opened={remotesOpen} onClose={closeRemotes} onManage={setRemotesRepo} />
+      <RepoRemotesModal repoId={remotesRepo} onClose={() => setRemotesRepo(null)} />
     </Stack>
   );
 }

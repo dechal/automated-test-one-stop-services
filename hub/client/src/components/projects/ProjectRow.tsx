@@ -17,6 +17,7 @@ import {
   TbDots,
   TbDownload,
   TbFolder,
+  TbGitBranch,
   TbPackage,
   TbPackageExport,
   TbPencil,
@@ -50,6 +51,7 @@ interface ProjectRowProps {
   onRemove?: () => void;
   onMakeStandalone?: () => void;
   onExportBundle?: () => void;
+  onRemotes?: () => void;
 }
 
 /** Convert a git remote URL to its web-viewable equivalent. */
@@ -75,6 +77,7 @@ export function ProjectRow({
   onRemove,
   onMakeStandalone,
   onExportBundle,
+  onRemotes,
 }: ProjectRowProps) {
   const t = useT();
 
@@ -168,7 +171,7 @@ export function ProjectRow({
           >
             .env
           </Button>
-          {(projectPath || onMakeStandalone || onExportBundle || onRemove) && (
+          {(projectPath || onMakeStandalone || onExportBundle || onRemotes || onRemove) && (
             <Menu position="bottom-end" withinPortal>
               <Menu.Target>
                 <ActionIcon
@@ -194,6 +197,11 @@ export function ProjectRow({
                 {onExportBundle && (
                   <Menu.Item leftSection={<TbPackage size={14} />} onClick={onExportBundle}>
                     {t('projectRow.exportBundle')}
+                  </Menu.Item>
+                )}
+                {onRemotes && (
+                  <Menu.Item leftSection={<TbGitBranch size={14} />} onClick={onRemotes}>
+                    {t('projectRow.remotes')}
                   </Menu.Item>
                 )}
                 {onRemove && (

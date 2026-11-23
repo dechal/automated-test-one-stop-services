@@ -13,6 +13,7 @@ import type {
   K6TrendData,
   ProjectSummary,
   QueueStatus,
+  RemotesListResponse,
   RunCompareResult,
   RunRecord,
   ScheduleEntry,
@@ -304,6 +305,7 @@ export const queryRoots = {
   bookmarks: 'bookmarks',
   flaky: 'flaky',
   queue: 'queue',
+  remotes: 'remotes',
   credentials: 'credentials',
   tools: 'tools',
   toolRegistry: 'tool-registry',
@@ -360,6 +362,12 @@ export const qQueue = () =>
   queryOptions({
     queryKey: [queryRoots.queue] as const,
     queryFn: () => api.get<QueueStatus>('/api/queue'),
+  });
+
+export const qRemotes = () =>
+  queryOptions({
+    queryKey: [queryRoots.remotes] as const,
+    queryFn: () => api.get<RemotesListResponse>('/api/remotes'),
   });
 
 /** Flaky-test report across every project. */

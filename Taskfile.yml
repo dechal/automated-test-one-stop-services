@@ -317,11 +317,16 @@ tasks:
     silent: true
     cmds:
       - node scripts/lib/pull-repos.mjs
-  brain:sync:
-    desc: Sync brain repos company (origin) -> personal, no force. One project - task brain:sync -- <project>
+  project:sync:
+    desc: Sync every repo with a personal remote, origin -> personal, no force. One repo - task project:sync -- <repo id from task remotes>
     silent: true
     cmds:
-      - node scripts/brain-sync.mjs {{.CLI_ARGS}}
+      - node scripts/project-sync.mjs {{.CLI_ARGS}}
+  remotes:
+    desc: List git remotes of every nested repo (task remotes -- --json for JSON)
+    silent: true
+    cmds:
+      - node scripts/remotes.mjs {{.CLI_ARGS}}
 
   # ==============================================================================
   # WORKSPACE HEALTH
