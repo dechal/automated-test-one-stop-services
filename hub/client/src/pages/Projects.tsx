@@ -41,6 +41,8 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { EnvProfilesBody } from '~/pages/EnvProfiles.js';
 
+const BRAIN_SYNC_TIMEOUT_MS = 10 * 60_000;
+
 interface PullResult {
   project: string;
   tool: string;
@@ -241,7 +243,7 @@ export function ProjectsPage() {
   });
 
   const brainSyncMutation = useMutation<{ results: BrainSyncResult[] }, Error>({
-    mutationFn: () => api.post('/api/brain/sync', {}),
+    mutationFn: () => api.post('/api/brain/sync', {}, { timeout: BRAIN_SYNC_TIMEOUT_MS }),
     onSuccess: ({ results }) => {
       if (results.length === 0) {
         toast.error(t('projects.brainSyncNone'));
@@ -256,7 +258,7 @@ export function ProjectsPage() {
       if (allOk) toast.success(`${t('projects.brainSyncDone')}\n${summary}`);
       else toast.error(`${t('projects.brainSyncIssues')}\n${summary}`);
     },
-    onError: () => toast.error(t('projects.brainSyncFailed')),
+    onError: (err) => toast.error(`${t('projects.brainSyncFailed')}\n${err.message}`),
   });
   const [pullingProject, setPullingProject] = useState<string | null>(null);
   const pullOneMutation = useMutation<

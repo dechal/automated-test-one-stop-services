@@ -64,8 +64,8 @@ describe('brain-sync', () => {
 
   after(() => rmSync(tmp, { recursive: true, force: true }));
 
-  it('skips folders without their own .git and syncs a behind personal remote', () => {
-    const results = syncBrain({ root: tmp });
+  it('skips folders without their own .git and syncs a behind personal remote', async () => {
+    const results = await syncBrain({ root: tmp });
     assert.deepEqual(
       results.map((r) => [r.project, r.status]),
       [['demo', 'synced']],
@@ -76,11 +76,14 @@ describe('brain-sync', () => {
     );
   });
 
-  it('reports already-up-to-date on a second run', () => {
-    assert.equal(syncBrain({ root: tmp, project: 'demo' })[0]?.status, 'already-up-to-date');
+  it('reports already-up-to-date on a second run', async () => {
+    assert.equal(
+      (await syncBrain({ root: tmp, project: 'demo' }))[0]?.status,
+      'already-up-to-date',
+    );
   });
 
-  it('reports diverged and leaves personal untouched when personal has its own commit', () => {
+  it('reports diverged and leaves personal untouched when personal has its own commit', async () => {
     commit(work, 'b.txt');
     git(work, ['push', 'origin', 'main']);
     git(work, ['checkout', '-b', 'side', 'refs/remotes/personal/main']);
@@ -88,12 +91,12 @@ describe('brain-sync', () => {
     git(work, ['push', 'personal', 'side:main']);
     git(work, ['checkout', 'main']);
     const before = git(personalBare, ['rev-parse', 'refs/heads/main']);
-    const [result] = syncBrain({ root: tmp, project: 'demo' });
+    const [result] = await syncBrain({ root: tmp, project: 'demo' });
     assert.equal(result?.status, 'diverged');
     assert.equal(git(personalBare, ['rev-parse', 'refs/heads/main']), before);
   });
 
-  it('fails for an unknown project slug', () => {
-    assert.equal(syncBrain({ root: tmp, project: 'nope' })[0]?.status, 'failed');
+  it('fails for an unknown project slug', async () => {
+    assert.equal((await syncBrain({ root: tmp, project: 'nope' }))[0]?.status, 'failed');
   });
 });
