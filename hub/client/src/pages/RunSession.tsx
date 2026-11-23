@@ -864,9 +864,6 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             flexDirection: 'column',
             gap: 'var(--mantine-spacing-sm)',
             overflow: 'auto',
-            // A wheel that reaches the end of the collapsed card must not chain
-            // to the sessions wrapper and jump the page.
-            overscrollBehavior: 'contain',
           }}
         >
           {/* Collapsed, this row is the whole card: the summary plus the toggle.

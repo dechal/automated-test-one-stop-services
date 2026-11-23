@@ -107,12 +107,10 @@ function GroupList({ fill, children }: { fill: boolean; children: ReactNode }) {
           flexDirection: 'column',
         }}
       >
-        {/* `contain` stops a wheel that reaches the end of the tag list from
-            chaining into the page behind it and jumping the whole form. */}
         <ScrollArea
           type="auto"
           scrollbarSize={8}
-          style={{ flex: 1, minHeight: 0, overscrollBehavior: 'contain' }}
+          style={{ flex: 1, minHeight: 0 }}
         >
           {children}
         </ScrollArea>

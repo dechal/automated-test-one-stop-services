@@ -25,7 +25,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { TbCalendarTime, TbClock, TbDeviceFloppy, TbSettings } from 'react-icons/tb';
@@ -72,6 +72,8 @@ function parseTagExpression(tool: string, tag: string | undefined): TagSelection
 
 const MODAL_WIDTH = 1180;
 const MODAL_NAME_WIDTH = 320;
+const SPLIT_MODAL_HEIGHT = '90dvh';
+const SPLIT_SCROLL_QUERY = '(min-width: 62em)';
 
 export interface ScheduleFormProps {
   /** When `mode === 'edit'`, a non-null schedule is required. */
@@ -176,6 +178,7 @@ export function ScheduleForm({
   const [initializedFor, setInitializedFor] = useState<string | null>(null);
   const [duplicatedFrom, setDuplicatedFrom] = useState<string | null>(null);
   const [envManagerOpen, { open: openEnvManager, close: closeEnvManager }] = useDisclosure(false);
+  const splitScroll = useMediaQuery(SPLIT_SCROLL_QUERY) ?? false;
 
   // Populate state when an edit-target schedule arrives (or changes id).
   if (isEdit && schedule && initializedFor !== schedule.id) {
@@ -455,10 +458,24 @@ export function ScheduleForm({
       }
       size={MODAL_WIDTH}
       centered
-      scrollAreaComponent={ScrollArea.Autosize}
+      scrollAreaComponent={splitScroll ? undefined : ScrollArea.Autosize}
+      styles={
+        splitScroll
+          ? {
+              content: { display: 'flex', flexDirection: 'column', height: SPLIT_MODAL_HEIGHT },
+              body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' },
+            }
+          : undefined
+      }
     >
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-        <Stack gap="md">
+      <SimpleGrid
+        cols={{ base: 1, md: 2 }}
+        spacing="md"
+        style={
+          splitScroll ? { flex: 1, minHeight: 0, gridTemplateRows: 'minmax(0, 1fr)' } : undefined
+        }
+      >
+        <Stack gap="md" style={splitScroll ? { minHeight: 0, overflowY: 'auto' } : undefined}>
           <RunStep step={1} title={t('schedule.stepWhen')}>
             <SimpleGrid cols={2} spacing="sm">
               <TextInput
@@ -715,7 +732,10 @@ export function ScheduleForm({
           </RunStep>
         </Stack>
 
-        <Stack gap="md" style={{ minHeight: 0 }}>
+        <Stack
+          gap="md"
+          style={splitScroll ? { minHeight: 0, overflowY: 'auto' } : { minHeight: 0 }}
+        >
           <RunStep
             step={3}
             title={t('run.stepTests')}
