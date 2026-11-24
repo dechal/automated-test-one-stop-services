@@ -504,6 +504,8 @@ export const en = {
   'bookmark.noFormConfig': 'Select a project in the run form first.',
   'bookmark.expandAll': 'Expand all',
   'bookmark.collapseAll': 'Collapse all',
+  'bookmark.matches': 'Matches bookmark',
+  'bookmark.noMatchSaved': 'No matching bookmark',
   'bookmark.staleTooltip': 'Tags no longer in this project:',
   'bookmark.migrate': 'Clean up stale tags',
   'bookmark.migrated': 'Stale tags removed from this bookmark',

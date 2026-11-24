@@ -31,6 +31,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TbCalendarTime, TbClock, TbDeviceFloppy, TbSettings } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
+import { BookmarkMatchBadge } from '~/components/BookmarkMatchBadge.js';
 import { BookmarkLoadModal } from '~/components/BookmarkPanel.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EnvProfileManager } from '~/components/env-profiles/EnvProfileManager.js';
@@ -695,7 +696,7 @@ export function ScheduleForm({
               )}
             </SimpleGrid>
             {kind === 'tool' && (
-              <Group>
+              <Group gap="sm">
                 <BookmarkLoadModal
                   getConfig={() => ({
                     tool,
@@ -712,6 +713,12 @@ export function ScheduleForm({
                     performanceType: sectionAxis ? perfType : undefined,
                   })}
                   onLoad={(config) => applyBookmarkConfig(config)}
+                />
+                <BookmarkMatchBadge
+                  config={{
+                    ...buildBody().config,
+                    envProfileId: envProfileId !== ENV_CURRENT ? envProfileId : undefined,
+                  }}
                 />
               </Group>
             )}

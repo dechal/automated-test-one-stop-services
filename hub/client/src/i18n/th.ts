@@ -495,6 +495,8 @@ export const th: Record<TranslationKey, string> = {
   'bookmark.noFormConfig': 'เลือกโปรเจกต์ในฟอร์มรันก่อน',
   'bookmark.expandAll': 'กางทั้งหมด',
   'bookmark.collapseAll': 'ยุบทั้งหมด',
+  'bookmark.matches': 'ตรงกับบุ๊กมาร์ก',
+  'bookmark.noMatchSaved': 'ไม่ตรงกับบุ๊กมาร์กใด',
   'bookmark.staleTooltip': 'tag ที่ไม่มีใน project นี้แล้ว:',
   'bookmark.migrate': 'ล้าง tag ที่ไม่มีแล้ว',
   'bookmark.migrated': 'ลบ tag ที่ไม่มีออกจาก bookmark นี้แล้ว',

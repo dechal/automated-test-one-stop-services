@@ -26,6 +26,7 @@ import {
   qRunReport,
   queryRoots,
 } from '~/api/queries.js';
+import { BookmarkMatchBadge } from '~/components/BookmarkMatchBadge.js';
 import { useSaveBookmark } from '~/components/BookmarkPanel.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EnvDrawer } from '~/components/env-profiles/EnvDrawer.js';
@@ -1009,6 +1010,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
             `flex: 1`, secondary controls `flex: 'none'`) instead of Mantine
             `grow`, whose `preventGrowOverflow` cap divides the row by child
             count — with three controls that would shrink Run to a third. */}
+        <BookmarkMatchBadge config={currentConfig()} />
         <RunActionFooter
           supportsTags={supportsTags}
           project={project}
