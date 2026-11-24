@@ -4,6 +4,7 @@ import { ActionIcon, Button, Checkbox, Group, Menu, Table, Text, Tooltip } from 
 import { TbCopy, TbDots, TbPlayerPlay, TbRefreshAlert } from 'react-icons/tb';
 import { PassScoreCell } from '~/components/PassScoreCell.js';
 import { RunStatusBadge } from '~/components/RunStatusBadge.js';
+import { TagQueryTooltip } from '~/components/TagQueryTooltip.js';
 import { useT } from '~/i18n/index.js';
 import { formatAbsolute, formatDurationBetween, formatRelative } from '~/utils/datetime.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
@@ -106,7 +107,7 @@ export function HistoryRunRow({
       </Table.Td>
       <Table.Td>
         {r.request.tag ? (
-          <Tooltip label={r.request.tag} withArrow>
+          <Tooltip label={<TagQueryTooltip tool={r.request.tool} expr={r.request.tag} />}>
             {/* One line, same rule as the Reports tag cell: stacked
                 chips made these rows twice the height of their
                 neighbours and the eye lost the row rhythm. The

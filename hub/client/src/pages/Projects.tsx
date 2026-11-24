@@ -8,21 +8,12 @@ import {
   SimpleGrid,
   Skeleton,
   Stack,
-  Tabs,
   Text,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import {
-  TbCloudUpload,
-  TbDownload,
-  TbGitBranch,
-  TbKey,
-  TbList,
-  TbPlus,
-  TbPuzzle,
-} from 'react-icons/tb';
+import { TbCloudUpload, TbDownload, TbGitBranch, TbPlus, TbPuzzle } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { waitForHealth } from '~/api/health.js';
 import { qEnv, qGitStatus, qProjects, qRunsLastStatus, queryRoots } from '~/api/queries.js';
@@ -54,7 +45,6 @@ import { toast } from '~/components/Toast.js';
 import { TypeToConfirmModal } from '~/components/TypeToConfirmModal.js';
 import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
-import { EnvProfilesBody } from '~/pages/EnvProfiles.js';
 
 const PROJECT_SYNC_TIMEOUT_MS = 10 * 60_000;
 
@@ -117,7 +107,6 @@ export function ProjectsPage() {
   const [removeTarget, setRemoveTarget] = useState<ProjectSummary | null>(null);
   const [standaloneTarget, setStandaloneTarget] = useState<ProjectSummary | null>(null);
   const [bundleTarget, setBundleTarget] = useState<ProjectSummary | null>(null);
-  const [activeTab, setActiveTab] = useState<'list' | 'env'>('list');
 
   const tools = useTools();
 
@@ -419,20 +408,7 @@ export function ProjectsPage() {
         }
       />
 
-      <Tabs value={activeTab} onChange={(v) => setActiveTab((v as 'list' | 'env') ?? 'list')}>
-        <Tabs.List mb="md">
-          <Tabs.Tab value="list" leftSection={<TbList size={16} />}>
-            {t('projects.tabList')}
-          </Tabs.Tab>
-          <Tabs.Tab value="env" leftSection={<TbKey size={16} />}>
-            {t('nav.envProfiles')}
-          </Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
-
-      {activeTab === 'env' && <EnvProfilesBody />}
-
-      {activeTab === 'list' && projects.isLoading && (
+      {projects.isLoading && (
         <Stack gap="xs">
           <Group gap="xs">
             <Loader size="xs" />
@@ -452,11 +428,9 @@ export function ProjectsPage() {
         </Stack>
       )}
 
-      {activeTab === 'list' && projects.isError && (
-        <ErrorState onRetry={() => projects.refetch()} />
-      )}
+      {projects.isError && <ErrorState onRetry={() => projects.refetch()} />}
 
-      {activeTab === 'list' && !projects.isLoading && !projects.isError && (
+      {!projects.isLoading && !projects.isError && (
         <>
           <ToolSection
             label="scripts/.env"

@@ -129,7 +129,7 @@ export const theme = createTheme({
   // Shared component defaults — consistency without repeating props everywhere.
   components: {
     // Every tooltip gets an arrow so pointers to their target are unambiguous.
-    Tooltip: { defaultProps: { withArrow: true } },
+    Tooltip: { defaultProps: { withArrow: true, multiline: true, maw: 420 } },
     NavLink: { defaultProps: { variant: 'light' } },
     // Modals centre by default (FormModal already did; now every modal matches).
     Modal: { defaultProps: { centered: true } },

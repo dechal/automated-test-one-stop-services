@@ -11,6 +11,7 @@ import {
   TbTerminal2,
   TbVolumeOff,
 } from 'react-icons/tb';
+import { StatTooltip } from '~/components/StatTooltip.js';
 import { useT } from '~/i18n/index.js';
 
 const ICON_SIZE = 14;
@@ -22,6 +23,8 @@ interface ConfigBadge {
   icon: ReactNode;
   color: string;
   label: string;
+  title: string;
+  detail?: string;
 }
 
 export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
@@ -36,6 +39,8 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbCopy size={ICON_SIZE} />,
       color: 'teal',
       label: `${t('schedule.badgeClone')}: ${name}${REPORT_EXTENSION}`,
+      title: t('schedule.badgeClone'),
+      detail: `${name}${REPORT_EXTENSION}`,
     });
   }
   if (config.cloneReportDir) {
@@ -45,6 +50,8 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbFolderShare size={ICON_SIZE} />,
       color: 'teal',
       label: `${t('schedule.badgeCloneDir')}: ${dir}`,
+      title: t('schedule.badgeCloneDir'),
+      detail: dir,
     });
   }
   if (config.silent) {
@@ -53,6 +60,7 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbVolumeOff size={ICON_SIZE} />,
       color: 'gray',
       label: t('run.silentMode'),
+      title: t('run.silentMode'),
     });
   }
   if (config.discardReport) {
@@ -61,6 +69,7 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbFileX size={ICON_SIZE} />,
       color: 'orange',
       label: t('run.discardReport'),
+      title: t('run.discardReport'),
     });
   }
   if (config.noTrack) {
@@ -69,6 +78,7 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbNotesOff size={ICON_SIZE} />,
       color: 'gray',
       label: t('run.skipUsageLogging'),
+      title: t('run.skipUsageLogging'),
     });
   }
   if (config.mode === 'docker') {
@@ -77,6 +87,7 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbBrandDocker size={ICON_SIZE} />,
       color: 'blue',
       label: t('schedule.badgeDocker'),
+      title: t('schedule.badgeDocker'),
     });
   }
   if (config.headless === 'headed') {
@@ -85,6 +96,7 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbAppWindow size={ICON_SIZE} />,
       color: 'violet',
       label: t('schedule.badgeHeaded'),
+      title: t('schedule.badgeHeaded'),
     });
   }
   if (config.extraArgs?.trim()) {
@@ -93,6 +105,8 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       icon: <TbTerminal2 size={ICON_SIZE} />,
       color: 'grape',
       label: `${t('run.extraArgs')}: ${config.extraArgs.trim()}`,
+      title: t('run.extraArgs'),
+      detail: config.extraArgs.trim(),
     });
   }
 
@@ -110,7 +124,7 @@ export function ScheduleConfigBadges({ config }: { config: RunRequest }) {
       }}
     >
       {badges.map((badge) => (
-        <Tooltip key={badge.key} label={badge.label} withArrow multiline maw={420}>
+        <Tooltip key={badge.key} label={<StatTooltip title={badge.title} detail={badge.detail} />}>
           <Box
             tabIndex={0}
             aria-label={badge.label}

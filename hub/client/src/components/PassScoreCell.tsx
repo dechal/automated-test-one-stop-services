@@ -1,6 +1,7 @@
 import type { RunSummary, SeverityBreakdown } from '@hub/shared';
 import { SEVERITY_LEVELS, weightedPassPercent } from '@hub/shared';
 import { Group, Progress, Text, Tooltip } from '@mantine/core';
+import { type StatRow, StatTooltip } from '~/components/StatTooltip.js';
 import { useT } from '~/i18n/index.js';
 import { formatCompactNumber } from '~/utils/format-number.js';
 import { formatPneBreakdown } from '~/utils/run-status.js';
@@ -64,43 +65,38 @@ export function PassScoreCell({
           ? ('yellow' as const)
           : ('red' as const);
 
-  const tooltipLines: string[] = [];
+  const rows: StatRow[] = [];
+  let title = t('reports.scoreNoSeverity');
+  let footer: string | undefined;
   if (weighted !== null && severity) {
-    tooltipLines.push(t('reports.scoreWeighted'));
+    title = t('reports.scoreWeighted');
     for (const level of SEVERITY_LEVELS) {
       const { passed, failed } = severity[level];
       if (passed + failed === 0) continue;
-      tooltipLines.push(
-        t('reports.scoreSeverityRow')
-          .replace('{level}', level)
-          .replace('{passed}', passed.toLocaleString())
-          .replace('{failed}', failed.toLocaleString()),
-      );
+      rows.push({
+        label: level,
+        value: `${passed.toLocaleString()} ✓  ${failed.toLocaleString()} ✗`,
+        tone: failed > 0 ? 'bad' : 'good',
+      });
     }
-  } else {
-    tooltipLines.push(t('reports.scoreNoSeverity'));
-    if (summary) {
-      const total = summary.passed + summary.failed + (summary.skipped ?? 0);
-      tooltipLines.push(
-        `${summary.passed.toLocaleString()} ${t('run.passed')} · ${summary.failed.toLocaleString()} ${t('run.failed')}` +
-          (summary.skipped ? ` · ${summary.skipped.toLocaleString()} ${t('run.skipped')}` : '') +
-          ` / ${total.toLocaleString()}`,
-      );
+  } else if (summary) {
+    const total = summary.passed + summary.failed + (summary.skipped ?? 0);
+    rows.push(
+      { label: t('run.passed'), value: summary.passed.toLocaleString(), tone: 'good' },
+      {
+        label: t('run.failed'),
+        value: summary.failed.toLocaleString(),
+        tone: summary.failed > 0 ? 'bad' : 'neutral',
+      },
+    );
+    if (summary.skipped) {
+      rows.push({ label: t('run.skipped'), value: summary.skipped.toLocaleString() });
     }
+    rows.push({ label: t('reports.cases'), value: total.toLocaleString() });
   }
-  if (summary?.pne) {
-    tooltipLines.push(formatPneBreakdown(summary.pne, t));
-  }
-
+  if (summary?.pne) footer = formatPneBreakdown(summary.pne, t);
   return (
-    <Tooltip
-      label={
-        <Text size="xs" style={{ whiteSpace: 'pre-line' }}>
-          {tooltipLines.join('\n')}
-        </Text>
-      }
-      withArrow
-    >
+    <Tooltip label={<StatTooltip title={title} rows={rows} footer={footer} />} withArrow>
       <Group gap={8} wrap="nowrap">
         {pct !== null && (
           <Progress.Root w={BAR_WIDTH} size={BAR_HEIGHT} aria-hidden>

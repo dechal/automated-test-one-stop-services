@@ -41,6 +41,7 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { parseTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
+import { StatTooltip } from './StatTooltip.js';
 import { ScheduleConfigBadges } from './schedule-form/ScheduleConfigBadges.js';
 import { TagQueryTooltip } from './TagQueryTooltip.js';
 
@@ -473,7 +474,12 @@ function BookmarkRow({
           </Text>
           {hasStale && (
             <Tooltip
-              label={`${t('bookmark.staleTooltip')} ${bookmark.staleTags.join(', ')}`}
+              label={
+                <StatTooltip
+                  title={t('bookmark.staleTooltip').replace(/:$/, '')}
+                  detail={bookmark.staleTags.join(', ')}
+                />
+              }
               withArrow
               multiline
             >
@@ -513,11 +519,13 @@ function BookmarkRow({
         <Group gap={6} justify="flex-end" wrap="nowrap" aria-label={meta} style={{ minWidth: 0 }}>
           <Tooltip
             label={
-              envName === undefined
-                ? t('run.envCurrent')
-                : envName === null
-                  ? t('bookmark.envMissing')
-                  : `${t('bookmark.envProfile')}: ${envName}`
+              envName === undefined ? (
+                t('run.envCurrent')
+              ) : envName === null ? (
+                t('bookmark.envMissing')
+              ) : (
+                <StatTooltip title={t('bookmark.envProfile')} detail={envName} />
+              )
             }
             withArrow
           >

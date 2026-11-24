@@ -14,6 +14,8 @@ import { api } from '~/api/client.js';
 import { PassScoreCell } from '~/components/PassScoreCell.js';
 import { RunStatusBadge } from '~/components/RunStatusBadge.js';
 import { ArtifactMenu } from '~/components/reports/ArtifactMenu.js';
+import { type StatRow, StatTooltip } from '~/components/StatTooltip.js';
+import { TagQueryTooltip } from '~/components/TagQueryTooltip.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
 import { formatAbsolute, formatDurationMs, formatRelative } from '~/utils/datetime.js';
@@ -35,9 +37,24 @@ function CaseCountCell({ summary }: { summary?: RunSummary }) {
     );
   }
   const total = summary.passed + summary.failed + (summary.skipped ?? 0);
-  const breakdown = `${total.toLocaleString()} ${t('reports.cases').toLowerCase()} — ${summary.passed.toLocaleString()} ${t('run.passed')} · ${summary.failed.toLocaleString()} ${t('run.failed')}${
-    summary.skipped ? ` · ${summary.skipped.toLocaleString()} ${t('run.skipped')}` : ''
-  }${summary.pne ? ` (${formatPneBreakdown(summary.pne, t)})` : ''}`;
+  const rows: StatRow[] = [
+    { label: t('run.passed'), value: summary.passed.toLocaleString(), tone: 'good' },
+    {
+      label: t('run.failed'),
+      value: summary.failed.toLocaleString(),
+      tone: summary.failed > 0 ? 'bad' : 'neutral',
+    },
+  ];
+  if (summary.skipped) {
+    rows.push({ label: t('run.skipped'), value: summary.skipped.toLocaleString() });
+  }
+  const breakdown = (
+    <StatTooltip
+      title={`${total.toLocaleString()} ${t('reports.cases').toLowerCase()}`}
+      rows={rows}
+      footer={summary.pne ? formatPneBreakdown(summary.pne, t) : undefined}
+    />
+  );
   return (
     <Tooltip label={breakdown} withArrow>
       <Group gap={5} wrap="nowrap">
@@ -149,7 +166,7 @@ export function ReportRow({
       </Table.Td>
       <Table.Td>
         {r.runTag ? (
-          <Tooltip label={r.runTag} withArrow>
+          <Tooltip label={<TagQueryTooltip tool={r.tool} expr={r.runTag} />}>
             <Group gap={4} wrap="nowrap" maw={110}>
               {/* Tags are a filter record, not a status. As outlined
                   blue chips they out-shouted the pass rate — the

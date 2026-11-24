@@ -270,7 +270,6 @@ export const th: Record<TranslationKey, string> = {
   // Additional page titles
   'webhooks.title': 'Webhooks',
   'projects.addTools': 'เพิ่มเครื่องมืออื่น',
-  'projects.tabList': 'รายการ',
   'projects.pullAll': 'อัปเดตทั้งหมด',
   'projects.projectSync': 'ซิงก์',
   'projects.projectSyncHint': 'ซิงก์ทุก repo ที่มี personal remote จาก origin ไป personal',
@@ -990,6 +989,7 @@ export const th: Record<TranslationKey, string> = {
   'schedules.noToolSchedules': 'ไม่มีการตั้งเวลาแบบ tools ที่ตรงเงื่อนไข สร้างเพื่อรันเทสอัตโนมัติ',
   'schedules.noCustom': 'ยังไม่มีการตั้งเวลาแบบกำหนดเอง สร้างเพื่อรัน script หรือคำสั่งตาม cron',
   'schedule.lastPrefix': 'ล่าสุด:',
+  'schedule.commandTitle': 'คำสั่งกำหนดเอง',
   'schedule.lastRunPrefix': 'รันล่าสุด:',
   'schedule.tagged': 'มีแท็ก',
   'schedule.discardTitle': 'ทิ้งสิ่งที่แก้ไว้ไหม?',

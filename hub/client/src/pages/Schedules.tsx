@@ -36,6 +36,7 @@ import { InlineAlert } from '~/components/InlineAlert.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { ScheduleCalendar } from '~/components/ScheduleCalendar.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
+import { StatTooltip } from '~/components/StatTooltip.js';
 import { ScheduleConfigBadges } from '~/components/schedule-form/ScheduleConfigBadges.js';
 import { ScheduleForm } from '~/components/schedule-form/ScheduleForm.js';
 import { TagQueryTooltip } from '~/components/TagQueryTooltip.js';
@@ -332,7 +333,14 @@ export function SchedulesPage() {
                         </Group>
                         <Group gap="xs" wrap="wrap">
                           {s.command ? (
-                            <Tooltip label={buildCommandPreview(s.command)} multiline w={360}>
+                            <Tooltip
+                              label={
+                                <StatTooltip
+                                  title={t('schedule.commandTitle')}
+                                  detail={buildCommandPreview(s.command)}
+                                />
+                              }
+                            >
                               <Badge
                                 variant="light"
                                 color="grape"
@@ -344,7 +352,11 @@ export function SchedulesPage() {
                               </Badge>
                             </Tooltip>
                           ) : (
-                            <Tooltip label={`${s.config.tool}/${s.config.project}`}>
+                            <Tooltip
+                              label={
+                                <StatTooltip title={s.config.tool} detail={s.config.project} />
+                              }
+                            >
                               <Badge variant="light" color="gray" maw={180}>
                                 {s.config.tool}/{s.config.project}
                               </Badge>
@@ -354,8 +366,6 @@ export function SchedulesPage() {
                           {s.config.tag && (
                             <Tooltip
                               label={<TagQueryTooltip tool={s.config.tool} expr={s.config.tag} />}
-                              multiline
-                              maw={420}
                             >
                               <Badge variant="light" color="blue" maw={140}>
                                 {t('schedule.tagged')}
@@ -364,7 +374,13 @@ export function SchedulesPage() {
                           )}
                           {s.lastRunAt && (
                             <Tooltip
-                              label={`${t('schedule.lastRunPrefix')} ${formatFullDateTime(s.lastRunAt)} · ${formatRelative(s.lastRunAt)}`}
+                              label={
+                                <StatTooltip
+                                  title={t('schedule.lastRunPrefix').replace(/:$/, '')}
+                                  detail={formatFullDateTime(s.lastRunAt)}
+                                  footer={formatRelative(s.lastRunAt)}
+                                />
+                              }
                             >
                               <Badge variant="light" color={getStatusColor(s.lastStatus ?? '')}>
                                 {t('schedule.lastPrefix')} {formatAbsolute(s.lastRunAt)}

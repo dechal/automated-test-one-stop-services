@@ -275,7 +275,6 @@ export const en = {
   // Additional page titles
   'webhooks.title': 'Webhooks',
   'projects.addTools': 'Add other tools',
-  'projects.tabList': 'Projects',
   'projects.pullAll': 'Update All',
   'projects.projectSync': 'Sync',
   'projects.projectSyncHint': 'Sync every repo with a personal remote: origin to personal',
@@ -1010,6 +1009,7 @@ export const en = {
   'schedules.noToolSchedules': 'No tool schedules match. Create one to run tests automatically.',
   'schedules.noCustom': 'No custom schedules yet. Create one to run a script or command on a cron.',
   'schedule.lastPrefix': 'Last:',
+  'schedule.commandTitle': 'Custom command',
   'schedule.lastRunPrefix': 'Last run:',
   'schedule.tagged': 'tagged',
   'schedule.discardTitle': 'Discard your changes?',
