@@ -201,6 +201,13 @@ export const th: Record<TranslationKey, string> = {
   'run.autoDefault': 'อัตโนมัติ',
   'run.discardReport': 'ลบ report หลังรันเสร็จ',
   'run.cloneInvalid': 'แก้ชื่อไฟล์หรือโฟลเดอร์ของ report copy ให้ถูกต้องก่อน',
+  'run.noAndroidDevice': 'project mobile นี้ยังไม่มี Android emulator เปิดอยู่',
+  'emulator.start': 'เปิด emulator',
+  'emulator.startAvd': 'เปิด {avd}',
+  'emulator.stop': 'ปิด emulator',
+  'emulator.chooseAvd': 'เลือกเครื่อง (AVD)',
+  'emulator.starting': 'กำลังเปิด {avd} รอเครื่อง boot สักครู่',
+  'emulator.noAvd': 'เครื่องนี้ยังไม่มี AVD สร้างได้ใน Android Studio → Device Manager',
   'run.envPinnedMissing': 'ไม่พบ env profile ที่บันทึกไว้กับค่านี้แล้ว จึงใช้ค่า default ของ project แทน',
   'run.discardReportHint':
     'ยังเก็บประวัติและอัปเดต Status ในเทสเคสให้ แล้วค่อยลบ HTML report, trace, วิดีโอ เหมาะกับงานที่รันซ้ำบ่อยเพื่อไม่ให้ outputs/ บวม',

@@ -204,6 +204,13 @@ export const en = {
   'run.autoDefault': 'auto',
   'run.discardReport': 'Discard report after the run',
   'run.cloneInvalid': 'Fix the report copy name or folder first',
+  'run.noAndroidDevice': 'No Android emulator is running for this mobile project',
+  'emulator.start': 'Start emulator',
+  'emulator.startAvd': 'Start {avd}',
+  'emulator.stop': 'Stop emulator',
+  'emulator.chooseAvd': 'Choose a device (AVD)',
+  'emulator.starting': 'Starting {avd} — it takes a moment to boot',
+  'emulator.noAvd': 'No AVD on this machine — create one in Android Studio → Device Manager',
   'run.envPinnedMissing':
     "The env profile saved with this config no longer exists — using the project's default instead",
   'run.discardReportHint':

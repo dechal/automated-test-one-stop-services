@@ -1,4 +1,5 @@
 import type {
+  AndroidEmulatorStatus,
   AppiumStatus,
   Bookmark,
   BookmarkWithStatus,
@@ -323,6 +324,7 @@ export const queryRoots = {
   compare: 'compare',
   dockerStatus: 'docker-status',
   appiumStatus: 'appium-status',
+  androidEmulator: 'android-emulator',
   k6Trends: 'k6-trends',
   gitStatus: 'git-status',
   runsLastStatus: 'runs-last-status',
@@ -438,6 +440,13 @@ export const qDockerStatus = () =>
   queryOptions({
     queryKey: [queryRoots.dockerStatus] as const,
     queryFn: () => api.get<DockerStatus>('/api/docker/status'),
+  });
+
+export const qAndroidEmulator = (enabled = true) =>
+  queryOptions({
+    queryKey: [queryRoots.androidEmulator] as const,
+    queryFn: () => api.get<AndroidEmulatorStatus>('/api/android-emulator'),
+    enabled,
   });
 
 /** Host Appium server status. `enabled`/poll owned by the caller. */

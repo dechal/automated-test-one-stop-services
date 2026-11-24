@@ -16,6 +16,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { TbChevronDown, TbChevronUp } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import {
+  qAndroidEmulator,
   qAppiumStatus,
   qBookmarkList,
   qConfig,
@@ -500,6 +501,10 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     refetchInterval: isMobile ? 5000 : false,
   });
   const appiumRunning = appiumQ.data?.running ?? false;
+  const needsAppium =
+    isMobile &&
+    Array.isArray(appiumQ.data?.requiredBy) &&
+    appiumQ.data.requiredBy.some((owner) => owner.toolId === tool);
   const startAppium = useMutation({
     mutationFn: () => api.post('/api/appium/start'),
     onSuccess: () => {
@@ -510,8 +515,15 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   });
 
   const credentialsMissing = !!doctorQ.data && !doctorQ.data.credentialsOk && !noTrack;
-  const appiumMissing = isMobile && !appiumRunning;
-  const hasGatingAlerts = credentialsMissing || missingReqs.length > 0 || appiumMissing;
+  const appiumMissing = needsAppium && !appiumRunning;
+  const emulatorQ = useQuery(qAndroidEmulator(!!project));
+  const emulatorStatus = Array.isArray(emulatorQ.data?.requiredBy) ? emulatorQ.data : undefined;
+  const emulatorMissing =
+    !!project &&
+    (emulatorStatus?.requiredBy ?? []).some((owner) => owner.toolId === tool) &&
+    (emulatorStatus?.running.length ?? 0) === 0;
+  const hasGatingAlerts =
+    credentialsMissing || missingReqs.length > 0 || appiumMissing || emulatorMissing;
 
   // Gating information, not configuration: each line states why Run is disabled
   // and what to do about it, so it stays in the card while the form is collapsed.
@@ -526,6 +538,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       onStartAppium={() => startAppium.mutate()}
       startAppiumPending={startAppium.isPending}
       startAppiumDisabled={appiumQ.data ? !appiumQ.data.installed : false}
+      emulatorMissing={emulatorMissing}
     />
   ) : null;
 
@@ -1018,7 +1031,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           tagsIsLoading={tags.isLoading}
           missingReqs={missingReqs}
           isRunning={isRunning}
-          isMobile={isMobile}
+          isMobile={needsAppium}
           appiumRunning={appiumRunning}
           handleRun={handleRun}
           runLabel={runLabel}

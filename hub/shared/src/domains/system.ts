@@ -1,5 +1,5 @@
 /** Docker + compose-service status (GET /api/docker/status). */
-export type ToolLocalServiceId = 'appium';
+export type ToolLocalServiceId = 'appium' | 'android-emulator';
 
 export interface ToolRef {
   toolId: string;
@@ -25,6 +25,18 @@ export interface DockerStatus {
  * process status with an `installed` probe, so this is the API DTO — distinct
  * from the server service's internal status shape (which carries process logs).
  */
+export interface RunningEmulator {
+  serial: string;
+  avd: string;
+}
+
+export interface AndroidEmulatorStatus {
+  requiredBy: ToolRef[];
+  avds: string[];
+  running: RunningEmulator[];
+  error?: string;
+}
+
 export interface AppiumStatus {
   running: boolean;
   pid: number | null;

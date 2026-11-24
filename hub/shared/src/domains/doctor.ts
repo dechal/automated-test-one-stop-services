@@ -7,7 +7,7 @@ export type DoctorCategory = 'required-install' | 'optional-install' | 'optional
  */
 export type DoctorInstallKind = 'python' | 'appium';
 
-export type DoctorServiceKind = 'compose' | 'appium' | 'docker';
+export type DoctorServiceKind = 'compose' | 'appium' | 'docker' | 'android-emulator';
 
 export interface DoctorCheck {
   name: string;

@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { DoctorCategory, DoctorCheck, DoctorReport } from '@hub/shared';
 import { SCRIPTS_DIR, TOOLS_DIR, WORKSPACE_ROOT } from '../config.js';
+import { emulatorStatus, invalidateEmulatorStatus } from './android-emulator.js';
 import { appiumServer } from './appium-server.js';
 import { getComposeServiceStatus, invalidateDockerStatusCache, isDockerRunning } from './docker.js';
 import { runChild } from './exec.js';
@@ -536,6 +537,31 @@ async function checkAppium(): Promise<DoctorCheck[]> {
   return owners.map((owner) => ({ ...check, ...owner, service: 'appium' }));
 }
 
+async function checkAndroidEmulator(): Promise<DoctorCheck[]> {
+  const status = await emulatorStatus();
+  if (status.requiredBy.length === 0) return [];
+  const running = status.running.map((e) => (e.avd ? `${e.avd} (${e.serial})` : e.serial));
+  const check: DoctorCheck =
+    running.length > 0
+      ? {
+          name: 'android-emulator',
+          ok: true,
+          version: `running: ${running.join(', ')}`,
+          category: 'optional-process',
+        }
+      : {
+          name: 'android-emulator',
+          ok: false,
+          hint:
+            status.error ??
+            (status.avds.length === 0
+              ? 'No AVD found — create one in Android Studio (Device Manager)'
+              : 'No emulator running — start one here'),
+          category: 'optional-process',
+        };
+  return status.requiredBy.map((owner) => ({ ...check, ...owner, service: 'android-emulator' }));
+}
+
 export function markServiceTransition(): void {
   serviceTransitionUntil = Date.now() + SERVICE_TRANSITION_WINDOW_MS;
   invalidateDoctorCache();
@@ -546,7 +572,10 @@ export async function runDoctor(): Promise<DoctorReport> {
   const inTransition = now < serviceTransitionUntil;
   const ttl = inTransition ? SERVICE_TRANSITION_CACHE_TTL_MS : DOCTOR_CACHE_TTL_MS;
   if (lastReport && now - lastReport.at < ttl) return lastReport.value;
-  if (inTransition) invalidateDockerStatusCache();
+  if (inTransition) {
+    invalidateDockerStatusCache();
+    invalidateEmulatorStatus();
+  }
 
   const tools = await getEnabledTools().catch((): readonly ToolManifest[] => []);
   const pythonTools = tools.filter((t) => t.packageManager === 'uv');
@@ -562,6 +591,7 @@ export async function runDoctor(): Promise<DoctorReport> {
       : [],
     playwrightTool ? [ownedBy(checkPlaywrightBrowsers(true), playwrightTool)] : [],
     checkAppium(),
+    checkAndroidEmulator(),
     dockerUp.then(dockerDaemonCheck),
     Promise.all([dockerUp, composeServices]).then(([up, services]) =>
       Promise.all(

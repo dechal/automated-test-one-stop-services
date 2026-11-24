@@ -5,6 +5,7 @@ import { type ReactNode, useState } from 'react';
 import { TbDownload, TbPlayerPlay, TbPlayerStop, TbRefresh } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qDoctor, queryRoots } from '~/api/queries.js';
+import { EmulatorControls } from '~/components/EmulatorControls.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
 
@@ -72,6 +73,14 @@ export function ServiceActions({
     return (
       <Group gap={6} mt={6} pl={22}>
         {button({ kind: 'docker-start' }, t('docker.startDesktop'), <TbPlayerPlay size={12} />)}
+      </Group>
+    );
+  }
+
+  if (check.service === 'android-emulator') {
+    return (
+      <Group gap={6} mt={6} pl={22}>
+        <EmulatorControls />
       </Group>
     );
   }

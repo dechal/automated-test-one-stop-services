@@ -1,6 +1,7 @@
 import { Button, Stack } from '@mantine/core';
 import { TbAlertTriangle, TbDeviceMobile } from 'react-icons/tb';
 import { api } from '~/api/client.js';
+import { EmulatorControls } from '~/components/EmulatorControls.js';
 import { InlineAlert } from '~/components/InlineAlert.js';
 import { toast } from '~/components/Toast.js';
 import { useT } from '~/i18n/index.js';
@@ -13,6 +14,7 @@ export interface RunGatingAlertsProps {
   onStartAppium: () => void;
   startAppiumPending: boolean;
   startAppiumDisabled: boolean;
+  emulatorMissing?: boolean;
 }
 
 export function RunGatingAlerts({
@@ -23,6 +25,7 @@ export function RunGatingAlerts({
   onStartAppium,
   startAppiumPending,
   startAppiumDisabled,
+  emulatorMissing = false,
 }: RunGatingAlertsProps) {
   const t = useT();
   return (
@@ -85,6 +88,13 @@ export function RunGatingAlerts({
               {t('run.startAppium')}
             </Button>
           }
+        />
+      )}
+      {emulatorMissing && (
+        <InlineAlert
+          icon={<TbDeviceMobile size={14} />}
+          message={t('run.noAndroidDevice')}
+          action={<EmulatorControls />}
         />
       )}
     </Stack>

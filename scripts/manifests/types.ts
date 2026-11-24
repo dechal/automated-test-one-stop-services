@@ -260,7 +260,7 @@ export interface ToolManifest {
 
 export type ToolEnv = Readonly<Record<string, string>>;
 
-export const TOOL_LOCAL_SERVICES = ['appium'] as const;
+export const TOOL_LOCAL_SERVICES = ['appium', 'android-emulator'] as const;
 export type ToolLocalService = (typeof TOOL_LOCAL_SERVICES)[number];
 
 export interface ToolCleanConfig {

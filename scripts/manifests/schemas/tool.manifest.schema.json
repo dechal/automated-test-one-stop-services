@@ -40,7 +40,7 @@
     "localServices": {
       "type": "array",
       "description": "Optional. Host services this tool needs, shown on the Hub's Docker Services page only when the tool is installed.",
-      "items": { "type": "string", "enum": ["appium"] }
+      "items": { "type": "string", "enum": ["appium", "android-emulator"] }
     },
     "requires": {
       "type": "array",

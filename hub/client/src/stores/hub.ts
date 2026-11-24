@@ -53,6 +53,7 @@ interface Preferences {
   /** xterm font size in px. */
   terminalFontSize: number;
   hideEmptyArtifactFolders: boolean;
+  lastAvd: string;
 }
 
 interface PreferencesActions {
@@ -72,6 +73,7 @@ interface PreferencesActions {
   setRunSplitPercent: (percent: number) => void;
   setTerminalFontSize: (px: number) => void;
   setHideEmptyArtifactFolders: (hide: boolean) => void;
+  setLastAvd: (avd: string) => void;
 }
 
 type PreferencesStore = Simplify<Preferences & PreferencesActions>;
@@ -93,6 +95,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   runSplitPercent: 40,
   terminalFontSize: 12,
   hideEmptyArtifactFolders: false,
+  lastAvd: '',
 };
 
 export const usePreferences = create<PreferencesStore>()(
@@ -120,6 +123,7 @@ export const usePreferences = create<PreferencesStore>()(
         set({ runSplitPercent: Math.min(70, Math.max(25, Math.round(percent))) }),
       setTerminalFontSize: (px) => set({ terminalFontSize: Math.min(20, Math.max(9, px)) }),
       setHideEmptyArtifactFolders: (hide) => set({ hideEmptyArtifactFolders: hide }),
+      setLastAvd: (avd) => set({ lastAvd: avd }),
     }),
     {
       name: 'hub-preferences',
