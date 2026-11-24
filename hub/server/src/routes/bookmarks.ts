@@ -2,6 +2,7 @@ import {
   type Bookmark,
   type BookmarkWithStatus,
   buildTagQuery,
+  findDuplicateBookmark,
   parseTagQuery,
   type RunRequest,
   type ToolId,
@@ -35,6 +36,13 @@ export function computeStaleTags(
   const present = new Set([...projectTags].map(tagKey));
   const referenced = [...new Set([...include, ...exclude])];
   return referenced.filter((tag) => !present.has(tagKey(tag)));
+}
+
+function duplicateError(existing: Bookmark) {
+  return {
+    code: 'DUPLICATE_BOOKMARK',
+    message: `The same settings are already saved as "${existing.name}"`,
+  };
 }
 
 function getBookmarks(): Bookmark[] {
@@ -147,9 +155,14 @@ export async function bookmarkRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /** POST /api/bookmarks — save a new config */
-  app.post<{ Body: CreateBookmarkBody }>('/api/bookmarks', async (req) => {
+  app.post<{ Body: CreateBookmarkBody }>('/api/bookmarks', async (req, reply) => {
     const bookmarks = getBookmarks();
     const { name, config } = req.body;
+    const duplicate = findDuplicateBookmark(bookmarks, config);
+    if (duplicate) {
+      reply.status(409);
+      return duplicateError(duplicate);
+    }
 
     const bookmark: Bookmark = {
       id: nanoid(8),
@@ -177,6 +190,11 @@ export async function bookmarkRoutes(app: FastifyInstance): Promise<void> {
 
       const existing = bookmarks[idx] as Bookmark;
       const { name, config } = req.body;
+      const duplicate = config ? findDuplicateBookmark(bookmarks, config, existing.id) : undefined;
+      if (duplicate) {
+        reply.status(409);
+        return duplicateError(duplicate);
+      }
       const trimmed = name?.trim();
       const updated: Bookmark = {
         ...existing,

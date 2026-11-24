@@ -1,7 +1,13 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { renderReportName, validateReportName } from '@hub/shared';
+import {
+  renderReportName,
+  reportDirError,
+  reportDirKey,
+  reportNameError,
+  validateReportName,
+} from '@hub/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { OUTPUTS_DIR } from '../../config.js';
 import { cloneReportFile, discardReportDir, reportDirFor } from '../post-run.js';
@@ -112,5 +118,66 @@ describe('cloneReportFile', () => {
     const { root, reportPath } = makeReport();
     cleanup.push(root);
     expect(await cloneReportFile(reportPath, 'bad:name', new Date())).toBeUndefined();
+  });
+});
+
+describe('report clone formulas', () => {
+  const tuesday = new Date(2026, 10, 24, 1, 0, 0);
+
+  it.each([
+    ['%m-%d{-1}_%d{+3}-%Y', '11-23_27-2026'],
+    ['%d{-24}-%m{-24/24}', '31-10'],
+    ['%d{(2+1)*2}', '30'],
+    ['%m{+3}-%Y{+0}', '02-2026'],
+    ['%y{-1}', '25'],
+  ])('renders %s as %s', (template, expected) => {
+    expect(renderReportName(template, tuesday)).toBe(expected);
+  });
+
+  it('clamps a month shift to the last day of the target month', () => {
+    expect(renderReportName('%d-%m{+1}', new Date(2026, 0, 31))).toBe('31-02');
+    expect(renderReportName('%d{+0}', new Date(2026, 0, 31))).toBe('31');
+  });
+
+  it.each(['%d{}', '%d{-x}', '%d{1/0}', '%d{(1}'])('reports %s as a bad formula', (template) => {
+    expect(renderReportName(template, tuesday)).toBeUndefined();
+    expect(reportNameError(template, tuesday)).toBe('badFormula');
+  });
+
+  it.each([
+    [String.raw`C:\Users\me\friday-report\%m-%d`, undefined],
+    [String.raw`\\server\share\reports`, undefined],
+    ['/home/me/reports/', undefined],
+    [String.raw`reports\%m`, 'notAbsolute'],
+    [String.raw`C:\Users\me\bad:name`, 'forbiddenChar'],
+    [String.raw`C:\Users\CON\x`, 'reserved'],
+    [String.raw`C:\Users\me\%d{oops}`, 'badFormula'],
+  ])('validates folder %s as %s', (template, expected) => {
+    expect(reportDirError(template, tuesday)).toBe(expected);
+  });
+});
+
+describe('reportDirKey', () => {
+  it('treats case, separators and a trailing slash as the same folder', () => {
+    expect(reportDirKey(' C:\\Reports\\%m\\ ')).toBe(reportDirKey('c:/reports/%m/'));
+    expect(reportDirKey(String.raw`C:\Reports\a`)).not.toBe(reportDirKey(String.raw`C:\Reports\b`));
+  });
+});
+
+describe('cloneReportFile with a destination folder', () => {
+  it('creates the folder and never overwrites an existing copy', async () => {
+    const { root, reportPath } = makeReport();
+    cleanup.push(root);
+    const dest = mkdtempSync(path.join(tmpdir(), 'clone-dest-'));
+    cleanup.push(dest);
+    const dirTemplate = path.join(dest, '%m-%d{-1}_%d{+3}-%Y');
+    const date = new Date(2026, 10, 24);
+
+    const first = await cloneReportFile(reportPath, 'UAT_%m-%d-%Y', date, dirTemplate);
+    const second = await cloneReportFile(reportPath, 'UAT_%m-%d-%Y', date, dirTemplate);
+
+    expect(first).toBe(path.join(dest, '11-23_27-2026', 'UAT_11-24-2026.html'));
+    expect(second).toBe(path.join(dest, '11-23_27-2026', 'UAT_11-24-2026 (2).html'));
+    expect(readFileSync(second as string, 'utf8')).toBe('<html></html>');
   });
 });

@@ -36,13 +36,15 @@ import { InlineAlert } from '~/components/InlineAlert.js';
 import { PageHeader } from '~/components/PageHeader.js';
 import { ScheduleCalendar } from '~/components/ScheduleCalendar.js';
 import { ListSkeleton } from '~/components/Skeletons.js';
+import { ScheduleConfigBadges } from '~/components/schedule-form/ScheduleConfigBadges.js';
 import { ScheduleForm } from '~/components/schedule-form/ScheduleForm.js';
+import { TagQueryTooltip } from '~/components/TagQueryTooltip.js';
 import { toast } from '~/components/Toast.js';
 import { useToolOptions } from '~/hooks/useTools.js';
 import { useI18nStore, useT } from '~/i18n/index.js';
 import { usePreferences } from '~/stores/hub.js';
 import { formatNextRun, humanizeCron } from '~/utils/cron.js';
-import { formatAbsolute } from '~/utils/datetime.js';
+import { formatAbsolute, formatFullDateTime, formatRelative } from '~/utils/datetime.js';
 import { getStatusColor } from '~/utils/run-status.js';
 
 /**
@@ -348,8 +350,13 @@ export function SchedulesPage() {
                               </Badge>
                             </Tooltip>
                           )}
+                          {!s.command && <ScheduleConfigBadges config={s.config} />}
                           {s.config.tag && (
-                            <Tooltip label={s.config.tag} multiline w={400}>
+                            <Tooltip
+                              label={<TagQueryTooltip tool={s.config.tool} expr={s.config.tag} />}
+                              multiline
+                              maw={420}
+                            >
                               <Badge variant="light" color="blue" maw={140}>
                                 {t('schedule.tagged')}
                               </Badge>
@@ -357,7 +364,7 @@ export function SchedulesPage() {
                           )}
                           {s.lastRunAt && (
                             <Tooltip
-                              label={`${t('schedule.lastRunPrefix')} ${formatAbsolute(s.lastRunAt)}`}
+                              label={`${t('schedule.lastRunPrefix')} ${formatFullDateTime(s.lastRunAt)} · ${formatRelative(s.lastRunAt)}`}
                             >
                               <Badge variant="light" color={getStatusColor(s.lastStatus ?? '')}>
                                 {t('schedule.lastPrefix')} {formatAbsolute(s.lastRunAt)}

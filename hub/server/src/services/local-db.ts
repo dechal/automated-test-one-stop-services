@@ -17,7 +17,11 @@ import {
 import { type Row, SCHEMA_DDL, SCHEMA_VERSION, SCHEMA_VERSION_KEY } from './db-schema.js';
 
 const RUN_REQUEST_TABLES = ['history', 'schedules', 'bookmarks'] as const;
-const CLONE_REPORT_NAME_COLUMN = 'req_clone_report_name';
+const ADDED_RUN_REQUEST_COLUMNS = [
+  'req_clone_report_name',
+  'req_clone_report_dir',
+  'req_env_profile_id',
+] as const;
 
 /**
  * Local_DB — node:sqlite backing store with a NORMALIZED schema.
@@ -126,8 +130,10 @@ export function openLocalDb(dbPath: string): LocalDb {
   db.exec(SCHEMA_DDL);
   for (const table of RUN_REQUEST_TABLES) {
     const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Row[];
-    if (!columns.some((c) => c.name === CLONE_REPORT_NAME_COLUMN)) {
-      db.exec(`ALTER TABLE ${table} ADD COLUMN ${CLONE_REPORT_NAME_COLUMN} TEXT`);
+    for (const column of ADDED_RUN_REQUEST_COLUMNS) {
+      if (!columns.some((c) => c.name === column)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
+      }
     }
   }
 

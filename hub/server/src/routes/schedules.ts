@@ -1,19 +1,11 @@
-import {
-  type CustomCommand,
-  type RunRequest,
-  renderReportName,
-  validateReportName,
-} from '@hub/shared';
+import { type CustomCommand, cloneReportConfigError, type RunRequest } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { validateCustomCommand } from '../services/custom-command-builder.js';
 import { getEnabledToolIds } from '../services/manifest-registry.js';
 import { scheduler } from '../services/scheduler.js';
 
 function validateCloneReportName(config?: RunRequest) {
-  const template = config?.cloneReportName;
-  if (template === undefined) return undefined;
-  const error = validateReportName(renderReportName(template, new Date()));
-  return error ? { code: 'INVALID_REPORT_NAME', message: error } : undefined;
+  return cloneReportConfigError(config, new Date());
 }
 
 export async function scheduleRoutes(app: FastifyInstance): Promise<void> {

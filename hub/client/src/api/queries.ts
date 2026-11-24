@@ -14,6 +14,7 @@ import type {
   ProjectSummary,
   QueueStatus,
   RemotesListResponse,
+  ReportDestination,
   RunCompareResult,
   RunRecord,
   ScheduleEntry,
@@ -232,6 +233,14 @@ export const qTestCaseGrid = (docPath: string) =>
  * matches the inline query `EnvProfiles.tsx` used before this factory existed,
  * so the page and the run-page Drawer read the SAME cache entry.
  */
+export const qEnvProfilesAll = (enabled = true) =>
+  queryOptions({
+    queryKey: [queryRoots.envProfilesAll] as const,
+    queryFn: () => api.get<EnvProfile[]>('/api/env-profiles'),
+    enabled,
+    staleTime: STALE.moderate,
+  });
+
 export const qEnvProfilesByProject = (
   tool: ToolId | undefined | '',
   type: string | undefined | '',
@@ -299,6 +308,7 @@ export const queryRoots = {
   envProfiles: 'env-profiles',
   envProfilesDefault: 'env-profiles-default',
   envProfilesActive: 'env-profiles-active',
+  envProfilesAll: 'env-profiles-all',
   envProfilesTemplate: 'env-profiles-template',
   envProfilesValidate: 'env-profiles-validate',
   hubUser: 'hub-user',
@@ -324,6 +334,7 @@ export const queryRoots = {
   retention: 'retention',
   cleanupHistory: 'cleanup-history',
   webhooks: 'webhooks',
+  reportDestinations: 'report-destinations',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -335,6 +346,12 @@ export const qBookmarks = () =>
   queryOptions({
     queryKey: [queryRoots.bookmarks] as const,
     queryFn: () => api.get<BookmarkWithStatus[]>('/api/bookmarks'),
+  });
+
+export const qReportDestinations = () =>
+  queryOptions({
+    queryKey: [queryRoots.reportDestinations] as const,
+    queryFn: () => api.get<ReportDestination[]>('/api/report-destinations'),
   });
 
 export const qBookmarkList = () =>

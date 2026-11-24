@@ -1,4 +1,4 @@
-import type { FailedRunSelection, RunRequest } from '@hub/shared';
+import { cloneReportConfigError, type FailedRunSelection, type RunRequest } from '@hub/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { buildTaskCommand } from '../services/command-builder.js';
@@ -27,6 +27,8 @@ const runRequestSchema = z.object({
   noTrack: z.boolean().optional(),
   silent: z.boolean().optional(),
   discardReport: z.boolean().optional(),
+  cloneReportName: z.string().optional(),
+  cloneReportDir: z.string().optional(),
   envProfileId: z.string().optional(),
   section: z.string().optional(),
   performanceType: z
@@ -40,6 +42,11 @@ export async function runRoutes(app: FastifyInstance): Promise<void> {
     '/api/runs',
     { schema: { body: runRequestSchema } },
     async (req, reply) => {
+      const cloneError = cloneReportConfigError(req.body, new Date());
+      if (cloneError) {
+        reply.status(400);
+        return cloneError;
+      }
       const { blockers, warnings } = await checkRunPreconditions(req.body);
       if (blockers.length > 0) {
         reply.status(409);

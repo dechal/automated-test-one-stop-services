@@ -26,6 +26,18 @@ export function formatShort(iso: string | undefined | null): string {
   return d.isValid() ? d.format('DD MMM HH:mm') : '-';
 }
 
+export function formatLong(iso: string | undefined | null): string {
+  if (!iso) return '-';
+  const d = dayjs(iso);
+  return d.isValid() ? d.format('D MMMM YYYY HH:mm') : '-';
+}
+
+export function formatFullDateTime(iso: string | undefined | null): string {
+  if (!iso) return '-';
+  const d = dayjs(iso);
+  return d.isValid() ? d.format('dddd D MMMM YYYY, HH:mm:ss') : '-';
+}
+
 export function formatDate(iso: string | undefined | null): string {
   if (!iso) return '-';
   const d = dayjs(iso);

@@ -8,7 +8,7 @@
  */
 // biome-ignore-all lint/correctness/useExhaustiveDependencies: remaining effects intentionally omit the stable prefs store; see note above.
 import type { RunMode, RunRecord, RunRequest, RunStatus, ToolId } from '@hub/shared';
-import { missingChecksForTool } from '@hub/shared';
+import { findDuplicateBookmark, missingChecksForTool } from '@hub/shared';
 import { ActionIcon, Box, Group, Paper, Stack, Text, Tooltip } from '@mantine/core';
 import { useDisclosure, useHotkeys } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import { TbChevronDown, TbChevronUp } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import {
   qAppiumStatus,
+  qBookmarkList,
   qConfig,
   qDoctor,
   qEnvDefault,
@@ -42,6 +43,7 @@ import {
   SPLIT_STEP,
 } from '~/components/run-session/run-session-constants.js';
 import { SaveBookmarkModal } from '~/components/run-session/SaveBookmarkModal.js';
+import { cloneReportInvalid } from '~/components/schedule-form/CloneReportField.js';
 import { toast } from '~/components/Toast.js';
 import {
   useProjectList,
@@ -109,6 +111,11 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
   // column). `__current__` means "run with the project's .env on disk".
   const [envProfileId, setEnvProfileId] = useSessionField(sessionId, 'envProfileId', ENV_CURRENT);
   const [envDefaultFor, setEnvDefaultFor] = useSessionField(sessionId, 'envDefaultFor', '');
+  const [envPinned, setEnvPinned] = useSessionField(
+    sessionId,
+    'envPinned',
+    initialConfig?.envProfileId ?? '',
+  );
   const [envDrawerOpen, { open: openEnvDrawer, close: closeEnvDrawer }] = useDisclosure(false);
   const initialSelection = parseTagQuery(initialConfig?.tool ?? '', initialConfig?.tag);
   const [selectedTags, setSelectedTags] = useSessionField(
@@ -151,6 +158,26 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     'discardReport',
     initialConfig?.discardReport ?? false,
   );
+  const [cloneReport, setCloneReport] = useSessionField(
+    sessionId,
+    'cloneReport',
+    Boolean(initialConfig?.cloneReportName),
+  );
+  const [cloneReportName, setCloneReportName] = useSessionField(
+    sessionId,
+    'cloneReportName',
+    initialConfig?.cloneReportName ?? '',
+  );
+  const [cloneReportDir, setCloneReportDir] = useSessionField(
+    sessionId,
+    'cloneReportDir',
+    initialConfig?.cloneReportDir ?? '',
+  );
+  const cloneActive = cloneReport && !silent && !discardReport;
+  const cloneFields = {
+    cloneReportName: cloneActive ? cloneReportName : undefined,
+    cloneReportDir: cloneActive && cloneReportDir.trim() ? cloneReportDir.trim() : undefined,
+  };
   // Open the HTML report automatically once the run finishes, so the user does
   // not switch to the Reports page. A form-only preference (not part of
   // RunRequest), meaningful only when a report survives the run — i.e. not
@@ -439,6 +466,14 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       resolved,
       ...envProfilesQ.data.map((p) => p.id),
     ].join('|');
+    if (envPinned) {
+      const pinnedExists = envProfilesQ.data.some((p) => p.id === envPinned);
+      if (!pinnedExists) toast.info(t('run.envPinnedMissing'));
+      setEnvPinned('');
+      setEnvDefaultFor(signature);
+      setEnvProfileId(pinnedExists ? envPinned : resolved);
+      return;
+    }
     if (signature === envDefaultFor) return;
     setEnvDefaultFor(signature);
     setEnvProfileId(resolved);
@@ -565,6 +600,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       // Silent discards the report already, so never send both — the stored
       // config then reads as exactly one intent.
       discardReport: discardReport && !silent,
+      ...cloneFields,
       envProfileId: envProfileId !== ENV_CURRENT ? envProfileId : undefined,
       section: sectionAxis ? section : undefined,
       performanceType: sectionAxis ? perfType : undefined,
@@ -620,6 +656,11 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
     },
   ];
 
+  const bookmarkListQ = useQuery({ ...qBookmarkList(), enabled: saveModalOpen });
+  const duplicateBookmark = saveModalOpen
+    ? findDuplicateBookmark(bookmarkListQ.data ?? [], currentConfig())
+    : undefined;
+
   function handleSaveBookmark() {
     saveBookmark.reset();
     setBookmarkName(defaultBookmarkName());
@@ -656,6 +697,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
       noTrack: effectiveNoTrack,
       silent,
       discardReport: discardReport && !silent,
+      ...cloneFields,
       envProfileId: envProfileId !== ENV_CURRENT ? envProfileId : undefined,
       section: sectionAxis ? section : undefined,
       performanceType: sectionAxis ? perfType : undefined,
@@ -943,6 +985,12 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
                 setDiscardReport={setDiscardReport}
                 autoOpenReport={autoOpenReport}
                 setAutoOpenReport={setAutoOpenReport}
+                cloneReport={cloneReport}
+                setCloneReport={setCloneReport}
+                cloneReportName={cloneReportName}
+                setCloneReportName={setCloneReportName}
+                cloneReportDir={cloneReportDir}
+                setCloneReportDir={setCloneReportDir}
               />
             </Stack>
           )}
@@ -977,6 +1025,11 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
           saveBookmarkReason={saveBookmarkReason}
           handleSaveBookmark={handleSaveBookmark}
           saveBookmarkPending={saveBookmark.isPending}
+          formErrorReason={
+            cloneActive && cloneReportInvalid(cloneReportName, cloneReportDir)
+              ? t('run.cloneInvalid')
+              : null
+          }
         />
       </Stack>
 
@@ -1091,6 +1144,7 @@ export const RunSession = forwardRef<SessionRef, RunSessionProps>(function RunSe
         loading={saveBookmark.isPending}
         error={saveBookmark.error?.message ?? null}
         summary={bookmarkSummary}
+        duplicateOf={saveModalOpen ? duplicateBookmark?.name : undefined}
       />
 
       <EnvDrawer

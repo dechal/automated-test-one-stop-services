@@ -16,6 +16,7 @@ export interface SaveBookmarkModalProps {
   loading: boolean;
   error: string | null;
   summary: SaveBookmarkSummaryRow[];
+  duplicateOf?: string;
 }
 
 const SUMMARY_LABEL_WIDTH = 80;
@@ -29,6 +30,7 @@ export function SaveBookmarkModal({
   loading,
   error,
   summary,
+  duplicateOf,
 }: SaveBookmarkModalProps) {
   const t = useT();
   return (
@@ -38,9 +40,12 @@ export function SaveBookmarkModal({
       title={t('bookmark.saveCurrent')}
       submitLabel={t('bookmark.saveButton')}
       onSubmit={onSubmit}
-      submitDisabled={!bookmarkName.trim()}
+      submitDisabled={!bookmarkName.trim() || duplicateOf !== undefined}
       loading={loading}
-      error={error}
+      error={
+        error ??
+        (duplicateOf === undefined ? null : t('bookmark.duplicate').replace('{name}', duplicateOf))
+      }
     >
       <TextInput
         label={t('bookmark.name')}
@@ -48,7 +53,7 @@ export function SaveBookmarkModal({
         value={bookmarkName}
         onChange={(e) => setBookmarkName(e.currentTarget.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onSubmit();
+          if (e.key === 'Enter' && duplicateOf === undefined) onSubmit();
         }}
         data-autofocus
       />

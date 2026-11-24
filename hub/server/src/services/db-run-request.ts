@@ -28,6 +28,8 @@ export const RUN_REQUEST_COLUMNS = [
   'req_silent',
   'req_discard_report',
   'req_clone_report_name',
+  'req_clone_report_dir',
+  'req_env_profile_id',
   'req_section',
   'req_performance_type',
 ] as const;
@@ -46,6 +48,8 @@ export function runRequestValues(r: RunRequest): SqlValue[] {
     boolCol(r.silent),
     boolCol(r.discardReport),
     strCol(r.cloneReportName),
+    strCol(r.cloneReportDir),
+    strCol(r.envProfileId),
     strCol(r.section),
     strCol(r.performanceType),
   ];
@@ -65,6 +69,8 @@ export function readRunRequest(row: Row): RunRequest {
     silent: readBool(row.req_silent),
     discardReport: readBool(row.req_discard_report),
     cloneReportName: readStr(row.req_clone_report_name),
+    cloneReportDir: readStr(row.req_clone_report_dir),
+    envProfileId: readStr(row.req_env_profile_id),
     section: readStr(row.req_section),
     performanceType: readStr(row.req_performance_type) as PerformanceType | undefined,
   };

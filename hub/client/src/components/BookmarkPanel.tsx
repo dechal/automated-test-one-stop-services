@@ -6,7 +6,6 @@ import {
   Collapse,
   Group,
   Loader,
-  Menu,
   Modal,
   Paper,
   ScrollArea,
@@ -25,16 +24,15 @@ import {
   TbChevronRight,
   TbCloudOff,
   TbDeviceFloppy,
-  TbDots,
   TbEraser,
   TbPencil,
-  TbPlayerPlay,
   TbSearch,
   TbTrash,
+  TbWorld,
   TbX,
 } from 'react-icons/tb';
 import { api } from '~/api/client.js';
-import { qBookmarks, queryRoots } from '~/api/queries.js';
+import { qBookmarks, qEnvProfilesAll, queryRoots } from '~/api/queries.js';
 import { confirmDialog } from '~/components/confirmDialog.js';
 import { EmptyState } from '~/components/EmptyState.js';
 import { toast } from '~/components/Toast.js';
@@ -43,6 +41,8 @@ import { useTools } from '~/hooks/useTools.js';
 import { useT } from '~/i18n/index.js';
 import { parseTagQuery } from '~/utils/tag-selection.js';
 import { toolLabel } from '~/utils/tool-label.js';
+import { ScheduleConfigBadges } from './schedule-form/ScheduleConfigBadges.js';
+import { TagQueryTooltip } from './TagQueryTooltip.js';
 
 export interface SaveBookmarkPayload {
   name: string;
@@ -69,7 +69,8 @@ export function useSaveBookmark() {
 
 const MODAL_WIDTH = 800;
 const NAME_COL = 200;
-const META_COL = 150;
+const META_COL = 260;
+const ENV_BADGE_WIDTH = 130;
 const ROW_HEIGHT = 40;
 
 /** Run options that vary within a group, shown in the meta column. */
@@ -170,6 +171,10 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
     ...qBookmarks(),
     enabled: opened,
   });
+  const envProfiles = useQuery(qEnvProfilesAll(opened)).data;
+  const envNameById = new Map(
+    (Array.isArray(envProfiles) ? envProfiles : []).map((p) => [p.id, p.name]),
+  );
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/bookmarks/${id}`),
@@ -219,6 +224,7 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
       toast.success(t('bookmark.updated'));
       queryClient.invalidateQueries({ queryKey: [queryRoots.bookmarks] });
     },
+    onError: (err) => toast.error((err as Error).message),
   });
 
   async function handleReplace(bm: Bookmark) {
@@ -320,9 +326,9 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
           )}
 
           {groups.length > 0 && (
-            <Stack gap="md">
+            <Stack gap="sm">
               {groups.map((g) => (
-                <div key={g.key}>
+                <Paper key={g.key} withBorder radius="md" style={{ overflow: 'hidden' }}>
                   <UnstyledButton
                     onClick={() => toggleGroup(g.key)}
                     aria-expanded={!isCollapsed(g.key)}
@@ -332,7 +338,8 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                       gap: 8,
                       width: '100%',
                       minWidth: 0,
-                      padding: '4px 4px 8px',
+                      padding: '8px 12px',
+                      background: 'var(--mantine-color-default-hover)',
                     }}
                   >
                     <TbChevronRight
@@ -360,7 +367,7 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                     </Text>
                   </UnstyledButton>
                   <Collapse expanded={!isCollapsed(g.key)}>
-                    <Stack gap={2}>
+                    <Stack gap={0}>
                       {g.items.map((bm) =>
                         editingId === bm.id ? (
                           <InlineEdit
@@ -373,6 +380,11 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                           <BookmarkRow
                             key={bm.id}
                             bookmark={bm}
+                            envName={
+                              bm.config.envProfileId
+                                ? (envNameById.get(bm.config.envProfileId) ?? null)
+                                : undefined
+                            }
                             onApply={() => load(bm.config)}
                             onRename={() => setEditingId(bm.id)}
                             onReplace={() => handleReplace(bm)}
@@ -387,7 +399,7 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
                       )}
                     </Stack>
                   </Collapse>
-                </div>
+                </Paper>
               ))}
             </Stack>
           )}
@@ -410,6 +422,7 @@ export function BookmarkLoadModal({ getConfig, onLoad }: BookmarkLoadModalProps)
  */
 function BookmarkRow({
   bookmark,
+  envName,
   onApply,
   onRename,
   onReplace,
@@ -418,6 +431,7 @@ function BookmarkRow({
   migrating,
 }: {
   bookmark: BookmarkWithStatus;
+  envName: string | null | undefined;
   onApply: () => void;
   onRename: () => void;
   onReplace: () => void;
@@ -432,7 +446,13 @@ function BookmarkRow({
   const scope = [...include.map(bare), c.section, c.performanceType].filter(Boolean).join(', ');
   const meta = runMeta(c);
   return (
-    <Group gap={4} wrap="nowrap" className="bm-row">
+    <Group
+      gap={4}
+      wrap="nowrap"
+      className="bm-row"
+      pr={6}
+      style={{ borderTop: '1px solid var(--mantine-color-default-border)', borderRadius: 0 }}
+    >
       <UnstyledButton
         onClick={onApply}
         aria-label={`${t('bookmark.apply')} · ${bookmark.name}`}
@@ -470,55 +490,100 @@ function BookmarkRow({
             </Tooltip>
           )}
         </Group>
-        <Text size="xs" c="dimmed" truncate>
-          {scope || (exclude.length === 0 ? t('reports.allTests') : '')}
-          {exclude.length > 0 && (
-            <>
-              {scope ? ' · ' : ''}
-              {t('bookmark.not')}{' '}
-              <Text span inherit c="red.4" td="line-through">
-                {exclude.map(bare).join(', ')}
-              </Text>
-            </>
-          )}
-        </Text>
-        <Text size="xs" c="dimmed" ff="monospace" truncate>
-          {meta}
-        </Text>
+        <Tooltip
+          label={<TagQueryTooltip tool={c.tool} expr={c.tag} />}
+          disabled={!c.tag}
+          withArrow
+          multiline
+          maw={420}
+        >
+          <Text size="xs" c="dimmed" truncate>
+            {scope || (exclude.length === 0 ? t('reports.allTests') : '')}
+            {exclude.length > 0 && (
+              <>
+                {scope ? ' · ' : ''}
+                {t('bookmark.not')}{' '}
+                <Text span inherit c="red.4" td="line-through">
+                  {exclude.map(bare).join(', ')}
+                </Text>
+              </>
+            )}
+          </Text>
+        </Tooltip>
+        <Group gap={6} justify="flex-end" wrap="nowrap" aria-label={meta} style={{ minWidth: 0 }}>
+          <Tooltip
+            label={
+              envName === undefined
+                ? t('run.envCurrent')
+                : envName === null
+                  ? t('bookmark.envMissing')
+                  : `${t('bookmark.envProfile')}: ${envName}`
+            }
+            withArrow
+          >
+            <Badge
+              size="sm"
+              variant="light"
+              color={envName === undefined ? 'gray' : envName === null ? 'red' : 'indigo'}
+              leftSection={<TbWorld size={11} />}
+              maw={ENV_BADGE_WIDTH}
+              style={{ flexShrink: 1, textTransform: 'none' }}
+            >
+              {envName === undefined ? '.env' : (envName ?? t('bookmark.envMissingShort'))}
+            </Badge>
+          </Tooltip>
+          <ScheduleConfigBadges config={c} />
+        </Group>
       </UnstyledButton>
-      <Menu position="bottom-end" withinPortal>
-        <Menu.Target>
+      <Group gap={0} wrap="nowrap" style={{ flexShrink: 0 }}>
+        <Tooltip label={t('bookmark.syncFromForm')} withArrow>
           <ActionIcon
             variant="subtle"
             color="gray"
-            size="md"
+            size="sm"
             loading={migrating}
-            aria-label={`${t('bookmark.moreActions')} · ${bookmark.name}`}
+            onClick={onReplace}
+            aria-label={`${t('bookmark.syncFromForm')} · ${bookmark.name}`}
           >
-            <TbDots size={16} />
+            <TbDeviceFloppy size={14} />
           </ActionIcon>
-        </Menu.Target>
-        <Menu.Dropdown>
-          <Menu.Item leftSection={<TbPlayerPlay size={14} />} onClick={onApply}>
-            {t('bookmark.apply')}
-          </Menu.Item>
-          <Menu.Item leftSection={<TbDeviceFloppy size={14} />} onClick={onReplace}>
-            {t('bookmark.syncFromForm')}
-          </Menu.Item>
-          <Menu.Item leftSection={<TbPencil size={14} />} onClick={onRename}>
-            {t('bookmark.rename')}
-          </Menu.Item>
-          {hasStale && (
-            <Menu.Item leftSection={<TbEraser size={14} />} onClick={onMigrate}>
-              {t('bookmark.migrate')}
-            </Menu.Item>
-          )}
-          <Menu.Divider />
-          <Menu.Item color="red" leftSection={<TbTrash size={14} />} onClick={onDelete}>
-            {t('bookmark.delete')}
-          </Menu.Item>
-        </Menu.Dropdown>
-      </Menu>
+        </Tooltip>
+        <Tooltip label={t('bookmark.rename')} withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="sm"
+            onClick={onRename}
+            aria-label={`${t('bookmark.rename')} · ${bookmark.name}`}
+          >
+            <TbPencil size={14} />
+          </ActionIcon>
+        </Tooltip>
+        {hasStale && (
+          <Tooltip label={t('bookmark.migrate')} withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="yellow"
+              size="sm"
+              onClick={onMigrate}
+              aria-label={`${t('bookmark.migrate')} · ${bookmark.name}`}
+            >
+              <TbEraser size={14} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+        <Tooltip label={t('bookmark.delete')} withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={onDelete}
+            aria-label={`${t('bookmark.delete')} · ${bookmark.name}`}
+          >
+            <TbTrash size={14} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
     </Group>
   );
 }
@@ -546,6 +611,7 @@ function InlineEdit({
       queryClient.invalidateQueries({ queryKey: [queryRoots.bookmarks] });
       onDone();
     },
+    onError: (err) => toast.error((err as Error).message),
   });
 
   function captureForm() {

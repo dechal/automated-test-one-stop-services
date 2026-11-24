@@ -1,6 +1,36 @@
 import type { RunSummary } from './run-summary.js';
 import type { SeverityBreakdown } from './severity-score.js';
+import { parseTagQuery } from './tags.js';
 import type { ToolId } from './tools.js';
+
+export function bookmarkConfigKey(c: RunRequest): string {
+  const { include, exclude } = parseTagQuery(c.tool, c.tag);
+  return JSON.stringify([
+    c.tool,
+    c.type,
+    c.project,
+    c.mode,
+    c.headless ?? '',
+    c.extraArgs?.trim() ?? '',
+    c.noTrack === true,
+    c.silent === true,
+    c.discardReport === true,
+    c.envProfileId ?? '',
+    c.section ?? '',
+    c.performanceType ?? '',
+    [...include].sort(),
+    [...exclude].sort(),
+  ]);
+}
+
+export function findDuplicateBookmark<T extends { id: string; config: RunRequest }>(
+  bookmarks: readonly T[],
+  config: RunRequest,
+  ignoreId?: string,
+): T | undefined {
+  const key = bookmarkConfigKey(config);
+  return bookmarks.find((b) => b.id !== ignoreId && bookmarkConfigKey(b.config) === key);
+}
 
 export type RunMode = 'local' | 'docker';
 export type HeadlessMode = 'headless' | 'headed';
@@ -40,6 +70,7 @@ export interface RunRequest {
    */
   discardReport?: boolean;
   cloneReportName?: string;
+  cloneReportDir?: string;
   envProfileId?: string;
   // k6-only
   section?: string;

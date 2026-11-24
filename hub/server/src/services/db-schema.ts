@@ -40,6 +40,8 @@ export const RUN_REQUEST_DDL = `
   req_silent           INTEGER,
   req_discard_report   INTEGER,
   req_clone_report_name TEXT,
+  req_clone_report_dir TEXT,
+  req_env_profile_id TEXT,
   req_section          TEXT,
   req_performance_type TEXT
 `;

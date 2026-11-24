@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { RunStep } from '~/components/run-session/RunStep.js';
+import { CloneReportField } from '~/components/schedule-form/CloneReportField.js';
 import { useT } from '~/i18n/index.js';
 
 export interface RunMoreOptionsProps {
@@ -43,6 +44,12 @@ export interface RunMoreOptionsProps {
   setDiscardReport: (value: boolean) => void;
   autoOpenReport: boolean;
   setAutoOpenReport: (value: boolean) => void;
+  cloneReport: boolean;
+  setCloneReport: (value: boolean) => void;
+  cloneReportName: string;
+  setCloneReportName: (value: string) => void;
+  cloneReportDir: string;
+  setCloneReportDir: (value: string) => void;
 }
 
 export function RunMoreOptions({
@@ -75,6 +82,12 @@ export function RunMoreOptions({
   setDiscardReport,
   autoOpenReport,
   setAutoOpenReport,
+  cloneReport,
+  setCloneReport,
+  cloneReportName,
+  setCloneReportName,
+  cloneReportDir,
+  setCloneReportDir,
 }: RunMoreOptionsProps) {
   const t = useT();
   return (
@@ -201,6 +214,16 @@ export function RunMoreOptions({
           />
         </Tooltip>
       </Group>
+
+      <CloneReportField
+        enabled={cloneReport}
+        template={cloneReportName}
+        dirTemplate={cloneReportDir}
+        disabled={isRunning || silent || discardReport}
+        onEnabledChange={setCloneReport}
+        onTemplateChange={setCloneReportName}
+        onDirTemplateChange={setCloneReportDir}
+      />
 
       {!advancedMode && (
         <Text size="xs" c="dimmed">

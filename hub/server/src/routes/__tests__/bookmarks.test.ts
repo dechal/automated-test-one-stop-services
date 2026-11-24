@@ -89,6 +89,55 @@ describe('POST /api/bookmarks — create', () => {
   });
 });
 
+describe('bookmark env profile', () => {
+  it('keeps the env profile id through the database round-trip', async () => {
+    const config: RunRequest = { ...baseConfig, envProfileId: 'prof-uat' };
+    await app.inject({ method: 'POST', url: '/api/bookmarks', payload: { name: 'uat', config } });
+    const list = (await app.inject({ method: 'GET', url: '/api/bookmarks?annotate=0' })).json<
+      Bookmark[]
+    >();
+    expect(list[0]?.config.envProfileId).toBe('prof-uat');
+  });
+});
+
+describe('duplicate bookmarks', () => {
+  const save = (name: string, config: RunRequest) =>
+    app.inject({ method: 'POST', url: '/api/bookmarks', payload: { name, config } });
+
+  it('refuses a second bookmark with the same settings, even with tags in another order', async () => {
+    const first = await save('a', { ...baseConfig, tag: '(?=.*@smoke)(?=.*@regression)' });
+    expect(first.statusCode).toBe(200);
+    const second = await save('b', { ...baseConfig, tag: '(?=.*@regression)(?=.*@smoke)' });
+    expect(second.statusCode).toBe(409);
+    expect(second.json<{ code: string }>().code).toBe('DUPLICATE_BOOKMARK');
+  });
+
+  it('accepts the same target with a different tag or project', async () => {
+    expect((await save('a', { ...baseConfig, tag: '@smoke' })).statusCode).toBe(200);
+    expect((await save('b', { ...baseConfig, tag: '@regression' })).statusCode).toBe(200);
+    expect((await save('c', { ...baseConfig, project: 'other', tag: '@smoke' })).statusCode).toBe(
+      200,
+    );
+  });
+
+  it('refuses an edit that makes one bookmark equal to another, but not a rename', async () => {
+    await save('a', { ...baseConfig, tag: '@smoke' });
+    const b = (await save('b', { ...baseConfig, tag: '@regression' })).json<Bookmark>();
+    const clash = await app.inject({
+      method: 'PUT',
+      url: `/api/bookmarks/${b.id}`,
+      payload: { config: { ...baseConfig, tag: '@smoke' } },
+    });
+    expect(clash.statusCode).toBe(409);
+    const rename = await app.inject({
+      method: 'PUT',
+      url: `/api/bookmarks/${b.id}`,
+      payload: { name: 'renamed', config: b.config },
+    });
+    expect(rename.statusCode).toBe(200);
+  });
+});
+
 describe('GET /api/bookmarks — list + persistence round-trip', () => {
   it('lists created bookmarks newest-first and round-trips the config', async () => {
     await app.inject({

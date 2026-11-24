@@ -85,6 +85,10 @@ export interface RunSessionState {
   noTrack: boolean;
   silent: boolean;
   discardReport: boolean;
+  envPinned: string;
+  cloneReport: boolean;
+  cloneReportName: string;
+  cloneReportDir: string;
   autoOpenReport: boolean;
   section: string;
   perfType: PerformanceType;

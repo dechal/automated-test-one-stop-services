@@ -27,11 +27,12 @@ import {
 } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TbCalendarTime, TbClock, TbDeviceFloppy, TbSettings } from 'react-icons/tb';
 import { api } from '~/api/client.js';
 import { qEnvDefault, qEnvProfilesByProject, qProjectEnv } from '~/api/queries.js';
 import { BookmarkLoadModal } from '~/components/BookmarkPanel.js';
+import { confirmDialog } from '~/components/confirmDialog.js';
 import { EnvProfileManager } from '~/components/env-profiles/EnvProfileManager.js';
 import { RunStep } from '~/components/run-session/RunStep.js';
 import { TagScopeControl } from '~/components/run-session/TagScopeControl.js';
@@ -58,7 +59,7 @@ import {
   type TagSelection,
 } from '~/utils/tag-selection.js';
 import { firstEnabledTool, toolSelectData } from '~/utils/tool-label.js';
-import { CloneReportField, cloneReportNameError } from './CloneReportField.js';
+import { CloneReportField, cloneReportInvalid } from './CloneReportField.js';
 import { fromConfigSilent, toConfigSilent } from './schedule-silent.js';
 
 // ---------------------------------------------------------------------------
@@ -142,6 +143,7 @@ export function ScheduleForm({
     discardReport: false,
     cloneReport: false,
     cloneReportName: '',
+    cloneReportDir: '',
     section: '',
     perfType: 'LOAD' as PerformanceType,
     // A new schedule is a TOOL run unless the user switches — the common case,
@@ -168,6 +170,7 @@ export function ScheduleForm({
   const [discardReport, setDiscardReport] = useState(defaults.discardReport);
   const [cloneReport, setCloneReport] = useState(defaults.cloneReport);
   const [cloneReportName, setCloneReportName] = useState(defaults.cloneReportName);
+  const [cloneReportDir, setCloneReportDir] = useState(defaults.cloneReportDir);
   const [section, setSection] = useState(defaults.section);
   const [perfType, setPerfType] = useState<PerformanceType>(defaults.perfType);
   const [kind, setKind] = useState<'tool' | 'custom'>(defaults.kind);
@@ -175,6 +178,7 @@ export function ScheduleForm({
   const [args, setArgs] = useState(defaults.args);
   const [cwd, setCwd] = useState(defaults.cwd);
   const [envProfileId, setEnvProfileId] = useState(defaults.envProfileId);
+  const [pinnedEnv, setPinnedEnv] = useState<string | null>(null);
   const [initializedFor, setInitializedFor] = useState<string | null>(null);
   const [duplicatedFrom, setDuplicatedFrom] = useState<string | null>(null);
   const [envManagerOpen, { open: openEnvManager, close: closeEnvManager }] = useDisclosure(false);
@@ -195,6 +199,7 @@ export function ScheduleForm({
     setDiscardReport(schedule.config.discardReport ?? false);
     setCloneReport(Boolean(schedule.config.cloneReportName));
     setCloneReportName(schedule.config.cloneReportName ?? defaults.cloneReportName);
+    setCloneReportDir(schedule.config.cloneReportDir ?? defaults.cloneReportDir);
     setSection(schedule.config.section ?? '');
     setPerfType(schedule.config.performanceType ?? 'LOAD');
     const selection = parseTagExpression(schedule.config.tool, schedule.config.tag);
@@ -222,6 +227,7 @@ export function ScheduleForm({
     setDiscardReport(duplicateFrom.config.discardReport ?? false);
     setCloneReport(Boolean(duplicateFrom.config.cloneReportName));
     setCloneReportName(duplicateFrom.config.cloneReportName ?? defaults.cloneReportName);
+    setCloneReportDir(duplicateFrom.config.cloneReportDir ?? defaults.cloneReportDir);
     setSection(duplicateFrom.config.section ?? '');
     setPerfType(duplicateFrom.config.performanceType ?? 'LOAD');
     const selection = parseTagExpression(duplicateFrom.config.tool, duplicateFrom.config.tag);
@@ -249,6 +255,7 @@ export function ScheduleForm({
     setDiscardReport(defaults.discardReport);
     setCloneReport(defaults.cloneReport);
     setCloneReportName(defaults.cloneReportName);
+    setCloneReportDir(defaults.cloneReportDir);
     setSection(defaults.section);
     setPerfType(defaults.perfType);
     setSelectedTags(defaults.selectedTags);
@@ -262,7 +269,16 @@ export function ScheduleForm({
     setDuplicatedFrom(null);
   }
 
-  function handleClose() {
+  async function handleClose() {
+    if (isDirty && !mutation.isPending) {
+      const ok = await confirmDialog({
+        title: t('schedule.discardTitle'),
+        message: t('schedule.discardMessage'),
+        confirmLabel: t('schedule.discardConfirm'),
+        danger: true,
+      });
+      if (!ok) return;
+    }
     resetForm();
     onClose();
   }
@@ -314,12 +330,35 @@ export function ScheduleForm({
   // so only touch create (initializedFor stays null there).
   // biome-ignore lint/correctness/useExhaustiveDependencies: depend on the resolved data, not every field — mirrors the project effects.
   useEffect(() => {
-    if (isEdit || duplicateFrom || !project) return;
+    if (!project) return;
     if (envDefaultQ.data === undefined || envProfilesQ.data === undefined) return;
-    setEnvProfileId(resolveDefaultEnv(envDefaultQ.data.defaultId, envProfilesQ.data));
-  }, [isEdit, duplicateFrom, project, effectiveType, tool, envDefaultQ.data, envProfilesQ.data]);
+    const resolved = resolveDefaultEnv(envDefaultQ.data.defaultId, envProfilesQ.data);
+    if (pinnedEnv !== null) {
+      const pinnedExists =
+        pinnedEnv === ENV_CURRENT || envProfilesQ.data.some((p) => p.id === pinnedEnv);
+      if (!pinnedExists) toast.info(t('run.envPinnedMissing'));
+      setPinnedEnv(null);
+      setEnvProfileId(pinnedExists ? pinnedEnv : resolved);
+      return;
+    }
+    if (isEdit || duplicateFrom) return;
+    setEnvProfileId(resolved);
+  }, [
+    isEdit,
+    duplicateFrom,
+    project,
+    effectiveType,
+    tool,
+    envDefaultQ.data,
+    envProfilesQ.data,
+    pinnedEnv,
+  ]);
 
   function applyBookmarkConfig(config: RunRequest): void {
+    setPinnedEnv(config.envProfileId ?? ENV_CURRENT);
+    setCloneReport(Boolean(config.cloneReportName));
+    setCloneReportName(config.cloneReportName ?? defaults.cloneReportName);
+    setCloneReportDir(config.cloneReportDir ?? defaults.cloneReportDir);
     setTool(config.tool);
     setType(config.type);
     setProject(config.project);
@@ -338,7 +377,7 @@ export function ScheduleForm({
 
   const tagExpr = buildTagQuery(tool, selectedTags, excludedTags);
   const cloneActive = kind === 'tool' && cloneReport && !silent && !discardReport;
-  const cloneNameInvalid = cloneActive && cloneReportNameError(cloneReportName) !== undefined;
+  const cloneNameInvalid = cloneActive && cloneReportInvalid(cloneReportName, cloneReportDir);
   // Human reading of the current cron plus its next fire time. Shown as the raw
   // input's description in advanced view, and standalone under the presets in
   // simple view, where the raw input is hidden.
@@ -348,38 +387,56 @@ export function ScheduleForm({
   const cronDescription =
     cronExpr && !cronInvalid ? `${cronHuman} · ${t('schedule.nextRun')} ${cronNextRun}` : undefined;
 
+  function buildBody() {
+    const config: RunRequest = {
+      tool,
+      type: effectiveType,
+      project,
+      mode: effectiveRunMode,
+      tag: tagExpr,
+      headless: !sectionAxis && hasDisplay ? headless : undefined,
+      // Sent even while the field is hidden: a saved schedule's flags must
+      // survive an edit made from the simple view.
+      extraArgs: extraArgs || undefined,
+      noTrack: noTrack || undefined,
+      silent: toConfigSilent(silent),
+      // Silent discards the report already; storing both would read as two
+      // competing intents on the same schedule.
+      discardReport: discardReport && !silent ? true : undefined,
+      cloneReportName: cloneActive ? cloneReportName : undefined,
+      cloneReportDir: cloneActive && cloneReportDir.trim() ? cloneReportDir.trim() : undefined,
+      section: sectionAxis ? section || undefined : undefined,
+      performanceType: sectionAxis ? perfType : undefined,
+    };
+    // `config` is sent for BOTH kinds: it carries the project label the schedule
+    // list and history render. For a custom schedule the command is what runs.
+    const command: CustomCommand | undefined =
+      kind === 'custom' ? { script, args: args || undefined, cwd: cwd || undefined } : undefined;
+    const body = {
+      name,
+      cron: cronExpr,
+      config,
+      envProfileId,
+      ...(command ? { command } : {}),
+    };
+    return body;
+  }
+
+  const snapshot = JSON.stringify(buildBody());
+  const baselineRef = useRef<string | null>(null);
+  const baselineReady = !isEdit || initializedFor === schedule?.id;
+  useEffect(() => {
+    if (!isOpen) {
+      baselineRef.current = null;
+      return;
+    }
+    if (baselineRef.current === null && baselineReady) baselineRef.current = snapshot;
+  });
+  const isDirty = baselineRef.current !== null && baselineRef.current !== snapshot;
+
   const mutation = useMutation({
     mutationFn: () => {
-      const config: RunRequest = {
-        tool,
-        type: effectiveType,
-        project,
-        mode: effectiveRunMode,
-        tag: tagExpr,
-        headless: !sectionAxis && hasDisplay ? headless : undefined,
-        // Sent even while the field is hidden: a saved schedule's flags must
-        // survive an edit made from the simple view.
-        extraArgs: extraArgs || undefined,
-        noTrack: noTrack || undefined,
-        silent: toConfigSilent(silent),
-        // Silent discards the report already; storing both would read as two
-        // competing intents on the same schedule.
-        discardReport: discardReport && !silent ? true : undefined,
-        cloneReportName: cloneActive ? cloneReportName : undefined,
-        section: sectionAxis ? section || undefined : undefined,
-        performanceType: sectionAxis ? perfType : undefined,
-      };
-      // `config` is sent for BOTH kinds: it carries the project label the schedule
-      // list and history render. For a custom schedule the command is what runs.
-      const command: CustomCommand | undefined =
-        kind === 'custom' ? { script, args: args || undefined, cwd: cwd || undefined } : undefined;
-      const body = {
-        name,
-        cron: cronExpr,
-        config,
-        envProfileId,
-        ...(command ? { command } : {}),
-      };
+      const body = buildBody();
       return isEdit
         ? api.put(`/api/schedules/${schedule?.id}`, body)
         : api.post('/api/schedules', body);
@@ -724,6 +781,8 @@ export function ScheduleForm({
               <CloneReportField
                 enabled={cloneReport}
                 template={cloneReportName}
+                dirTemplate={cloneReportDir}
+                onDirTemplateChange={setCloneReportDir}
                 disabled={silent || discardReport}
                 onEnabledChange={setCloneReport}
                 onTemplateChange={setCloneReportName}

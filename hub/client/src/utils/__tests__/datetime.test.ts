@@ -57,7 +57,7 @@ describe('locale-aware formatting', () => {
   });
 
   it('describes the next fire time of a valid cron expression', () => {
-    expect(formatNextRun('0 1 * * 2')).toMatch(/^in .+ \(\d{2} \w{3} 01:00\)$/);
+    expect(formatNextRun('0 1 * * 2')).toMatch(/^in .+ \(\d{1,2} [A-Z][a-z]{2,} \d{4} 01:00\)$/);
   });
 });
 

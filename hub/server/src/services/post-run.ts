@@ -4,6 +4,7 @@ import {
   type RunRecord,
   renderReportName,
   runDirFromReportPath,
+  validateReportDir,
   validateReportName,
   type WsServerEvent,
 } from '@hub/shared';
@@ -66,16 +67,41 @@ export async function discardReportDir(reportPath: string, outputStamp?: string)
   }
 }
 
+const MAX_COPY_SUFFIX = 99;
+
+async function copyWithoutOverwrite(source: string, dir: string, name: string): Promise<string> {
+  const ext = path.extname(source);
+  for (let n = 1; n <= MAX_COPY_SUFFIX; n++) {
+    const target = path.join(dir, n === 1 ? `${name}${ext}` : `${name} (${n})${ext}`);
+    try {
+      await fs.copyFile(source, target, fs.constants.COPYFILE_EXCL);
+      return target;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+  }
+  throw new Error(`${MAX_COPY_SUFFIX} copies of "${name}" already exist in ${dir}`);
+}
+
 export async function cloneReportFile(
   reportPath: string,
   template: string,
   date: Date,
+  dirTemplate?: string,
 ): Promise<string | undefined> {
   const name = renderReportName(template, date);
-  if (validateReportName(name) !== undefined) return undefined;
-  const target = path.join(path.dirname(reportPath), `${name}${path.extname(reportPath)}`);
-  if (!isUnder(OUTPUTS_DIR, target)) return undefined;
-  await fs.copyFile(reportPath, target, fs.constants.COPYFILE_EXCL);
+  if (name === undefined || validateReportName(name) !== undefined) return undefined;
+  if (dirTemplate) {
+    const dir = renderReportName(dirTemplate, date);
+    if (dir === undefined || validateReportDir(dir) !== undefined || !path.isAbsolute(dir)) {
+      return undefined;
+    }
+    await fs.mkdir(dir, { recursive: true });
+    return copyWithoutOverwrite(reportPath, dir, name);
+  }
+  const dir = path.dirname(reportPath);
+  if (!isUnder(OUTPUTS_DIR, dir)) return undefined;
+  const target = await copyWithoutOverwrite(reportPath, dir, name);
   invalidateReportsCache();
   return target;
 }
@@ -125,7 +151,12 @@ export async function runPostRunSteps(record: RunRecord): Promise<void> {
   if (discard && reportPath) await discardReportDir(reportPath, record.outputStamp);
   const cloneTemplate = record.request.cloneReportName;
   if (!discard && reportPath && cloneTemplate) {
-    await cloneReportFile(reportPath, cloneTemplate, new Date(record.startedAt));
+    await cloneReportFile(
+      reportPath,
+      cloneTemplate,
+      new Date(record.startedAt),
+      record.request.cloneReportDir,
+    );
   }
 }
 

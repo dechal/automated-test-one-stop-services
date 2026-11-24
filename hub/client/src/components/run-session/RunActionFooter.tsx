@@ -18,6 +18,7 @@ export interface RunActionFooterProps {
   saveBookmarkReason: string | null;
   handleSaveBookmark: () => void;
   saveBookmarkPending: boolean;
+  formErrorReason?: string | null;
 }
 
 export function RunActionFooter({
@@ -36,6 +37,7 @@ export function RunActionFooter({
   saveBookmarkReason,
   handleSaveBookmark,
   saveBookmarkPending,
+  formErrorReason = null,
 }: RunActionFooterProps) {
   const t = useT();
   const tagsLoading = supportsTags && !!project && !!effectiveType && tagsIsLoading;
@@ -50,7 +52,7 @@ export function RunActionFooter({
             ? t('run.loadingTags')
             : isMobile && !appiumRunning
               ? t('run.appiumNotRunning')
-              : null;
+              : formErrorReason;
   const showReason = !!disabledReason && !isRunning;
   return (
     <Stack gap={8} style={{ flexShrink: 0 }}>
