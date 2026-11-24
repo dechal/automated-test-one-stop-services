@@ -27,7 +27,6 @@ export const th: Record<TranslationKey, string> = {
   'nav.history.desc': 'ดู กรอง และรันซ้ำเทสที่เคยทำมาก่อน',
   'nav.schedules.desc': 'ตั้งให้เทสรันอัตโนมัติตามเวลา (cron)',
   'nav.projects.desc': 'สร้าง โคลน และจัดการโปรเจกต์เทส รวมถึงไฟล์ .env',
-  'nav.envProfiles.desc': 'บันทึกและสลับโปรไฟล์ environment variable ในแต่ละโปรเจกต์',
   'nav.reports.desc': 'ดูรายงาน HTML ของเครื่องมือที่ทดสอบ',
   'nav.artifacts.desc': 'ดูภาพหน้าจอ วิดีโอ trace และ log จากการรันเทส',
   'nav.insights.desc': 'สรุปผล: tag coverage, flaky tests, แนวโน้มประสิทธิภาพ',

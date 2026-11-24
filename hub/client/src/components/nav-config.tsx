@@ -6,7 +6,6 @@ import {
   TbChecklist,
   TbFolderFilled,
   TbHistory,
-  TbKey,
   TbPhoto,
   TbPlayerPlay,
   TbReportAnalytics,
@@ -107,12 +106,6 @@ export const SETTINGS_ITEM: NavItem = {
 };
 
 export const SEARCH_ONLY_ITEMS: NavItem[] = [
-  {
-    path: '/env-profiles',
-    labelKey: 'nav.envProfiles',
-    descKey: 'nav.envProfiles.desc',
-    icon: <TbKey size={18} />,
-  },
   {
     path: '/docker',
     labelKey: 'nav.docker',
